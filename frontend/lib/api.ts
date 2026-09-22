@@ -1,7 +1,6 @@
 import type {
   ActiveClientsHistoryResponse,
-  ActiveClientsPlanPoint,
-  ActiveClientsPoint,
+  ChurnHistoryResponse,
   CompanyFilter,
   DashboardBlock,
   DashboardResponse,
@@ -19,143 +18,36 @@ const API_URL =
   "http://127.0.0.1:8000";
 
 
-type UnknownRecord =
-  Record<string, unknown>;
+type RenewalHistoryPoint = {
+  ano: number;
+  mes: number;
+  label: string;
+  taxa_renovacao_clientes: number;
+  taxa_renovacao_receita: number;
+};
 
 
-function isRecord(
-  value: unknown,
-): value is UnknownRecord {
-  return (
-    typeof value === "object"
-    &&
-    value !== null
-    &&
-    !Array.isArray(value)
-  );
-}
+type RenewalHistoryResponse = {
+  ano_inicio: number;
+  ano_fim: number;
+  pontos: RenewalHistoryPoint[];
+};
 
 
-function toNumber(
-  value: unknown,
-): number {
-  if (
-    typeof value === "number"
-    &&
-    Number.isFinite(value)
-  ) {
-    return value;
-  }
-
-  if (
-    typeof value === "string"
-  ) {
-    const parsed =
-      Number(
-        value.replace(
-          ",",
-          ".",
-        ),
-      );
-
-    if (
-      Number.isFinite(parsed)
-    ) {
-      return parsed;
-    }
-  }
-
-  return 0;
-}
+type RevenueHistoryPoint = {
+  ano: number;
+  mes: number;
+  label: string;
+  receita_vencendo: number;
+  renovacoes_receita: number;
+};
 
 
-function toInteger(
-  value: unknown,
-): number {
-  return Math.trunc(
-    toNumber(value),
-  );
-}
-
-
-function toStringValue(
-  value: unknown,
-): string {
-  if (
-    typeof value === "string"
-  ) {
-    return value;
-  }
-
-  return "";
-}
-
-
-function emptyDashboardBlock():
-  DashboardBlock {
-  return {
-    clientes_ativos: 0,
-    renovacoes_previstas: 0,
-    receita_vencendo: 0,
-    renovacoes_clientes: 0,
-    renovacoes_receita: 0,
-    churn_clientes: 0,
-    churn_receita: 0,
-    percentual_renovacoes_clientes_ativos: 0,
-    ticket_medio_vencimentos: 0,
-    ticket_medio_renovado: 0,
-    taxa_renovacao_clientes: 0,
-    taxa_renovacao_receita: 0,
-    ticket_medio_perdido: 0,
-    percentual_churn_clientes_ativos: 0,
-    percentual_churn_vencimentos: 0,
-    percentual_churn_receita_vencendo: 0,
-  };
-}
-
-
-function isActiveClientsPoint(
-  value: unknown,
-): value is ActiveClientsPoint {
-  if (
-    !isRecord(value)
-  ) {
-    return false;
-  }
-
-  return (
-    typeof value["ano"] === "number"
-    &&
-    typeof value["mes"] === "number"
-    &&
-    typeof value["label"] === "string"
-    &&
-    typeof value["clientes_ativos"] === "number"
-  );
-}
-
-
-function isActiveClientsPlanPoint(
-  value: unknown,
-): value is ActiveClientsPlanPoint {
-  if (
-    !isRecord(value)
-  ) {
-    return false;
-  }
-
-  return (
-    typeof value["ano"] === "number"
-    &&
-    typeof value["mes"] === "number"
-    &&
-    typeof value["label"] === "string"
-    &&
-    typeof value["nome_plano"] === "string"
-    &&
-    typeof value["clientes_ativos"] === "number"
-  );
-}
+type RevenueHistoryResponse = {
+  ano_inicio: number;
+  ano_fim: number;
+  pontos: RevenueHistoryPoint[];
+};
 
 
 async function parseResponse<T>(
@@ -170,12 +62,13 @@ async function parseResponse<T>(
         await response.json();
 
       if (
-        body?.detail
+        body
+        &&
+        typeof body.detail ===
+          "string"
       ) {
         message =
-          String(
-            body.detail,
-          );
+          body.detail;
       }
     } catch {
       // Mantém a mensagem padrão.
@@ -186,10 +79,7 @@ async function parseResponse<T>(
     );
   }
 
-  const data =
-    await response.json();
-
-  return data;
+  return response.json();
 }
 
 
@@ -200,13 +90,74 @@ function buildHistoryParams(
   duracao: DurationFilter,
 ): URLSearchParams {
   return new URLSearchParams({
-    ano_inicio: "2024",
-    ano_fim: "2026",
+    ano_inicio:
+      "2024",
+
+    ano_fim:
+      "2026",
+
     empresa,
+
     origem,
+
     plano,
+
     duracao,
   });
+}
+
+
+function emptyDashboardBlock():
+  DashboardBlock {
+  return {
+    clientes_ativos:
+      0,
+
+    renovacoes_previstas:
+      0,
+
+    receita_vencendo:
+      0,
+
+    renovacoes_clientes:
+      0,
+
+    renovacoes_receita:
+      0,
+
+    churn_clientes:
+      0,
+
+    churn_receita:
+      0,
+
+    percentual_renovacoes_clientes_ativos:
+      0,
+
+    ticket_medio_vencimentos:
+      0,
+
+    ticket_medio_renovado:
+      0,
+
+    taxa_renovacao_clientes:
+      0,
+
+    taxa_renovacao_receita:
+      0,
+
+    ticket_medio_perdido:
+      0,
+
+    percentual_churn_clientes_ativos:
+      0,
+
+    percentual_churn_vencimentos:
+      0,
+
+    percentual_churn_receita_vencendo:
+      0,
+  };
 }
 
 
@@ -216,7 +167,8 @@ export async function fetchMeta():
     await fetch(
       `${API_URL}/api/meta`,
       {
-        cache: "no-store",
+        cache:
+          "no-store",
       },
     );
 
@@ -229,28 +181,44 @@ export async function fetchMeta():
 export async function fetchDashboard(
   ano: number,
   mes: number,
-  empresa: CompanyFilter = "gestaoclick",
-  origem: OriginFilter = "gestaoclick",
+  empresa: CompanyFilter = "todos",
+  origem: OriginFilter = "todos",
   plano: PlanFilter = "todos",
   duracao: DurationFilter = "todos",
   comparar = false,
 ): Promise<DashboardResponse> {
   const params =
     new URLSearchParams({
-      ano: String(ano),
-      mes: String(mes),
+      ano:
+        String(
+          ano,
+        ),
+
+      mes:
+        String(
+          mes,
+        ),
+
       empresa,
+
       origem,
+
       plano,
+
       duracao,
-      comparar: String(comparar),
+
+      comparar:
+        String(
+          comparar,
+        ),
     });
 
   const response =
     await fetch(
       `${API_URL}/api/dashboard?${params.toString()}`,
       {
-        cache: "no-store",
+        cache:
+          "no-store",
       },
     );
 
@@ -261,8 +229,8 @@ export async function fetchDashboard(
 
 
 export async function fetchHistory(
-  empresa: CompanyFilter = "gestaoclick",
-  origem: OriginFilter = "gestaoclick",
+  empresa: CompanyFilter = "todos",
+  origem: OriginFilter = "todos",
   plano: PlanFilter = "todos",
   duracao: DurationFilter = "todos",
 ): Promise<HistoryResponse> {
@@ -274,7 +242,6 @@ export async function fetchHistory(
       duracao,
     );
 
-
   const [
     renewalResponse,
     revenueResponse,
@@ -282,52 +249,35 @@ export async function fetchHistory(
     fetch(
       `${API_URL}/api/historico-renovacao?${params.toString()}`,
       {
-        cache: "no-store",
+        cache:
+          "no-store",
       },
     ),
 
     fetch(
       `${API_URL}/api/historico-receita?${params.toString()}`,
       {
-        cache: "no-store",
+        cache:
+          "no-store",
       },
     ),
   ]);
 
-
-  const renewalRaw =
-    await parseResponse<UnknownRecord>(
+  const renewal =
+    await parseResponse<RenewalHistoryResponse>(
       renewalResponse,
     );
 
-  const revenueRaw =
-    await parseResponse<UnknownRecord>(
+  const revenue =
+    await parseResponse<RevenueHistoryResponse>(
       revenueResponse,
     );
-
-
-  const renewalPoints =
-    Array.isArray(
-      renewalRaw["pontos"],
-    )
-      ? renewalRaw["pontos"]
-      : [];
-
-
-  const revenuePoints =
-    Array.isArray(
-      revenueRaw["pontos"],
-    )
-      ? revenueRaw["pontos"]
-      : [];
-
 
   const byMonth =
     new Map<
       string,
       HistoryPoint
     >();
-
 
   function ensurePoint(
     ano: number,
@@ -351,7 +301,9 @@ export async function fetchHistory(
         ano,
         mes,
         label,
-        parcial: false,
+        parcial:
+          false,
+
         resumo:
           emptyDashboardBlock(),
       };
@@ -364,124 +316,49 @@ export async function fetchHistory(
     return created;
   }
 
-
   for (
-    const item
-    of renewalPoints
+    const point
+    of renewal.pontos
   ) {
-    if (
-      !isRecord(item)
-    ) {
-      continue;
-    }
-
-    const ano =
-      toInteger(
-        item["ano"],
-      );
-
-    const mes =
-      toInteger(
-        item["mes"],
-      );
-
-    if (
-      ano === 0
-      ||
-      mes < 1
-      ||
-      mes > 12
-    ) {
-      continue;
-    }
-
-    const label =
-      toStringValue(
-        item["label"],
-      )
-      || `${mes}/${ano}`;
-
-    const point =
+    const target =
       ensurePoint(
-        ano,
-        mes,
-        label,
+        point.ano,
+        point.mes,
+        point.label,
       );
 
-    point.resumo.taxa_renovacao_clientes =
-      toNumber(
-        item[
-          "taxa_renovacao_clientes"
-        ],
-      );
+    target.resumo
+      .taxa_renovacao_clientes =
+        point
+          .taxa_renovacao_clientes;
 
-    point.resumo.taxa_renovacao_receita =
-      toNumber(
-        item[
-          "taxa_renovacao_receita"
-        ],
-      );
+    target.resumo
+      .taxa_renovacao_receita =
+        point
+          .taxa_renovacao_receita;
   }
 
-
   for (
-    const item
-    of revenuePoints
+    const point
+    of revenue.pontos
   ) {
-    if (
-      !isRecord(item)
-    ) {
-      continue;
-    }
-
-    const ano =
-      toInteger(
-        item["ano"],
-      );
-
-    const mes =
-      toInteger(
-        item["mes"],
-      );
-
-    if (
-      ano === 0
-      ||
-      mes < 1
-      ||
-      mes > 12
-    ) {
-      continue;
-    }
-
-    const label =
-      toStringValue(
-        item["label"],
-      )
-      || `${mes}/${ano}`;
-
-    const point =
+    const target =
       ensurePoint(
-        ano,
-        mes,
-        label,
+        point.ano,
+        point.mes,
+        point.label,
       );
 
-    point.resumo.receita_vencendo =
-      toNumber(
-        item[
-          "receita_vencendo"
-        ],
-      );
+    target.resumo
+      .receita_vencendo =
+        point
+          .receita_vencendo;
 
-    point.resumo.renovacoes_receita =
-      toNumber(
-        item[
-          "renovacoes_receita"
-        ],
-      );
+    target.resumo
+      .renovacoes_receita =
+        point
+          .renovacoes_receita;
   }
-
 
   const pontos =
     Array.from(
@@ -510,18 +387,21 @@ export async function fetchHistory(
       },
     );
 
-
   return {
-    ano_inicio: 2024,
-    ano_fim: 2026,
+    ano_inicio:
+      2024,
+
+    ano_fim:
+      2026,
+
     pontos,
   };
 }
 
 
 export async function fetchActiveClientsHistory(
-  empresa: CompanyFilter = "gestaoclick",
-  origem: OriginFilter = "gestaoclick",
+  empresa: CompanyFilter = "todos",
+  origem: OriginFilter = "todos",
   plano: PlanFilter = "todos",
   duracao: DurationFilter = "todos",
 ): Promise<ActiveClientsHistoryResponse> {
@@ -537,87 +417,41 @@ export async function fetchActiveClientsHistory(
     await fetch(
       `${API_URL}/api/historico-clientes-ativos?${params.toString()}`,
       {
-        cache: "no-store",
+        cache:
+          "no-store",
       },
     );
 
-  const raw =
-    await parseResponse<UnknownRecord>(
-      response,
+  return parseResponse<ActiveClientsHistoryResponse>(
+    response,
+  );
+}
+
+
+export async function fetchChurnHistory(
+  empresa: CompanyFilter = "todos",
+  origem: OriginFilter = "todos",
+  plano: PlanFilter = "todos",
+  duracao: DurationFilter = "todos",
+): Promise<ChurnHistoryResponse> {
+  const params =
+    buildHistoryParams(
+      empresa,
+      origem,
+      plano,
+      duracao,
     );
 
+  const response =
+    await fetch(
+      `${API_URL}/api/historico-churn?${params.toString()}`,
+      {
+        cache:
+          "no-store",
+      },
+    );
 
-  const rawPoints =
-    raw["pontos"];
-
-  const rawPlans =
-    raw["planos"];
-
-  const rawPlanPoints =
-    raw["pontos_planos"]
-    ??
-    raw["pontos_por_plano"]
-    ??
-    raw["pontosPorPlano"]
-    ??
-    raw["por_plano"];
-
-
-  const pontos:
-    ActiveClientsPoint[] =
-      Array.isArray(
-        rawPoints,
-      )
-        ? rawPoints.filter(
-            isActiveClientsPoint,
-          )
-        : [];
-
-
-  const planos:
-    string[] =
-      Array.isArray(
-        rawPlans,
-      )
-        ? rawPlans.filter(
-            (
-              item,
-            ): item is string =>
-              typeof item ===
-              "string",
-          )
-        : [];
-
-
-  const pontosPlanos:
-    ActiveClientsPlanPoint[] =
-      Array.isArray(
-        rawPlanPoints,
-      )
-        ? rawPlanPoints.filter(
-            isActiveClientsPlanPoint,
-          )
-        : [];
-
-
-  return {
-    ano_inicio:
-      toInteger(
-        raw["ano_inicio"],
-      )
-      || 2024,
-
-    ano_fim:
-      toInteger(
-        raw["ano_fim"],
-      )
-      || 2026,
-
-    pontos,
-
-    planos,
-
-    pontos_planos:
-      pontosPlanos,
-  };
+  return parseResponse<ChurnHistoryResponse>(
+    response,
+  );
 }

@@ -117,21 +117,26 @@ export type ActiveClientsPoint = {
 };
 
 
-export type ActiveClientsPlanPoint = {
+export type ActiveClientsSegmentPoint = {
   ano: number;
   mes: number;
   label: string;
-  nome_plano: string;
+  segmento: string;
   clientes_ativos: number;
+  variacao_clientes: number | null;
+  variacao_percentual: number | null;
 };
 
 
-export type ActiveClientsHistoryResponse = {
-  ano_inicio: number;
-  ano_fim: number;
-  pontos: ActiveClientsPoint[];
-  planos: string[];
-  pontos_planos: ActiveClientsPlanPoint[];
+export type ActiveClientsPlanDurationPoint = {
+  ano: number;
+  mes: number;
+  label: string;
+  empresa: string;
+  nome_plano: string;
+  duracao: string;
+  duracao_label: string;
+  clientes_ativos: number;
 };
 
 
@@ -141,6 +146,49 @@ export type DurationOption = {
     "todos"
   >;
   label: string;
+};
+
+
+export type ActiveClientsHistoryResponse = {
+  ano_inicio: number;
+  ano_fim: number;
+  pontos: ActiveClientsPoint[];
+  segmentos: string[];
+  pontos_segmentos: ActiveClientsSegmentPoint[];
+  empresas: string[];
+  planos: string[];
+  duracoes: DurationOption[];
+  pontos_planos_duracoes: ActiveClientsPlanDurationPoint[];
+};
+
+
+export type ChurnPoint = {
+  ano: number;
+  mes: number;
+  label: string;
+  churn_clientes: number;
+  churn_receita: number;
+  percentual_churn_clientes_ativos: number;
+  percentual_churn_vencimentos: number;
+  percentual_churn_receita_vencendo: number;
+};
+
+
+export type ChurnPlanPoint = {
+  ano: number;
+  mes: number;
+  label: string;
+  nome_plano: string;
+  churn_clientes: number;
+};
+
+
+export type ChurnHistoryResponse = {
+  ano_inicio: number;
+  ano_fim: number;
+  pontos: ChurnPoint[];
+  planos: string[];
+  pontos_planos: ChurnPlanPoint[];
 };
 
 

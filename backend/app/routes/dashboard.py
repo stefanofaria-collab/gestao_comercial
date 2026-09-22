@@ -11,8 +11,15 @@ from app.schemas import (
     MetaResponse,
 )
 
+from app.services.active_clients_history_service import (
+    get_active_clients_history,
+)
+
+from app.services.churn_history_service import (
+    get_churn_history,
+)
+
 from app.services.dashboard_service import (
-    get_clientes_ativos_historico,
     get_dashboard,
     get_historico,
     get_meta,
@@ -79,10 +86,10 @@ def dashboard(
         le=12,
     ),
     empresa: CompanyFilter = Query(
-        "gestaoclick",
+        "todos",
     ),
     origem: OriginFilter = Query(
-        "gestaoclick",
+        "todos",
     ),
     plano: str = Query(
         "todos",
@@ -132,10 +139,10 @@ def historico(
         2026,
     ),
     empresa: CompanyFilter = Query(
-        "gestaoclick",
+        "todos",
     ),
     origem: OriginFilter = Query(
-        "gestaoclick",
+        "todos",
     ),
     plano: str = Query(
         "todos",
@@ -181,10 +188,10 @@ def historico_clientes_ativos(
         2026,
     ),
     empresa: CompanyFilter = Query(
-        "gestaoclick",
+        "todos",
     ),
     origem: OriginFilter = Query(
-        "gestaoclick",
+        "todos",
     ),
     plano: str = Query(
         "todos",
@@ -194,7 +201,7 @@ def historico_clientes_ativos(
     ),
 ):
     try:
-        resultado = get_clientes_ativos_historico(
+        return get_active_clients_history(
             ano_inicio=ano_inicio,
             ano_fim=ano_fim,
             empresa=empresa,
@@ -202,66 +209,6 @@ def historico_clientes_ativos(
             plano=plano,
             duracao=duracao,
         )
-
-        pontos = (
-            resultado.get("pontos")
-            or []
-        )
-
-        planos = (
-            resultado.get("planos")
-            or []
-        )
-
-        pontos_planos = (
-            resultado.get("pontos_planos")
-            or resultado.get("pontos_por_plano")
-            or resultado.get("pontosPorPlano")
-            or resultado.get("por_plano")
-            or []
-        )
-
-        return {
-            "ano_inicio":
-                int(
-                    resultado.get(
-                        "ano_inicio",
-                        ano_inicio,
-                    )
-                ),
-
-            "ano_fim":
-                int(
-                    resultado.get(
-                        "ano_fim",
-                        ano_fim,
-                    )
-                ),
-
-            "pontos":
-                pontos
-                if isinstance(
-                    pontos,
-                    list,
-                )
-                else [],
-
-            "planos":
-                planos
-                if isinstance(
-                    planos,
-                    list,
-                )
-                else [],
-
-            "pontos_planos":
-                pontos_planos
-                if isinstance(
-                    pontos_planos,
-                    list,
-                )
-                else [],
-        }
 
     except ValueError as exc:
         raise HTTPException(
@@ -273,8 +220,7 @@ def historico_clientes_ativos(
         raise HTTPException(
             status_code=500,
             detail=(
-                "Erro ao consultar o histórico de clientes ativos "
-                "no Supabase. "
+                "Erro ao consultar o histórico de clientes ativos. "
                 f"Detalhe técnico: {type(exc).__name__}: {exc}"
             ),
         ) from exc
@@ -291,10 +237,10 @@ def historico_renovacao(
         2026,
     ),
     empresa: CompanyFilter = Query(
-        "gestaoclick",
+        "todos",
     ),
     origem: OriginFilter = Query(
-        "gestaoclick",
+        "todos",
     ),
     plano: str = Query(
         "todos",
@@ -340,10 +286,10 @@ def historico_receita(
         2026,
     ),
     empresa: CompanyFilter = Query(
-        "gestaoclick",
+        "todos",
     ),
     origem: OriginFilter = Query(
-        "gestaoclick",
+        "todos",
     ),
     plano: str = Query(
         "todos",
@@ -373,6 +319,55 @@ def historico_receita(
             status_code=500,
             detail=(
                 "Erro ao consultar histórico de receita. "
+                f"Detalhe técnico: {type(exc).__name__}: {exc}"
+            ),
+        ) from exc
+
+
+@router.get(
+    "/historico-churn",
+)
+def historico_churn(
+    ano_inicio: int = Query(
+        2024,
+    ),
+    ano_fim: int = Query(
+        2026,
+    ),
+    empresa: CompanyFilter = Query(
+        "todos",
+    ),
+    origem: OriginFilter = Query(
+        "todos",
+    ),
+    plano: str = Query(
+        "todos",
+    ),
+    duracao: DurationFilter = Query(
+        "todos",
+    ),
+):
+    try:
+        return get_churn_history(
+            ano_inicio=ano_inicio,
+            ano_fim=ano_fim,
+            empresa=empresa,
+            origem=origem,
+            plano=plano,
+            duracao=duracao,
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Erro ao consultar histórico de churn. "
                 f"Detalhe técnico: {type(exc).__name__}: {exc}"
             ),
         ) from exc

@@ -12,7 +12,6 @@ import {
 
 import {
   useEffect,
-  useMemo,
   useState,
   type ReactNode,
 } from "react";
@@ -35,6 +34,18 @@ import ActiveClientsByPlanChart
 import ActiveClientsHistoryChart
   from "@/components/charts/ActiveClientsHistoryChart";
 
+import ChurnByPlanChart
+  from "@/components/charts/ChurnByPlanChart";
+
+import ChurnClientsHistoryChart
+  from "@/components/charts/ChurnClientsHistoryChart";
+
+import ChurnRatesHistoryChart
+  from "@/components/charts/ChurnRatesHistoryChart";
+
+import ChurnRevenueHistoryChart
+  from "@/components/charts/ChurnRevenueHistoryChart";
+
 import PlanPerformanceChart
   from "@/components/charts/PlanPerformanceChart";
 
@@ -46,6 +57,7 @@ import RevenueHistoryChart
 
 import {
   fetchActiveClientsHistory,
+  fetchChurnHistory,
   fetchDashboard,
   fetchHistory,
   fetchMeta,
@@ -62,6 +74,7 @@ import {
 
 import type {
   ActiveClientsHistoryResponse,
+  ChurnHistoryResponse,
   CompanyFilter,
   DashboardBlock,
   DashboardResponse,
@@ -102,6 +115,12 @@ export default function Dashboard() {
     null,
   );
 
+  const [
+    churnHistory,
+    setChurnHistory,
+  ] = useState<ChurnHistoryResponse | null>(
+    null,
+  );
 
   const [
     year,
@@ -121,14 +140,14 @@ export default function Dashboard() {
     company,
     setCompany,
   ] = useState<CompanyFilter>(
-    "gestaoclick",
+    "todos",
   );
 
   const [
     origin,
     setOrigin,
   ] = useState<OriginFilter>(
-    "gestaoclick",
+    "todos",
   );
 
   const [
@@ -144,7 +163,6 @@ export default function Dashboard() {
   ] = useState<DurationFilter>(
     "todos",
   );
-
 
   const [
     loading,
@@ -174,6 +192,12 @@ export default function Dashboard() {
     true,
   );
 
+  const [
+    loadingChurnHistory,
+    setLoadingChurnHistory,
+  ] = useState(
+    true,
+  );
 
   const [
     error,
@@ -196,6 +220,13 @@ export default function Dashboard() {
     null,
   );
 
+  const [
+    churnHistoryError,
+    setChurnHistoryError,
+  ] = useState<string | null>(
+    null,
+  );
+
 
   function previousPeriod(
     selectedYear: number,
@@ -206,12 +237,15 @@ export default function Dashboard() {
   } | null {
     if (
       selectedYear === 2024
-      && selectedMonth === 1
+      &&
+      selectedMonth === 1
     ) {
       return null;
     }
 
-    if (selectedMonth === 1) {
+    if (
+      selectedMonth === 1
+    ) {
       return {
         year:
           selectedYear - 1,
@@ -265,7 +299,9 @@ export default function Dashboard() {
         (
           currentDashboard,
         ) => {
-          if (!currentDashboard) {
+          if (
+            !currentDashboard
+          ) {
             return currentDashboard;
           }
 
@@ -392,6 +428,54 @@ export default function Dashboard() {
   }
 
 
+  async function loadChurnHistory(
+    selectedCompany: CompanyFilter,
+    selectedOrigin: OriginFilter,
+    selectedPlan: PlanFilter,
+    selectedDuration: DurationFilter,
+  ) {
+    try {
+      setLoadingChurnHistory(
+        true,
+      );
+
+      setChurnHistoryError(
+        null,
+      );
+
+      const response =
+        await fetchChurnHistory(
+          selectedCompany,
+          selectedOrigin,
+          selectedPlan,
+          selectedDuration,
+        );
+
+      setChurnHistory(
+        response,
+      );
+    } catch (
+      churnFetchError
+    ) {
+      console.error(
+        "Erro ao carregar histórico de churn:",
+        churnFetchError,
+      );
+
+      setChurnHistoryError(
+        churnFetchError
+          instanceof Error
+          ? churnFetchError.message
+          : "Não foi possível carregar o histórico de churn.",
+      );
+    } finally {
+      setLoadingChurnHistory(
+        false,
+      );
+    }
+  }
+
+
   useEffect(
     () => {
       let active =
@@ -410,7 +494,9 @@ export default function Dashboard() {
           const metadata =
             await fetchMeta();
 
-          if (!active) {
+          if (
+            !active
+          ) {
             return;
           }
 
@@ -432,18 +518,36 @@ export default function Dashboard() {
             initialMonth,
           );
 
+          setCompany(
+            "todos",
+          );
+
+          setOrigin(
+            "todos",
+          );
+
+          setPlan(
+            "todos",
+          );
+
+          setDuration(
+            "todos",
+          );
+
           const current =
             await fetchDashboard(
               initialYear,
               initialMonth,
-              "gestaoclick",
-              "gestaoclick",
+              "todos",
+              "todos",
               "todos",
               "todos",
               false,
             );
 
-          if (!active) {
+          if (
+            !active
+          ) {
             return;
           }
 
@@ -458,29 +562,38 @@ export default function Dashboard() {
           void loadPreviousComparison(
             initialYear,
             initialMonth,
-            "gestaoclick",
-            "gestaoclick",
+            "todos",
+            "todos",
             "todos",
             "todos",
           );
 
           void loadHistory(
-            "gestaoclick",
-            "gestaoclick",
+            "todos",
+            "todos",
             "todos",
             "todos",
           );
 
           void loadActiveClientsHistory(
-            "gestaoclick",
-            "gestaoclick",
+            "todos",
+            "todos",
+            "todos",
+            "todos",
+          );
+
+          void loadChurnHistory(
+            "todos",
+            "todos",
             "todos",
             "todos",
           );
         } catch (
           initialError
         ) {
-          if (!active) {
+          if (
+            !active
+          ) {
             return;
           }
 
@@ -500,6 +613,10 @@ export default function Dashboard() {
           );
 
           setLoadingActiveClientsHistory(
+            false,
+          );
+
+          setLoadingChurnHistory(
             false,
           );
         }
@@ -524,7 +641,9 @@ export default function Dashboard() {
     nextPlan: PlanFilter,
     nextDuration: DurationFilter,
   ) {
-    if (!meta) {
+    if (
+      !meta
+    ) {
       return;
     }
 
@@ -612,6 +731,13 @@ export default function Dashboard() {
         nextPlan,
         nextDuration,
       );
+
+      void loadChurnHistory(
+        nextCompany,
+        nextOrigin,
+        nextPlan,
+        nextDuration,
+      );
     } catch (
       filterError
     ) {
@@ -629,22 +755,9 @@ export default function Dashboard() {
   }
 
 
-  const historyPoints =
-    useMemo(
-      () => {
-        return (
-          history
-            ?.pontos
-          ?? []
-        );
-      },
-      [
-        history,
-      ],
-    );
-
-
-  if (loading) {
+  if (
+    loading
+  ) {
     return (
       <LoadingScreen />
     );
@@ -653,18 +766,25 @@ export default function Dashboard() {
 
   if (
     !meta
-    || !dashboard
+    ||
+    !dashboard
   ) {
     return (
       <ErrorScreen
         message={
           error
-          ?? "Não foi possível carregar os dados."
+          ??
+          "Não foi possível carregar os dados."
         }
       />
     );
   }
 
+
+  const historyPoints =
+    history
+      ?.pontos
+    ?? [];
 
   const current =
     dashboard.resumo;
@@ -674,7 +794,6 @@ export default function Dashboard() {
       dashboard
         .mes_anterior
         ?.resumo;
-
 
   const renewalClientPoints =
     previous
@@ -687,7 +806,6 @@ export default function Dashboard() {
         )
       : null;
 
-
   const renewalRevenuePoints =
     previous
       ? (
@@ -698,7 +816,6 @@ export default function Dashboard() {
             .taxa_renovacao_receita
         )
       : null;
-
 
   const churnPoints =
     previous
@@ -711,7 +828,6 @@ export default function Dashboard() {
         )
       : null;
 
-
   const companyLabel =
     company ===
       "gestaoclick"
@@ -720,7 +836,6 @@ export default function Dashboard() {
           "clicknotas"
         ? "ClickNotas"
         : "Todos";
-
 
   const originLabel =
     origin ===
@@ -731,13 +846,11 @@ export default function Dashboard() {
         ? "Parceiro"
         : "Todos";
 
-
   const planLabel =
     plan ===
       "todos"
       ? "Todos"
       : plan;
-
 
   const durationLabel =
     duration ===
@@ -753,17 +866,11 @@ export default function Dashboard() {
 
   return (
     <main className="min-h-screen pb-10">
-
       <header className="bg-slate-950">
-
         <div className="mx-auto max-w-[1700px] px-5 py-7 md:px-8">
-
           <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
-
             <div>
-
               <div className="mb-2 flex flex-wrap items-center gap-3">
-
                 <p className="text-xs font-bold uppercase tracking-[0.24em] text-blue-300">
                   Gestão comercial
                 </p>
@@ -775,23 +882,18 @@ export default function Dashboard() {
                     Mês parcial
                   </span>
                 ) : null}
-
               </div>
-
 
               <h1 className="text-3xl font-black tracking-tight text-white md:text-4xl">
                 Gestão de Clientes
               </h1>
-
 
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
                 Visão executiva de carteira, vencimentos, renovação,
                 receita e churn.
               </p>
 
-
               <div className="mt-3 flex flex-wrap gap-2">
-
                 <FilterBadge
                   label="Empresa"
                   value={companyLabel}
@@ -811,14 +913,10 @@ export default function Dashboard() {
                   label="Duração"
                   value={durationLabel}
                 />
-
               </div>
-
             </div>
 
-
             <div className="w-full xl:w-[980px]">
-
               <FilterBar
                 meta={meta}
                 year={year}
@@ -828,10 +926,7 @@ export default function Dashboard() {
                 plan={plan}
                 duration={duration}
                 loading={loadingDashboard}
-
-                onYearChange={(
-                  nextYear,
-                ) => {
+                onYearChange={(nextYear) => {
                   void applyFilters(
                     nextYear,
                     month,
@@ -841,10 +936,7 @@ export default function Dashboard() {
                     duration,
                   );
                 }}
-
-                onMonthChange={(
-                  nextMonth,
-                ) => {
+                onMonthChange={(nextMonth) => {
                   void applyFilters(
                     year,
                     nextMonth,
@@ -854,10 +946,7 @@ export default function Dashboard() {
                     duration,
                   );
                 }}
-
-                onCompanyChange={(
-                  nextCompany,
-                ) => {
+                onCompanyChange={(nextCompany) => {
                   void applyFilters(
                     year,
                     month,
@@ -867,10 +956,7 @@ export default function Dashboard() {
                     duration,
                   );
                 }}
-
-                onOriginChange={(
-                  nextOrigin,
-                ) => {
+                onOriginChange={(nextOrigin) => {
                   void applyFilters(
                     year,
                     month,
@@ -880,10 +966,7 @@ export default function Dashboard() {
                     duration,
                   );
                 }}
-
-                onPlanChange={(
-                  nextPlan,
-                ) => {
+                onPlanChange={(nextPlan) => {
                   void applyFilters(
                     year,
                     month,
@@ -893,10 +976,7 @@ export default function Dashboard() {
                     duration,
                   );
                 }}
-
-                onDurationChange={(
-                  nextDuration,
-                ) => {
+                onDurationChange={(nextDuration) => {
                   void applyFilters(
                     year,
                     month,
@@ -907,41 +987,29 @@ export default function Dashboard() {
                   );
                 }}
               />
-
             </div>
-
           </div>
-
         </div>
-
       </header>
 
-
       <div className="mx-auto max-w-[1700px] space-y-7 px-5 py-7 md:px-8">
-
         {error ? (
           <div className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-medium text-rose-800">
             {error}
           </div>
         ) : null}
 
-
         <section>
-
           <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-
             <div>
-
               <h2 className="text-lg font-bold text-slate-950">
                 Resumo executivo
               </h2>
 
-
               <p className="mt-1 text-sm text-slate-500">
                 {MONTHS[
                   month - 1
-                ]}{" "}
-                de {year}
+                ]} de {year}
 
                 {dashboard
                   .mes_anterior
@@ -958,28 +1026,21 @@ export default function Dashboard() {
                     }`
                   : ""}
               </p>
-
             </div>
-
 
             {loadingDashboard ? (
               <div className="flex items-center gap-2 text-sm font-semibold text-blue-700">
-
                 <RefreshCw
                   className="animate-spin"
                   size={16}
                 />
 
                 Atualizando...
-
               </div>
             ) : null}
-
           </div>
 
-
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-
             <KpiCard
               label="Clientes ativos"
               value={
@@ -1003,7 +1064,6 @@ export default function Dashboard() {
                 />
               }
             />
-
 
             <KpiCard
               label="Renovações previstas"
@@ -1032,7 +1092,6 @@ export default function Dashboard() {
               }
             />
 
-
             <KpiCard
               label="Receita vencendo"
               value={
@@ -1059,7 +1118,6 @@ export default function Dashboard() {
                 />
               }
             />
-
 
             <KpiCard
               label="Renovações"
@@ -1088,7 +1146,6 @@ export default function Dashboard() {
               }
             />
 
-
             <KpiCard
               label="Receita renovada"
               value={
@@ -1115,7 +1172,6 @@ export default function Dashboard() {
                 />
               }
             />
-
 
             <KpiCard
               label="Churn"
@@ -1144,19 +1200,14 @@ export default function Dashboard() {
                 />
               }
             />
-
           </div>
-
         </section>
 
-
         <section className="space-y-5">
-
           <ChartCard
             title="Evolução de clientes ativos"
-            description="Histórico mensal da carteira ativa respeitando os filtros selecionados. Passe o mouse sobre um mês para ver a variação em relação ao mês anterior."
+            description="Quatro linhas por padrão: GestãoClick, ClickNotas, GestãoClick Parceiros e ClickNotas Parceiros. Os filtros de plano e duração continuam sendo respeitados."
           >
-
             {loadingActiveClientsHistory ? (
               <HistoryLoading
                 text="Carregando evolução de clientes ativos..."
@@ -1169,9 +1220,8 @@ export default function Dashboard() {
               />
             ) : activeClientsHistory ? (
               <ActiveClientsHistoryChart
-                points={
+                data={
                   activeClientsHistory
-                    .pontos
                 }
               />
             ) : (
@@ -1179,15 +1229,12 @@ export default function Dashboard() {
                 message="Histórico de clientes ativos não disponível."
               />
             )}
-
           </ChartCard>
 
-
           <ChartCard
-            title="Clientes ativos por plano"
-            description="Uma linha por plano. As durações são consolidadas quando o filtro de duração estiver em Todas."
+            title="Clientes ativos por plano e duração"
+            description="Cada linha representa uma combinação de plano e duração, como Bronze (M), Bronze (T), Bronze (S) e Bronze (A). Use os filtros locais de empresa e duração para refinar a visualização."
           >
-
             {loadingActiveClientsHistory ? (
               <HistoryLoading
                 text="Carregando clientes ativos por plano..."
@@ -1203,36 +1250,33 @@ export default function Dashboard() {
                 data={
                   activeClientsHistory
                 }
+                globalCompany={
+                  company
+                }
+                globalDuration={
+                  duration
+                }
               />
             ) : (
               <HistoryError
                 message="Histórico por plano não disponível."
               />
             )}
-
           </ChartCard>
-
         </section>
 
-
         <section>
-
           <div className="mb-4">
-
             <h2 className="text-lg font-bold text-slate-950">
               Indicadores de eficiência
             </h2>
 
-
             <p className="mt-1 text-sm text-slate-500">
               Conversão, tickets médios e impacto financeiro do churn.
             </p>
-
           </div>
 
-
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-
             <IndicatorCard
               title="Tx. renovação clientes"
               value={
@@ -1263,7 +1307,6 @@ export default function Dashboard() {
               }
               emphasize
             />
-
 
             <IndicatorCard
               title="Tx. renovação receita"
@@ -1296,7 +1339,6 @@ export default function Dashboard() {
               emphasize
             />
 
-
             <IndicatorCard
               title="Ticket renovado"
               value={
@@ -1310,7 +1352,6 @@ export default function Dashboard() {
                   .ticket_medio_vencimentos,
               )}`}
             />
-
 
             <IndicatorCard
               title="Churn receita"
@@ -1326,7 +1367,6 @@ export default function Dashboard() {
               )} da receita vencendo`}
             />
 
-
             <IndicatorCard
               title="Ticket perdido"
               value={
@@ -1337,7 +1377,6 @@ export default function Dashboard() {
               }
               helper="Receita de churn ÷ clientes em churn"
             />
-
 
             <IndicatorCard
               title="% churn dos vencimentos"
@@ -1371,19 +1410,14 @@ export default function Dashboard() {
                     )} p.p. vs. mês anterior`
               }
             />
-
           </div>
-
         </section>
 
-
         <section className="grid gap-5 xl:grid-cols-2">
-
           <ChartCard
             title="Evolução da taxa de renovação"
             description="Comparação entre retenção de clientes e retenção de receita."
           >
-
             {loadingHistory ? (
               <HistoryLoading
                 text="Carregando histórico de renovação..."
@@ -1401,15 +1435,12 @@ export default function Dashboard() {
                 }
               />
             )}
-
           </ChartCard>
-
 
           <ChartCard
             title="Receita vencendo × receita renovada"
             description="Histórico mensal de 2024, 2025 e 2026."
           >
-
             {loadingHistory ? (
               <HistoryLoading
                 text="Carregando histórico de receita..."
@@ -1427,14 +1458,135 @@ export default function Dashboard() {
                 }
               />
             )}
-
           </ChartCard>
-
         </section>
 
+        <section className="space-y-5">
+          <div>
+            <h2 className="text-lg font-bold text-slate-950">
+              Análise de churn
+            </h2>
+
+            <p className="mt-1 text-sm text-slate-500">
+              Evolução quantitativa, financeira e percentual das perdas da carteira.
+            </p>
+          </div>
+
+          <div className="grid gap-5 xl:grid-cols-2">
+            <ChartCard
+              title="Evolução do churn de clientes"
+              description="Quantidade mensal de clientes que entraram em churn."
+            >
+              {loadingChurnHistory ? (
+                <HistoryLoading
+                  text="Carregando churn de clientes..."
+                />
+              ) : churnHistoryError ? (
+                <HistoryError
+                  message={
+                    churnHistoryError
+                  }
+                />
+              ) : churnHistory ? (
+                <ChurnClientsHistoryChart
+                  points={
+                    churnHistory
+                      .pontos
+                  }
+                />
+              ) : (
+                <HistoryError
+                  message="Histórico de churn não disponível."
+                />
+              )}
+            </ChartCard>
+
+            <ChartCard
+              title="Evolução da receita perdida"
+              description="Valor mensal de receita associado aos clientes em churn."
+            >
+              {loadingChurnHistory ? (
+                <HistoryLoading
+                  text="Carregando receita perdida..."
+                />
+              ) : churnHistoryError ? (
+                <HistoryError
+                  message={
+                    churnHistoryError
+                  }
+                />
+              ) : churnHistory ? (
+                <ChurnRevenueHistoryChart
+                  points={
+                    churnHistory
+                      .pontos
+                  }
+                />
+              ) : (
+                <HistoryError
+                  message="Histórico de churn não disponível."
+                />
+              )}
+            </ChartCard>
+          </div>
+
+          <ChartCard
+            title="Evolução das taxas de churn"
+            description="Comparação entre % Churn ativos, % Churn vencimentos e % Churn receita."
+          >
+            {loadingChurnHistory ? (
+              <HistoryLoading
+                text="Carregando taxas de churn..."
+              />
+            ) : churnHistoryError ? (
+              <HistoryError
+                message={
+                  churnHistoryError
+                }
+              />
+            ) : churnHistory ? (
+              <ChurnRatesHistoryChart
+                points={
+                  churnHistory
+                    .pontos
+                }
+              />
+            ) : (
+              <HistoryError
+                message="Histórico de churn não disponível."
+              />
+            )}
+          </ChartCard>
+
+          <ChartCard
+            title="Churn de clientes por plano"
+            description="Evolução quantitativa mensal do churn por plano. Clique nos planos da legenda para analisar séries específicas."
+          >
+            {loadingChurnHistory ? (
+              <HistoryLoading
+                text="Carregando churn por plano..."
+              />
+            ) : churnHistoryError ? (
+              <HistoryError
+                message={
+                  churnHistoryError
+                }
+              />
+            ) : churnHistory ? (
+              <ChurnByPlanChart
+                data={
+                  churnHistory
+                }
+              />
+            ) : (
+              <HistoryError
+                message="Histórico de churn por plano não disponível."
+              />
+            )}
+          </ChartCard>
+        </section>
 
         <section className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
-
           <ChartCard
             title="Desempenho por plano"
             description={`Taxa de renovação e churn dos vencimentos em ${
@@ -1443,65 +1595,46 @@ export default function Dashboard() {
               ]
             }/${year}.`}
           >
-
             <PlanPerformanceChart
               rows={
                 dashboard
                   .por_plano
               }
             />
-
           </ChartCard>
 
-
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
-
             <div className="flex items-start justify-between gap-4">
-
               <div>
-
                 <h2 className="text-lg font-bold text-slate-950">
                   Receita em risco
                 </h2>
 
-
                 <p className="mt-1 text-sm text-slate-500">
                   Visão financeira do churn do período.
                 </p>
-
               </div>
 
-
               <div className="rounded-xl bg-rose-50 p-2 text-rose-700">
-
                 <CircleDollarSign
                   size={22}
                 />
-
               </div>
-
             </div>
 
-
             <div className="mt-8 rounded-2xl bg-slate-950 p-6 text-white">
-
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
                 Churn em receita
               </p>
 
-
               <p className="mt-2 text-3xl font-black">
-
                 {formatCurrency(
                   current
                     .churn_receita,
                 )}
-
               </p>
 
-
               <div className="mt-6 h-2 overflow-hidden rounded-full bg-white/10">
-
                 <div
                   className="h-full rounded-full bg-rose-400"
                   style={{
@@ -1513,12 +1646,9 @@ export default function Dashboard() {
                       )}%`,
                   }}
                 />
-
               </div>
 
-
               <div className="mt-3 flex items-center justify-between text-xs text-slate-300">
-
                 <span>
                   Receita vencendo
                 </span>
@@ -1529,16 +1659,11 @@ export default function Dashboard() {
                       .percentual_churn_receita_vencendo,
                   )}
                 </span>
-
               </div>
-
             </div>
 
-
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
-
               <div className="rounded-xl border border-slate-200 p-4">
-
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
                   Ticket perdido
                 </p>
@@ -1549,12 +1674,9 @@ export default function Dashboard() {
                       .ticket_medio_perdido,
                   )}
                 </p>
-
               </div>
 
-
               <div className="rounded-xl border border-slate-200 p-4">
-
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
                   Churn / ativos
                 </p>
@@ -1565,15 +1687,10 @@ export default function Dashboard() {
                       .percentual_churn_clientes_ativos,
                   )}
                 </p>
-
               </div>
-
             </div>
-
           </div>
-
         </section>
-
 
         <DetailedTable
           rows={
@@ -1581,9 +1698,7 @@ export default function Dashboard() {
               .detalhe
           }
         />
-
       </div>
-
     </main>
   );
 }
@@ -1615,7 +1730,6 @@ function ChartCard({
 }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
-
       <h2 className="text-lg font-bold text-slate-950">
         {title}
       </h2>
@@ -1627,7 +1741,6 @@ function ChartCard({
       <div className="mt-5">
         {children}
       </div>
-
     </div>
   );
 }
@@ -1640,9 +1753,7 @@ function HistoryLoading({
 }) {
   return (
     <div className="flex h-[350px] items-center justify-center">
-
       <div className="text-center">
-
         <RefreshCw
           className="mx-auto animate-spin text-blue-600"
           size={26}
@@ -1655,9 +1766,7 @@ function HistoryLoading({
         <p className="mt-1 text-xs text-slate-400">
           Consultando os dados consolidados no Supabase.
         </p>
-
       </div>
-
     </div>
   );
 }
@@ -1670,15 +1779,11 @@ function HistoryError({
 }) {
   return (
     <div className="flex h-[350px] items-center justify-center">
-
       <div className="max-w-md text-center">
-
         <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-amber-50 text-amber-700">
-
           <AlertTriangle
             size={22}
           />
-
         </div>
 
         <p className="mt-3 text-sm font-semibold text-slate-700">
@@ -1688,9 +1793,7 @@ function HistoryError({
         <p className="mt-2 text-xs leading-5 text-slate-500">
           {message}
         </p>
-
       </div>
-
     </div>
   );
 }
@@ -1699,9 +1802,7 @@ function HistoryError({
 function LoadingScreen() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6">
-
       <div className="text-center">
-
         <RefreshCw
           className="mx-auto animate-spin text-blue-300"
           size={32}
@@ -1714,9 +1815,7 @@ function LoadingScreen() {
         <p className="mt-2 text-sm text-slate-400">
           Consultando os indicadores do período atual.
         </p>
-
       </div>
-
     </main>
   );
 }
@@ -1729,9 +1828,7 @@ function ErrorScreen({
 }) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-100 px-6">
-
       <div className="w-full max-w-xl rounded-2xl border border-rose-200 bg-white p-8 shadow-card">
-
         <p className="text-xs font-black uppercase tracking-[0.2em] text-rose-600">
           Erro ao carregar
         </p>
@@ -1743,9 +1840,7 @@ function ErrorScreen({
         <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-600">
           {message}
         </p>
-
       </div>
-
     </main>
   );
 }
