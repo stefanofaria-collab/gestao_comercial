@@ -5,6 +5,7 @@ export type RevenueTotalResponse = {
     data_inicio: string;
     data_fim: string;
     parcial: boolean;
+    ano_completo?: boolean;
   };
   filtros: {
     empresa: string;

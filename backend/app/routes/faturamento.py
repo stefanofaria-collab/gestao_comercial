@@ -38,7 +38,7 @@ def _handle(func, **kwargs):
 @router.get("/total")
 def faturamento_total(
     ano: int = Query(..., ge=2024),
-    mes: int = Query(..., ge=1, le=12),
+    mes: int = Query(..., ge=0, le=12),
     empresa: CompanyFilter = Query("todos"),
     origem: OriginFilter = Query("todos"),
     pagador: PayerFilter = Query("todos"),
@@ -56,7 +56,7 @@ def faturamento_total(
 @router.get("/detalhes")
 def faturamento_detalhes(
     ano: int = Query(..., ge=2024),
-    mes: int = Query(..., ge=1, le=12),
+    mes: int = Query(..., ge=0, le=12),
     empresa: CompanyFilter = Query("todos"),
     origem: OriginFilter = Query("todos"),
     pagador: PayerFilter = Query("todos"),
@@ -75,7 +75,7 @@ def faturamento_detalhes(
 def faturamento_componente(
     componente: str = Query(...),
     ano: int = Query(..., ge=2024),
-    mes: int = Query(..., ge=1, le=12),
+    mes: int = Query(..., ge=0, le=12),
     empresa: CompanyFilter = Query("todos"),
     origem: OriginFilter = Query("todos"),
     pagador: PayerFilter = Query("todos"),
@@ -97,7 +97,7 @@ def faturamento_componente(
 def faturamento_plano_detalhe(
     plano: str = Query(...),
     ano: int = Query(..., ge=2024),
-    mes: int = Query(..., ge=1, le=12),
+    mes: int = Query(..., ge=0, le=12),
     empresa: CompanyFilter = Query("todos"),
     origem: OriginFilter = Query("todos"),
     pagador: PayerFilter = Query("todos"),
@@ -118,7 +118,7 @@ def faturamento_plano_detalhe(
 @router.get("")
 def faturamento(
     ano: int = Query(..., ge=2024),
-    mes: int = Query(..., ge=1, le=12),
+    mes: int = Query(..., ge=0, le=12),
     empresa: CompanyFilter = Query("todos"),
     origem: OriginFilter = Query("todos"),
     pagador: PayerFilter = Query("todos"),
@@ -136,7 +136,7 @@ def faturamento(
 @router.get("/historico")
 def faturamento_historico(
     ano: int = Query(..., ge=2024),
-    mes: int = Query(..., ge=1, le=12),
+    mes: int = Query(..., ge=0, le=12),
     empresa: CompanyFilter = Query("todos"),
     origem: OriginFilter = Query("todos"),
     pagador: PayerFilter = Query("todos"),

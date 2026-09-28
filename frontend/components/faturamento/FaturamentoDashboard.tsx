@@ -405,9 +405,18 @@ export default function FaturamentoDashboard() {
   const years = useMemo(() => Array.from({ length: currentYear - 2024 + 1 }, (_, index) => 2024 + index), [currentYear]);
 
   const currentPeriodDays = useMemo(() => {
+    if (month === 0) {
+      const start = new Date(year, 0, 1);
+      const end = year === currentYear ? new Date(currentYear, currentMonth - 1, currentDay) : new Date(year, 11, 31);
+      return Math.max(1, Math.floor((end.getTime() - start.getTime()) / 86400000) + 1);
+    }
     const isCurrent = year === currentYear && month === currentMonth;
     return isCurrent ? currentDay : new Date(year, month, 0).getDate();
   }, [year, month, currentYear, currentMonth, currentDay]);
+
+  const periodLabel = month === 0 ? `Ano completo/${year}` : `${MONTHS[month - 1]}/${year}`;
+  const periodWord = month === 0 ? "ano" : "mês";
+  const previousPeriodWord = month === 0 ? "ano anterior" : "mês passado";
 
   const previousMonthInfo = useMemo(() => {
     const prevDate = new Date(year, month - 2, 1);
@@ -631,6 +640,7 @@ export default function FaturamentoDashboard() {
             <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
               <CalendarDays size={18} className="text-slate-400" />
               <select value={month} onChange={(event) => setMonth(Number(event.target.value))} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold outline-none">
+                <option value={0}>Ano completo</option>
                 {MONTHS.map((label, index) => (
                   <option key={label} value={index + 1} disabled={year === currentYear && index + 1 > currentMonth}>{label}</option>
                 ))}
@@ -660,8 +670,8 @@ export default function FaturamentoDashboard() {
 
         {total && !quantitative && (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <Kpi title="Quanto entrou neste mês" value={formatMoney(total.faturamento_geral)} subtitle={total.periodo.parcial ? "O mês ainda está em andamento." : "Total emitido no mês escolhido."} helpText="Este cartão mostra quanto dinheiro entrou no mês escolhido. Pense nele como a soma de todas as notas emitidas nesse período." variation={{ value: total.variacao_mes_anterior_valor, percentage: total.variacao_mes_anterior_percentual }} />
-            <Kpi title="Quanto entrou no mês passado" value={formatMoney(total.mes_anterior?.faturamento_geral ?? 0)} subtitle="Serve como base de comparação." helpText="Aqui você vê quanto entrou no mês anterior. Isso ajuda a comparar se o valor deste mês subiu ou caiu." />
+            <Kpi title={`Quanto entrou neste ${periodWord}`} value={formatMoney(total.faturamento_geral)} subtitle={total.periodo.parcial ? "O mês ainda está em andamento." : "Total emitido no mês escolhido."} helpText="Este cartão mostra quanto dinheiro entrou no mês escolhido. Pense nele como a soma de todas as notas emitidas nesse período." variation={{ value: total.variacao_mes_anterior_valor, percentage: total.variacao_mes_anterior_percentual }} />
+            <Kpi title={`Quanto entrou no ${previousPeriodWord}`} value={formatMoney(total.mes_anterior?.faturamento_geral ?? 0)} subtitle="Serve como base de comparação." helpText="Aqui você vê quanto entrou no mês anterior. Isso ajuda a comparar se o valor deste mês subiu ou caiu." />
             <Kpi title="Quantas notas foram emitidas" value={formatCount(total.quantidade_notas)} subtitle="Quantidade de notas no mês." helpText="Este cartão conta quantas notas foram emitidas no período. Ele não mostra dinheiro, mostra quantidade." variation={{ value: total.variacao_notas_valor, percentage: total.variacao_notas_percentual, type: "count" }} />
             <Kpi title="Valor médio por nota" value={formatMoney(total.ticket_medio)} subtitle="Média de dinheiro por nota emitida." helpText="Aqui você vê o valor médio de cada nota. É como pegar todo o dinheiro do mês e dividir pelo número de notas emitidas." variation={{ value: total.variacao_ticket_valor, percentage: total.variacao_ticket_percentual }} />
           </div>
@@ -669,10 +679,10 @@ export default function FaturamentoDashboard() {
 
         {total && quantitative && (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <Kpi title="Quantas notas saíram neste mês" value={formatCount(total.quantidade_notas)} subtitle="Total de notas no mês escolhido." helpText="Este cartão mostra quantas notas foram emitidas no mês. Aqui o foco é quantidade, não dinheiro." variation={{ value: total.variacao_notas_valor, percentage: total.variacao_notas_percentual, type: "count" }} />
-            <Kpi title="Quantas notas saíram no mês passado" value={formatCount(total.mes_anterior?.quantidade_notas ?? 0)} subtitle="Base usada para comparar." helpText="Aqui você vê quantas notas saíram no mês anterior para comparar com o mês atual." />
+            <Kpi title={`Quantas notas saíram neste ${periodWord}`} value={formatCount(total.quantidade_notas)} subtitle="Total de notas no mês escolhido." helpText="Este cartão mostra quantas notas foram emitidas no mês. Aqui o foco é quantidade, não dinheiro." variation={{ value: total.variacao_notas_valor, percentage: total.variacao_notas_percentual, type: "count" }} />
+            <Kpi title={`Quantas notas saíram no ${previousPeriodWord}`} value={formatCount(total.mes_anterior?.quantidade_notas ?? 0)} subtitle="Base usada para comparar." helpText="Aqui você vê quantas notas saíram no mês anterior para comparar com o mês atual." />
             <Kpi title="Média de notas por dia" value={formatCount(Math.round(total.quantidade_notas / Math.max(1, currentPeriodDays)))} subtitle={`Considerando ${currentPeriodDays} dia(s) neste recorte.`} helpText="Este cartão mostra a média de notas emitidas por dia dentro do período analisado." />
-            <Kpi title="Diferença de notas contra o mês passado" value={`${(total.variacao_notas_valor > 0 ? "+" : "")}${formatCount(total.variacao_notas_valor)}`} subtitle="Mostra se a quantidade subiu ou caiu." helpText="Aqui você vê a diferença de quantidade de notas entre o mês atual e o mês anterior. Se estiver positivo, saíram mais notas. Se estiver negativo, saíram menos notas." variation={{ value: total.variacao_notas_valor, percentage: total.variacao_notas_percentual, type: "count" }} />
+            <Kpi title={`Diferença de notas contra o ${previousPeriodWord}`} value={`${(total.variacao_notas_valor > 0 ? "+" : "")}${formatCount(total.variacao_notas_valor)}`} subtitle="Mostra se a quantidade subiu ou caiu." helpText="Aqui você vê a diferença de quantidade de notas entre o mês atual e o mês anterior. Se estiver positivo, saíram mais notas. Se estiver negativo, saíram menos notas." variation={{ value: total.variacao_notas_valor, percentage: total.variacao_notas_percentual, type: "count" }} />
           </div>
         )}
 
@@ -742,7 +752,7 @@ export default function FaturamentoDashboard() {
         )}
       </div>
 
-      <Modal open={Boolean(selectedComponent)} title={selectedComponent?.label ?? ""} subtitle={`Período: ${MONTHS[month - 1]}/${year} · modo: ${compareMode === "mesmo_periodo_atual" ? "mesmo período atual" : "mês completo"}`} onClose={() => { setSelectedComponent(null); setComponentDetail(null); setComponentError(null); }}>
+      <Modal open={Boolean(selectedComponent)} title={selectedComponent?.label ?? ""} subtitle={`Período: ${periodLabel} · modo: ${month === 0 ? "ano acumulado" : compareMode === "mesmo_periodo_atual" ? "mesmo período atual" : "mês completo"}`} onClose={() => { setSelectedComponent(null); setComponentDetail(null); setComponentError(null); }}>
         {componentLoading && <LoadingBlock text="Carregando comparativos desse grupo..." />}
         {componentError && <ErrorBlock title="Não foi possível carregar o detalhamento" message={componentError} retry={() => setSelectedComponent(selectedComponent ? { ...selectedComponent } : null)} />}
         {componentDetail && (
@@ -754,7 +764,7 @@ export default function FaturamentoDashboard() {
             </div>
 
             <div>
-              <h4 className="mb-3 text-lg font-semibold text-slate-950">Comparação em valor com o mês passado</h4>
+              <h4 className="mb-3 text-lg font-semibold text-slate-950">{month === 0 ? "Comparação em valor com o ano anterior" : "Comparação em valor com o mês passado"}</h4>
               <ComparisonList items={[componentDetail.variacoes.mes_anterior]} />
             </div>
 
@@ -764,21 +774,21 @@ export default function FaturamentoDashboard() {
             </div>
 
             <div>
-              <h4 className="mb-3 text-lg font-semibold text-slate-950">Comparação em valor do mês atual com o mesmo mês de outros anos</h4>
+              <h4 className="mb-3 text-lg font-semibold text-slate-950">{month === 0 ? "Comparação em valor com os anos anteriores" : "Comparação em valor do mês atual com o mesmo mês de outros anos"}</h4>
               <ComparisonList items={componentDetail.variacoes.mesmo_mes} />
             </div>
           </div>
         )}
       </Modal>
 
-      <Modal open={Boolean(selectedPlan)} title={selectedPlan ?? ""} subtitle={`Mês: ${MONTHS[month - 1]}/${year} · modo: ${compareMode === "mesmo_periodo_atual" ? "mesmo período atual" : "mês completo"}`} onClose={() => { setSelectedPlan(null); setPlanDetail(null); setPlanError(null); }}>
+      <Modal open={Boolean(selectedPlan)} title={selectedPlan ?? ""} subtitle={`Período: ${periodLabel} · modo: ${month === 0 ? "ano acumulado" : compareMode === "mesmo_periodo_atual" ? "mesmo período atual" : "mês completo"}`} onClose={() => { setSelectedPlan(null); setPlanDetail(null); setPlanError(null); }}>
         {planLoading && <LoadingBlock text="Carregando detalhe do plano..." />}
         {planError && <ErrorBlock title="Não foi possível carregar o plano" message={planError} retry={() => setSelectedPlan((current) => current ? `${current}` : current)} />}
         {planDetail && (
           <div className="space-y-6">
             <div className="grid gap-4 md:grid-cols-3">
-              <Kpi title={quantitative ? "Quantidade atual" : "Valor atual"} value={formatValue(quantitative ? planDetail.resumo.quantidade ?? 0 : planDetail.resumo.atual, quantitative)} subtitle={quantitative ? "Quantidade do plano no mês." : "Faturamento do plano no mês."} helpText={quantitative ? "Este cartão mostra a quantidade do plano no mês selecionado." : "Este cartão mostra o valor do plano no mês selecionado."} variation={{ value: quantitative ? planDetail.resumo.variacao_quantidade ?? 0 : planDetail.resumo.variacao_valor, percentage: quantitative ? planDetail.resumo.variacao_quantidade_percentual ?? null : planDetail.resumo.variacao_percentual, type: quantitative ? "count" : "money" }} />
-              <Kpi title={quantitative ? "Quantidade no mês anterior" : "Valor no mês anterior"} value={formatValue(quantitative ? planDetail.resumo.quantidade_anterior ?? 0 : planDetail.resumo.anterior, quantitative)} subtitle="Base usada para comparar." helpText="Aqui você vê a base do mês anterior para comparar com o mês atual." />
+              <Kpi title={quantitative ? "Quantidade atual" : "Valor atual"} value={formatValue(quantitative ? planDetail.resumo.quantidade ?? 0 : planDetail.resumo.atual, quantitative)} subtitle={quantitative ? `Quantidade do plano no ${periodWord}.` : `Faturamento do plano no ${periodWord}.`} helpText={quantitative ? "Este cartão mostra a quantidade do plano no mês selecionado." : "Este cartão mostra o valor do plano no mês selecionado."} variation={{ value: quantitative ? planDetail.resumo.variacao_quantidade ?? 0 : planDetail.resumo.variacao_valor, percentage: quantitative ? planDetail.resumo.variacao_quantidade_percentual ?? null : planDetail.resumo.variacao_percentual, type: quantitative ? "count" : "money" }} />
+              <Kpi title={quantitative ? `Quantidade no ${previousPeriodWord}` : `Valor no ${previousPeriodWord}`} value={formatValue(quantitative ? planDetail.resumo.quantidade_anterior ?? 0 : planDetail.resumo.anterior, quantitative)} subtitle="Base usada para comparar." helpText="Aqui você vê a base do mês anterior para comparar com o mês atual." />
               <Kpi title="Modo de comparação" value={compareMode === "mesmo_periodo_atual" ? "Mesmo período" : "Mês completo"} subtitle="Afeta os comparativos com 2025 e 2024." helpText="Aqui você vê a regra que está sendo usada para comparar o mês atual com os anos anteriores." />
             </div>
 

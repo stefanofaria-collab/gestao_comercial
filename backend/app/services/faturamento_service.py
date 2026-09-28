@@ -99,7 +99,7 @@ PLAN_COMPARE_SQL = text(
             THEN nfs.valor_total ELSE 0 END), 0), 2) AS atual,
         ROUND(COALESCE(SUM(CASE
             WHEN nfs.data_emissao >= :data_anterior_inicio
-             AND nfs.data_emissao < :data_inicio
+             AND nfs.data_emissao < :data_anterior_fim
             THEN nfs.valor_total ELSE 0 END), 0), 2) AS anterior,
         COALESCE(SUM(CASE
             WHEN nfs.data_emissao >= :data_inicio
@@ -107,7 +107,7 @@ PLAN_COMPARE_SQL = text(
             THEN 1 ELSE 0 END), 0) AS quantidade_atual,
         COALESCE(SUM(CASE
             WHEN nfs.data_emissao >= :data_anterior_inicio
-             AND nfs.data_emissao < :data_inicio
+             AND nfs.data_emissao < :data_anterior_fim
             THEN 1 ELSE 0 END), 0) AS quantidade_anterior
     FROM notas_fiscais_servicos nfs
     JOIN empresas_planos ep ON nfs.plano_id = ep.id
@@ -135,7 +135,7 @@ PLAN_DETAIL_DURATION_SQL = text(
             THEN nfs.valor_total ELSE 0 END), 0), 2) AS atual,
         ROUND(COALESCE(SUM(CASE
             WHEN nfs.data_emissao >= :data_anterior_inicio
-             AND nfs.data_emissao < :data_inicio
+             AND nfs.data_emissao < :data_anterior_fim
             THEN nfs.valor_total ELSE 0 END), 0), 2) AS anterior,
         COALESCE(SUM(CASE
             WHEN nfs.data_emissao >= :data_inicio
@@ -143,7 +143,7 @@ PLAN_DETAIL_DURATION_SQL = text(
             THEN 1 ELSE 0 END), 0) AS quantidade_atual,
         COALESCE(SUM(CASE
             WHEN nfs.data_emissao >= :data_anterior_inicio
-             AND nfs.data_emissao < :data_inicio
+             AND nfs.data_emissao < :data_anterior_fim
             THEN 1 ELSE 0 END), 0) AS quantidade_anterior
     FROM notas_fiscais_servicos nfs
     JOIN empresas_planos ep ON nfs.plano_id = ep.id
@@ -239,19 +239,51 @@ def _as_float(value) -> float:
 
 
 def _month_start(year: int, month: int) -> date:
+    if month == 0:
+        return date(year, 1, 1)
     return date(year, month, 1)
 
 
 def _next_month(year: int, month: int) -> date:
+    if month == 0:
+        return date(year + 1, 1, 1)
     if month == 12:
         return date(year + 1, 1, 1)
     return date(year, month + 1, 1)
 
 
+def _period_bounds(year: int, month: int) -> tuple[date, date]:
+    today = date.today()
+    start = _month_start(year, month)
+    end = _next_month(year, month)
+
+    if year == today.year and (month == 0 or month == today.month):
+        end = min(end, today + timedelta(days=1))
+
+    return start, end
+
+
 def _previous_month(year: int, month: int) -> tuple[int, int]:
+    if month == 0:
+        return year - 1, 0
     if month == 1:
         return year - 1, 12
     return year, month - 1
+
+
+def _previous_period_bounds(year: int, month: int, current_end: date) -> tuple[int, int, date, date]:
+    previous_year, previous_month = _previous_month(year, month)
+    if month == 0:
+        previous_start = date(previous_year, 1, 1)
+        if year == date.today().year:
+            previous_end = _safe_replace_year(current_end, previous_year)
+        else:
+            previous_end = date(year, 1, 1)
+        return previous_year, previous_month, previous_start, previous_end
+
+    previous_start = _month_start(previous_year, previous_month)
+    previous_end = _month_start(year, month)
+    return previous_year, previous_month, previous_start, previous_end
 
 
 def _variation(current: float, previous: float) -> tuple[float, float | None]:
@@ -274,10 +306,10 @@ def _validate(year: int, month: int, empresa: str, origem: str, pagador: str) ->
     today = date.today()
     if year < 2024:
         raise ValueError("O histórico de faturamento começa em 2024.")
-    if month < 1 or month > 12:
+    if month < 0 or month > 12:
         raise ValueError("Mês inválido.")
-    if (year, month) > (today.year, today.month):
-        raise ValueError("Não é possível consultar um mês futuro.")
+    if year > today.year or (year == today.year and month != 0 and month > today.month):
+        raise ValueError("Não é possível consultar um período futuro.")
     if empresa not in VALID_COMPANY_FILTERS:
         raise ValueError("Filtro de empresa inválido.")
     if origem not in VALID_ORIGIN_FILTERS:
@@ -296,14 +328,15 @@ def _filters_active(empresa: str, origem: str, pagador: str) -> bool:
 
 
 def _period_params(year: int, month: int, empresa: str, origem: str, pagador: str) -> dict:
-    current_start = _month_start(year, month)
-    current_end = _next_month(year, month)
-    previous_year, previous_month = _previous_month(year, month)
-    previous_start = _month_start(previous_year, previous_month)
+    current_start, current_end = _period_bounds(year, month)
+    previous_year, previous_month, previous_start, previous_end = _previous_period_bounds(year, month, current_end)
     return {
         "data_inicio": current_start,
         "data_fim": current_end,
         "data_anterior_inicio": previous_start,
+        "data_anterior_fim": previous_end,
+        "ano_anterior": previous_year,
+        "mes_anterior": previous_month,
         "empresa": empresa,
         "origem": origem,
         "pagador": pagador,
@@ -344,32 +377,37 @@ def _safe_replace_year(target: date, year: int) -> date:
 
 
 def _selected_period_end(year: int, month: int, compare_mode: str) -> date:
-    month_end = _next_month(year, month)
+    start, period_end = _period_bounds(year, month)
     today = date.today()
+    if month == 0:
+        return period_end
     if compare_mode == "mesmo_periodo_atual" and (year, month) == (today.year, today.month):
-        return min(month_end, today + timedelta(days=1))
-    return month_end
+        return min(period_end, today + timedelta(days=1))
+    return period_end
 
 
 def _comparison_context(year: int, month: int, compare_mode: str) -> dict:
     _validate_compare_mode(compare_mode)
     start = _month_start(year, month)
     end = _selected_period_end(year, month, compare_mode)
-    previous_year, previous_month = _previous_month(year, month)
-    previous_start = _month_start(previous_year, previous_month)
-    previous_end = start
+    previous_year, previous_month, previous_start, previous_end = _previous_period_bounds(year, month, end)
+
     previous_years: list[int] = []
     if year - 1 >= 2024:
         previous_years.append(year - 1)
     if year - 2 >= 2024:
         previous_years.append(year - 2)
 
-    same_month_ranges = []
+    same_period_ranges = []
     for target_year in previous_years:
-        target_start = date(target_year, month, 1)
-        elapsed_days = (end - start).days
-        target_end = min(_next_month(target_year, month), target_start + timedelta(days=elapsed_days))
-        same_month_ranges.append({
+        if month == 0:
+            target_start = date(target_year, 1, 1)
+            target_end = _safe_replace_year(end, target_year) if year == date.today().year else date(target_year + 1, 1, 1)
+        else:
+            target_start = date(target_year, month, 1)
+            elapsed_days = (end - start).days
+            target_end = min(_next_month(target_year, month), target_start + timedelta(days=elapsed_days))
+        same_period_ranges.append({
             "ano": target_year,
             "data_inicio": target_start,
             "data_fim": target_end,
@@ -378,7 +416,10 @@ def _comparison_context(year: int, month: int, compare_mode: str) -> dict:
     current_ytd_start = date(year, 1, 1)
     ytd_ranges = []
     for target_year in previous_years:
-        target_end = _safe_replace_year(end, target_year)
+        if month == 0:
+            target_end = _safe_replace_year(end, target_year) if year == date.today().year else date(target_year + 1, 1, 1)
+        else:
+            target_end = _safe_replace_year(end, target_year)
         ytd_ranges.append({
             "ano": target_year,
             "data_inicio": date(target_year, 1, 1),
@@ -388,7 +429,7 @@ def _comparison_context(year: int, month: int, compare_mode: str) -> dict:
     return {
         "periodo_atual": {"data_inicio": start, "data_fim": end},
         "mes_anterior": {"data_inicio": previous_start, "data_fim": previous_end, "ano": previous_year, "mes": previous_month},
-        "mesmo_mes_anos_anteriores": same_month_ranges,
+        "mesmo_mes_anos_anteriores": same_period_ranges,
         "acumulado_ano_atual": {"ano": year, "data_inicio": current_ytd_start, "data_fim": end},
         "acumulado_anos_anteriores": ytd_ranges,
         "modo": compare_mode,
@@ -541,7 +582,8 @@ def _build_component_comparison(connection, component: str, year: int, month: in
     same_month = []
     for ref in context["mesmo_mes_anos_anteriores"]:
         metrics = _fetch_component_metrics(connection, component, ref["data_inicio"], ref["data_fim"], empresa, origem, pagador)
-        same_month.append(_comparison_record(f"Mês atual x {ref['ano']}", current["valor"], metrics["valor"], {"ano": ref["ano"]}))
+        label = f"Ano atual x {ref['ano']}" if month == 0 else f"Mês atual x {ref['ano']}"
+        same_month.append(_comparison_record(label, current["valor"], metrics["valor"], {"ano": ref["ano"]}))
 
     ytd = []
     for ref in context["acumulado_anos_anteriores"]:
@@ -558,7 +600,7 @@ def _build_component_comparison(connection, component: str, year: int, month: in
         },
         "resumo": current,
         "variacoes": {
-            "mes_anterior": _comparison_record("Mês anterior", current["valor"], previous_month["valor"], {"ano": context['mes_anterior']['ano'], "mes": context['mes_anterior']['mes']}),
+            "mes_anterior": _comparison_record("Ano anterior" if month == 0 else "Mês anterior", current["valor"], previous_month["valor"], {"ano": context['mes_anterior']['ano'], "mes": context['mes_anterior']['mes']}),
             "acumulado_ano": ytd,
             "mesmo_mes": same_month,
         },
@@ -573,6 +615,7 @@ def _build_plan_detail(connection, plan_name: str, year: int, month: int, empres
             "data_inicio": context["periodo_atual"]["data_inicio"],
             "data_fim": context["periodo_atual"]["data_fim"],
             "data_anterior_inicio": context["mes_anterior"]["data_inicio"],
+            "data_anterior_fim": context["mes_anterior"]["data_fim"],
             "empresa": empresa,
             "origem": origem,
             "pagador": pagador,
@@ -613,7 +656,8 @@ def _build_plan_detail(connection, plan_name: str, year: int, month: int, empres
     previous_month_delta, previous_month_pct = _variation(total_current, total_previous)
     previous_month_count_delta, previous_month_count_pct = _variation(total_current_count, total_previous_count)
 
-    history_start = _month_start(year, month)
+    effective_month = month if month != 0 else (date.today().month if year == date.today().year else 12)
+    history_start = _month_start(year, effective_month)
     # recua 11 meses
     start_year = history_start.year
     start_month = history_start.month
@@ -623,7 +667,7 @@ def _build_plan_detail(connection, plan_name: str, year: int, month: int, empres
         PLAN_12M_HISTORY_SQL,
         {
             "data_inicio": _month_start(start_year, start_month),
-            "data_fim": _next_month(year, month),
+            "data_fim": _period_bounds(year, effective_month)[1],
             "empresa": empresa,
             "origem": origem,
             "pagador": pagador,
@@ -663,6 +707,7 @@ def _build_plan_detail(connection, plan_name: str, year: int, month: int, empres
                 "data_inicio": start,
                 "data_fim": end,
                 "data_anterior_inicio": start,
+                "data_anterior_fim": start,
                 "empresa": empresa,
                 "origem": origem,
                 "pagador": pagador,
@@ -677,7 +722,7 @@ def _build_plan_detail(connection, plan_name: str, year: int, month: int, empres
         compared = plan_total_between(ref["data_inicio"], ref["data_fim"])
         delta, delta_pct = _variation(total_current, compared)
         same_month.append({
-            "label": f"Mês atual x {ref['ano']}",
+            "label": f"Ano atual x {ref['ano']}" if month == 0 else f"Mês atual x {ref['ano']}",
             "ano": ref["ano"],
             "atual": total_current,
             "comparado": compared,
@@ -722,7 +767,7 @@ def _build_plan_detail(connection, plan_name: str, year: int, month: int, empres
         "historico_12_meses": ordered_history,
         "variacoes": {
             "mes_anterior": {
-                "label": "Mês anterior",
+                "label": "Ano anterior" if month == 0 else "Mês anterior",
                 "atual": total_current,
                 "comparado": total_previous,
                 "variacao_valor": previous_month_delta,
@@ -744,17 +789,18 @@ def get_faturamento_total(
 ) -> dict:
     _validate(year, month, empresa, origem, pagador)
     params = _period_params(year, month, empresa, origem, pagador)
-    previous_year, previous_month = _previous_month(year, month)
+    previous_year = params["ano_anterior"]
+    previous_month = params["mes_anterior"]
     today = date.today()
 
     with source_engine.connect() as connection:
         current_metrics = _fetch_total_metrics(connection, params["data_inicio"], params["data_fim"], empresa, origem, pagador)
-        previous_metrics = _fetch_total_metrics(connection, params["data_anterior_inicio"], params["data_inicio"], empresa, origem, pagador)
+        previous_metrics = _fetch_total_metrics(connection, params["data_anterior_inicio"], params["data_anterior_fim"], empresa, origem, pagador)
 
     current = current_metrics["valor"]
     previous = previous_metrics["valor"]
 
-    if (year, month) == (2024, 1):
+    if year == 2024 and month in (0, 1):
         previous = 0.0
         previous_available = False
     else:
@@ -770,7 +816,8 @@ def get_faturamento_total(
             "mes": month,
             "data_inicio": params["data_inicio"].isoformat(),
             "data_fim": params["data_fim"].isoformat(),
-            "parcial": (year, month) == (today.year, today.month),
+            "parcial": year == today.year and (month == 0 or month == today.month),
+            "ano_completo": month == 0,
         },
         "filtros": {
             "empresa": empresa,
@@ -815,7 +862,7 @@ def get_faturamento_detalhes(
         component_metrics = {}
         for key in ["novos_clientes", "renovacoes", "recursos", "servicos", "certclick"]:
             current_metrics = _fetch_component_metrics(connection, key, params["data_inicio"], params["data_fim"], empresa, origem, pagador)
-            previous_metrics = _fetch_component_metrics(connection, key, params["data_anterior_inicio"], params["data_inicio"], empresa, origem, pagador)
+            previous_metrics = _fetch_component_metrics(connection, key, params["data_anterior_inicio"], params["data_anterior_fim"], empresa, origem, pagador)
             component_metrics[key] = (current_metrics, previous_metrics)
 
     current_total = total_data["faturamento_geral"]
@@ -975,7 +1022,7 @@ def get_faturamento_historico(
 ) -> dict:
     _validate(year, month, empresa, origem, pagador)
     history_start = date(2024, 1, 1)
-    history_end = _next_month(year, month)
+    history_end = _period_bounds(year, month)[1]
     filters_active = _filters_active(empresa, origem, pagador)
     params = {
         "data_inicio": history_start,
@@ -1049,7 +1096,7 @@ def get_faturamento_componente(
                 "resumo": {"valor": current_value, "quantidade_notas": 0, "ticket_medio": 0.0},
                 "variacoes": {
                     "mes_anterior": {
-                        "label": "Mês anterior",
+                        "label": "Ano anterior" if month == 0 else "Mês anterior",
                         "atual": current_value,
                         "comparado": previous_value,
                         "variacao_valor": delta,
