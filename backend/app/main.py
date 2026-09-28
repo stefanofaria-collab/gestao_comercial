@@ -8,14 +8,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import test_supabase_connection
 from app.routes.dashboard import router as dashboard_router
+from app.routes.faturamento import router as faturamento_router
 
 
 app = FastAPI(
-    title="Gestão de Clientes API",
-    version="2.1.0",
+    title="Gestão Comercial API",
+    version="3.2.0",
     description=(
-        "API do dashboard executivo de renovação, clientes ativos, "
-        "receita e churn, usando Supabase como camada de leitura."
+        "API do dashboard comercial. Mantém os indicadores existentes "
+        "e adiciona a nova visão de faturamento diretamente no MySQL de origem."
     ),
 )
 
@@ -42,21 +43,15 @@ allowed_origins = {
     "http://127.0.0.1:3000",
 }
 
-configured_frontend_origin = normalize_origin(
-    settings.frontend_origin
-)
+configured_frontend_origin = normalize_origin(settings.frontend_origin)
 
 if configured_frontend_origin:
-    allowed_origins.add(
-        configured_frontend_origin
-    )
+    allowed_origins.add(configured_frontend_origin)
 
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=sorted(
-        allowed_origins
-    ),
+    allow_origins=sorted(allowed_origins),
     allow_origin_regex=(
         r"^https?://"
         r"(localhost|127\.0\.0\.1)"
@@ -71,29 +66,24 @@ app.add_middleware(
         "DELETE",
         "OPTIONS",
     ],
-    allow_headers=[
-        "*",
-    ],
-    expose_headers=[
-        "*",
-    ],
+    allow_headers=["*"],
+    expose_headers=["*"],
     max_age=86400,
 )
 
 
-app.include_router(
-    dashboard_router
-)
+app.include_router(dashboard_router)
+app.include_router(faturamento_router)
 
 
 @app.get("/")
 def root():
     return {
-        "app": "Gestão de Clientes API",
-        "version": "2.1.0",
-        "data_source": "Supabase",
+        "app": "Gestão Comercial API",
+        "version": "3.2.0",
         "docs": "/docs",
         "health": "/health",
+        "faturamento": "/api/faturamento",
     }
 
 

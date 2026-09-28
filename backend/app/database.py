@@ -7,14 +7,16 @@ from app.config import settings
 def _build_source_connect_args() -> dict:
     connect_args: dict = {
         "password": settings.db_password.encode("utf-8"),
+        # Evita que o dashboard fique indefinidamente aguardando uma conexão MySQL.
+        "connect_timeout": 8,
+        "read_timeout": 45,
+        "write_timeout": 45,
     }
 
     if settings.db_ssl:
         ssl_options: dict = {}
-
         if settings.db_ssl_ca:
             ssl_options["ca"] = settings.db_ssl_ca
-
         connect_args["ssl"] = ssl_options
 
     return connect_args
@@ -37,6 +39,7 @@ def _create_source_engine() -> Engine:
         pool_recycle=280,
         pool_size=5,
         max_overflow=10,
+        pool_timeout=10,
         connect_args=_build_source_connect_args(),
     )
 
