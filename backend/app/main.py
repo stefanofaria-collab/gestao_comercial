@@ -10,11 +10,12 @@ from app.database import test_supabase_connection
 from app.routes.dashboard import router as dashboard_router
 from app.routes.faturamento import router as faturamento_router
 from app.routes.churn import router as churn_router
+from app.routes.perfil import router as perfil_router
 
 
 app = FastAPI(
     title="Gestão Comercial API",
-    version="3.6.0",
+    version="3.11.0",
     description=(
         "API do dashboard comercial. Mantém os indicadores existentes "
         "e adiciona a nova visão de faturamento diretamente no MySQL de origem."
@@ -76,17 +77,19 @@ app.add_middleware(
 app.include_router(dashboard_router)
 app.include_router(faturamento_router)
 app.include_router(churn_router)
+app.include_router(perfil_router)
 
 
 @app.get("/")
 def root():
     return {
         "app": "Gestão Comercial API",
-        "version": "3.6.0",
+        "version": "3.11.0",
         "docs": "/docs",
         "health": "/health",
         "faturamento": "/api/faturamento",
         "churn": "/api/churn",
+        "perfil": "/api/perfil",
     }
 
 

@@ -1,0 +1,2149 @@
+{
+  "16600581000132": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "16.600.581/0001-32",
+    "cnpj_limpo": "16600581000132",
+    "razao_social": "LUBRIFICANTES GTI LTDA",
+    "nome_fantasia": "LUBRIFICANTES GTI",
+    "situacao_cadastral": "ATIVA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2012-07-30",
+    "cnae_principal": {
+      "codigo": "4732600",
+      "descricao": "Comércio varejista de lubrificantes"
+    },
+    "setor": "COMÉRCIO; REPARAÇÃO DE VEÍCULOS AUTOMOTORES E MOTOCICLETAS",
+    "segmento": "COMÉRCIO VAREJISTA",
+    "grupo_cnae": "COMÉRCIO VAREJISTA DE COMBUSTÍVEIS PARA VEÍCULOS AUTOMOTORES",
+    "classe_cnae": "COMÉRCIO VAREJISTA DE LUBRIFICANTES",
+    "porte": "MICRO EMPRESA",
+    "natureza_juridica": "Sociedade Empresária Limitada",
+    "regime_tributario": "Simples Nacional",
+    "simples_nacional": true,
+    "mei": false,
+    "capital_social": 30000.0,
+    "municipio": "CONTAGEM",
+    "uf": "MG",
+    "cep": "32183180",
+    "endereco": "RUA SANTA MARIA 59 PEDRA AZUL",
+    "email": null,
+    "telefone": "3136251890",
+    "cnaes_secundarios": [
+      {
+        "codigo": "4520001",
+        "descricao": "Serviços de manutenção e reparação mecânica de veículos automotores"
+      },
+      {
+        "codigo": "4520005",
+        "descricao": "Serviços de lavagem, lubrificação e polimento de veículos automotores"
+      },
+      {
+        "codigo": "4530703",
+        "descricao": "Comércio a varejo de peças e acessórios novos para veículos automotores"
+      },
+      {
+        "codigo": "4530705",
+        "descricao": "Comércio a varejo de pneumáticos e câmaras-de-ar"
+      },
+      {
+        "codigo": "4541206",
+        "descricao": "Comércio a varejo de peças e acessórios novos para motocicletas e motonetas"
+      },
+      {
+        "codigo": "4543900",
+        "descricao": "Manutenção e reparação de motocicletas e motonetas"
+      },
+      {
+        "codigo": "4681805",
+        "descricao": "Comércio atacadista de lubrificantes"
+      },
+      {
+        "codigo": "4781400",
+        "descricao": "Comércio varejista de artigos do vestuário e acessórios"
+      }
+    ],
+    "socios": [
+      {
+        "nome": "IGOR GEORGE MEIRA ANTONIO",
+        "qualificacao": "Sócio-Administrador"
+      }
+    ],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "08434780000190": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "08.434.780/0001-90",
+    "cnpj_limpo": "08434780000190",
+    "razao_social": "OXIMINAS GASES LTDA",
+    "nome_fantasia": "OXIMINAS GASES",
+    "situacao_cadastral": "ATIVA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2006-11-16",
+    "cnae_principal": {
+      "codigo": "4789099",
+      "descricao": "Comércio varejista de outros produtos não especificados anteriormente"
+    },
+    "setor": "COMÉRCIO; REPARAÇÃO DE VEÍCULOS AUTOMOTORES E MOTOCICLETAS",
+    "segmento": "COMÉRCIO VAREJISTA",
+    "grupo_cnae": "COMÉRCIO VAREJISTA DE PRODUTOS NOVOS NÃO ESPECIFICADOS ANTERIORMENTE E DE PRODUTOS USADOS",
+    "classe_cnae": "COMÉRCIO VAREJISTA DE OUTROS PRODUTOS NOVOS NÃO ESPECIFICADOS ANTERIORMENTE",
+    "porte": "MICRO EMPRESA",
+    "natureza_juridica": "Sociedade Empresária Limitada",
+    "regime_tributario": "Simples Nacional",
+    "simples_nacional": true,
+    "mei": false,
+    "capital_social": 1400000.0,
+    "municipio": "CONTAGEM",
+    "uf": "MG",
+    "cep": "32260100",
+    "endereco": "AVENIDA VILA RICA 231 INCONFIDENTES",
+    "email": null,
+    "telefone": "3133621717",
+    "cnaes_secundarios": [
+      {
+        "codigo": "7739099",
+        "descricao": "Aluguel de outras máquinas e equipamentos comerciais e industriais não especificados anteriormente, sem operador"
+      },
+      {
+        "codigo": "3311200",
+        "descricao": "Manutenção e reparação de tanques, reservatórios metálicos e caldeiras, exceto para veículos"
+      },
+      {
+        "codigo": "4784900",
+        "descricao": "Comércio varejista de gás liqüefeito de petróleo (GLP)"
+      }
+    ],
+    "socios": [
+      {
+        "nome": "ADEIR FERREIRA DE SOUSA",
+        "qualificacao": "Sócio-Administrador"
+      },
+      {
+        "nome": "ADEMIR FERREIRA DE SOUSA",
+        "qualificacao": "Sócio-Administrador"
+      }
+    ],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "20101345000149": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "20.101.345/0001-49",
+    "cnpj_limpo": "20101345000149",
+    "razao_social": "AUGUSTO JOSE SILVEIRA PAIZINHO",
+    "nome_fantasia": "SILK-SUBLI",
+    "situacao_cadastral": "ATIVA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2014-03-17",
+    "cnae_principal": {
+      "codigo": "1813001",
+      "descricao": "Impressão de material para uso publicitário"
+    },
+    "setor": "INDÚSTRIAS DE TRANSFORMAÇÃO",
+    "segmento": "IMPRESSÃO E REPRODUÇÃO DE GRAVAÇÕES",
+    "grupo_cnae": "ATIVIDADE DE IMPRESSÃO",
+    "classe_cnae": "IMPRESSÃO DE MATERIAIS PARA OUTROS USOS",
+    "porte": "MICRO EMPRESA",
+    "natureza_juridica": "Empresário (Individual)",
+    "regime_tributario": "Simples Nacional",
+    "simples_nacional": true,
+    "mei": false,
+    "capital_social": 20000.0,
+    "municipio": "NATAL",
+    "uf": "RN",
+    "cep": "59012200",
+    "endereco": "RIBEIRA",
+    "email": null,
+    "telefone": null,
+    "cnaes_secundarios": [
+      {
+        "codigo": "1412603",
+        "descricao": "Facção de peças do vestuário, exceto roupas íntimas"
+      },
+      {
+        "codigo": "4741500",
+        "descricao": "Comércio varejista de tintas e materiais para pintura"
+      },
+      {
+        "codigo": "4751201",
+        "descricao": "Comércio varejista especializado de equipamentos e suprimentos de informática"
+      }
+    ],
+    "socios": [],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "07093190000188": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "07.093.190/0001-88",
+    "cnpj_limpo": "07093190000188",
+    "razao_social": "OMEGA JEANS LTDA",
+    "nome_fantasia": "OMEGA JEANS",
+    "situacao_cadastral": "ATIVA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2004-11-08",
+    "cnae_principal": {
+      "codigo": "1413402",
+      "descricao": "Confecção, sob medida, de roupas profissionais"
+    },
+    "setor": "INDÚSTRIAS DE TRANSFORMAÇÃO",
+    "segmento": "CONFECÇÃO DE ARTIGOS DO VESTUÁRIO E ACESSÓRIOS",
+    "grupo_cnae": "CONFECÇÃO DE ARTIGOS DO VESTUÁRIO E ACESSÓRIOS",
+    "classe_cnae": "CONFECÇÃO DE ROUPAS PROFISSIONAIS",
+    "porte": "EMPRESA DE PEQUENO PORTE",
+    "natureza_juridica": "Sociedade Empresária Limitada",
+    "regime_tributario": "Simples Nacional",
+    "simples_nacional": true,
+    "mei": false,
+    "capital_social": 2000000.0,
+    "municipio": "TERESINA",
+    "uf": "PI",
+    "cep": "64023300",
+    "endereco": "RUA AFONSO PENA 1925 LOURIVAL PARENTE",
+    "email": null,
+    "telefone": "8633032198",
+    "cnaes_secundarios": [
+      {
+        "codigo": "1412601",
+        "descricao": "Confecção de peças de vestuário, exceto roupas íntimas e as confeccionadas sob medida"
+      },
+      {
+        "codigo": "1412602",
+        "descricao": "Confecção, sob medida, de peças do vestuário, exceto roupas íntimas"
+      },
+      {
+        "codigo": "1412603",
+        "descricao": "Facção de peças do vestuário, exceto roupas íntimas"
+      },
+      {
+        "codigo": "1413401",
+        "descricao": "Confecção de roupas profissionais, exceto sob medida"
+      },
+      {
+        "codigo": "1413403",
+        "descricao": "Facção de roupas profissionais"
+      },
+      {
+        "codigo": "3292202",
+        "descricao": "Fabricação de equipamentos e acessórios para segurança pessoal e profissional"
+      },
+      {
+        "codigo": "4641901",
+        "descricao": "Comércio atacadista de tecidos"
+      },
+      {
+        "codigo": "4642702",
+        "descricao": "Comércio atacadista de roupas e acessórios para uso profissional e de segurança do trabalho"
+      },
+      {
+        "codigo": "4763604",
+        "descricao": "Comércio varejista de artigos de caça, pesca e camping"
+      },
+      {
+        "codigo": "4781400",
+        "descricao": "Comércio varejista de artigos do vestuário e acessórios"
+      },
+      {
+        "codigo": "4782201",
+        "descricao": "Comércio varejista de calçados"
+      },
+      {
+        "codigo": "4782202",
+        "descricao": "Comércio varejista de artigos de viagem"
+      },
+      {
+        "codigo": "4789007",
+        "descricao": "Comércio varejista de equipamentos para escritório"
+      },
+      {
+        "codigo": "4789099",
+        "descricao": "Comércio varejista de outros produtos não especificados anteriormente"
+      }
+    ],
+    "socios": [
+      {
+        "nome": "ANTONIO LIMA DE ALENCAR",
+        "qualificacao": "Sócio"
+      },
+      {
+        "nome": "LAYNARA SOUSA ALENCAR",
+        "qualificacao": "Sócio-Administrador"
+      }
+    ],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "14369544000130": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "14.369.544/0001-30",
+    "cnpj_limpo": "14369544000130",
+    "razao_social": "ECONSULAR ASSESSORIA E CONSULTORIA LTDA",
+    "nome_fantasia": "ECONSULAR ASSESSORIA E CONSULTORIA",
+    "situacao_cadastral": "ATIVA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2011-09-27",
+    "cnae_principal": {
+      "codigo": "7020400",
+      "descricao": "Atividades de consultoria em gestão empresarial, exceto consultoria técnica específica"
+    },
+    "setor": "ATIVIDADES PROFISSIONAIS, CIENTÍFICAS E TÉCNICAS",
+    "segmento": "ATIVIDADES DE SEDES DE EMPRESAS E DE CONSULTORIA EM GESTÃO EMPRESARIAL",
+    "grupo_cnae": "ATIVIDADES DE CONSULTORIA EM GESTÃO EMPRESARIAL",
+    "classe_cnae": "ATIVIDADES DE CONSULTORIA EM GESTÃO EMPRESARIAL",
+    "porte": "EMPRESA DE PEQUENO PORTE",
+    "natureza_juridica": "Sociedade Empresária Limitada",
+    "regime_tributario": "Simples Nacional",
+    "simples_nacional": true,
+    "mei": false,
+    "capital_social": 50000.0,
+    "municipio": "GOIANIA",
+    "uf": "GO",
+    "cep": "74175050",
+    "endereco": "RUA 1126 55 QUADRA232 LOTE 03 SALA 02 SET MARISTA",
+    "email": null,
+    "telefone": "6281421569",
+    "cnaes_secundarios": [
+      {
+        "codigo": "5250801",
+        "descricao": "Comissaria de despachos"
+      },
+      {
+        "codigo": "8299799",
+        "descricao": "Outras atividades de serviços prestados principalmente às empresas não especificadas anteriormente"
+      }
+    ],
+    "socios": [
+      {
+        "nome": "FABIANO CAVALCANTE DIAS",
+        "qualificacao": "Sócio-Administrador"
+      }
+    ],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "32553880000110": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "32.553.880/0001-10",
+    "cnpj_limpo": "32553880000110",
+    "razao_social": "REGISTEC SOLUCOES COMERCIAIS LTDA",
+    "nome_fantasia": "REGISTEC AUTOMACAO",
+    "situacao_cadastral": "ATIVA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2019-01-24",
+    "cnae_principal": {
+      "codigo": "6209100",
+      "descricao": "Suporte técnico, manutenção e outros serviços em tecnologia da informação"
+    },
+    "setor": "INFORMAÇÃO E COMUNICAÇÃO",
+    "segmento": "ATIVIDADES DOS SERVIÇOS DE TECNOLOGIA DA INFORMAÇÃO",
+    "grupo_cnae": "ATIVIDADES DOS SERVIÇOS DE TECNOLOGIA DA INFORMAÇÃO",
+    "classe_cnae": "SUPORTE TÉCNICO, MANUTENÇÃO E OUTROS SERVIÇOS EM TECNOLOGIA DA INFORMAÇÃO",
+    "porte": "MICRO EMPRESA",
+    "natureza_juridica": "Sociedade Empresária Limitada",
+    "regime_tributario": "Simples Nacional",
+    "simples_nacional": true,
+    "mei": false,
+    "capital_social": 30000.0,
+    "municipio": "SAO PAULO",
+    "uf": "SP",
+    "cep": "04272100",
+    "endereco": "RUA VERGUEIRO 6318 SALA 04 VILA FIRMIANO PINTO",
+    "email": null,
+    "telefone": "1334917540",
+    "cnaes_secundarios": [
+      {
+        "codigo": "4751201",
+        "descricao": "Comércio varejista especializado de equipamentos e suprimentos de informática"
+      },
+      {
+        "codigo": "6204000",
+        "descricao": "Consultoria em tecnologia da informação"
+      },
+      {
+        "codigo": "9511800",
+        "descricao": "Reparação e manutenção de computadores e de equipamentos periféricos"
+      }
+    ],
+    "socios": [
+      {
+        "nome": "SUELI DE SOUZA EL DIB",
+        "qualificacao": "Sócio-Administrador"
+      }
+    ],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "14835504000136": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "14.835.504/0001-36",
+    "cnpj_limpo": "14835504000136",
+    "razao_social": "LUDOMED REPRESENTACAO COMERCIO E SERVICOS LTDA",
+    "nome_fantasia": "LUDOMED",
+    "situacao_cadastral": "ATIVA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2012-01-05",
+    "cnae_principal": {
+      "codigo": "4614100",
+      "descricao": "Representantes comerciais e agentes do comércio de máquinas, equipamentos, embarcações e aeronaves"
+    },
+    "setor": "COMÉRCIO; REPARAÇÃO DE VEÍCULOS AUTOMOTORES E MOTOCICLETAS",
+    "segmento": "COMÉRCIO POR ATACADO, EXCETO VEÍCULOS AUTOMOTORES E MOTOCICLETAS",
+    "grupo_cnae": "REPRESENTANTES COMERCIAIS E AGENTES DO COMÉRCIO, EXCETO DE VEÍCULOS AUTOMOTORES E MOTOCICLETAS",
+    "classe_cnae": "REPRESENTANTES COMERCIAIS E AGENTES DO COMÉRCIO DE MÁQUINAS, EQUIPAMENTOS, EMBARCAÇÕES E AERONAVES",
+    "porte": "EMPRESA DE PEQUENO PORTE",
+    "natureza_juridica": "Sociedade Empresária Limitada",
+    "regime_tributario": "Simples Nacional",
+    "simples_nacional": true,
+    "mei": false,
+    "capital_social": 100000.0,
+    "municipio": "SAO LUIS",
+    "uf": "MA",
+    "cep": "65076508",
+    "endereco": "RUA OITO 16 SAO FRANCISCO",
+    "email": null,
+    "telefone": "9832276812",
+    "cnaes_secundarios": [
+      {
+        "codigo": "3312103",
+        "descricao": "Manutenção e reparação de aparelhos eletromédicos e eletroterapêuticos e equipamentos de irradiação"
+      },
+      {
+        "codigo": "3321000",
+        "descricao": "Instalação de máquinas e equipamentos industriais"
+      },
+      {
+        "codigo": "4618402",
+        "descricao": "Representantes comerciais e agentes do comércio de instrumentos e materiais odonto-médico-hospitalares"
+      },
+      {
+        "codigo": "4645101",
+        "descricao": "Comércio atacadista de instrumentos e materiais para uso médico, cirúrgico, hospitalar e de laboratórios"
+      },
+      {
+        "codigo": "7111100",
+        "descricao": "Serviços de arquitetura"
+      },
+      {
+        "codigo": "7112000",
+        "descricao": "Serviços de engenharia"
+      },
+      {
+        "codigo": "7739002",
+        "descricao": "Aluguel de equipamentos científicos, médicos e hospitalares, sem operador"
+      },
+      {
+        "codigo": "8211300",
+        "descricao": "Serviços combinados de escritório e apoio administrativo"
+      }
+    ],
+    "socios": [
+      {
+        "nome": "KLEBER PRADO MACIEL JUNIOR",
+        "qualificacao": "Sócio"
+      },
+      {
+        "nome": "MARCOS ANTONIO SILVA",
+        "qualificacao": "Sócio-Administrador"
+      }
+    ],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "21859535000192": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "21.859.535/0001-92",
+    "cnpj_limpo": "21859535000192",
+    "razao_social": "SUPRALIMP COMERCIO DE PRODUTOS DE LIMPEZA LTDA",
+    "nome_fantasia": "",
+    "situacao_cadastral": "ATIVA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2015-02-11",
+    "cnae_principal": {
+      "codigo": "4789005",
+      "descricao": "Comércio varejista de produtos saneantes domissanitários"
+    },
+    "setor": "COMÉRCIO; REPARAÇÃO DE VEÍCULOS AUTOMOTORES E MOTOCICLETAS",
+    "segmento": "COMÉRCIO VAREJISTA",
+    "grupo_cnae": "COMÉRCIO VAREJISTA DE PRODUTOS NOVOS NÃO ESPECIFICADOS ANTERIORMENTE E DE PRODUTOS USADOS",
+    "classe_cnae": "COMÉRCIO VAREJISTA DE OUTROS PRODUTOS NOVOS NÃO ESPECIFICADOS ANTERIORMENTE",
+    "porte": "MICRO EMPRESA",
+    "natureza_juridica": "Sociedade Empresária Limitada",
+    "regime_tributario": "Simples Nacional",
+    "simples_nacional": true,
+    "mei": false,
+    "capital_social": 20000.0,
+    "municipio": "SAO PAULO",
+    "uf": "SP",
+    "cep": "03162065",
+    "endereco": "RUA TENENTE INACIO DA SILVEIRA 91 MOOCA",
+    "email": null,
+    "telefone": "1120810233",
+    "cnaes_secundarios": [
+      {
+        "codigo": "4772500",
+        "descricao": "Comércio varejista de cosméticos, produtos de perfumaria e de higiene pessoal"
+      },
+      {
+        "codigo": "4789099",
+        "descricao": "Comércio varejista de outros produtos não especificados anteriormente"
+      },
+      {
+        "codigo": "4759899",
+        "descricao": "Comércio varejista de outros artigos de uso pessoal e doméstico não especificados anteriormente"
+      }
+    ],
+    "socios": [
+      {
+        "nome": "CLAUDIO LA TORRE",
+        "qualificacao": "Sócio-Administrador"
+      },
+      {
+        "nome": "FABIO PERI LA TORRE",
+        "qualificacao": "Sócio-Administrador"
+      }
+    ],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "28275182000122": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "28.275.182/0001-22",
+    "cnpj_limpo": "28275182000122",
+    "razao_social": "ELIANA MIRANDA MOREIRA MORAIS 81410395553",
+    "nome_fantasia": "",
+    "situacao_cadastral": "BAIXADA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2017-07-27",
+    "cnae_principal": {
+      "codigo": "4789005",
+      "descricao": "Comércio varejista de produtos saneantes domissanitários"
+    },
+    "setor": "COMÉRCIO; REPARAÇÃO DE VEÍCULOS AUTOMOTORES E MOTOCICLETAS",
+    "segmento": "COMÉRCIO VAREJISTA",
+    "grupo_cnae": "COMÉRCIO VAREJISTA DE PRODUTOS NOVOS NÃO ESPECIFICADOS ANTERIORMENTE E DE PRODUTOS USADOS",
+    "classe_cnae": "COMÉRCIO VAREJISTA DE OUTROS PRODUTOS NOVOS NÃO ESPECIFICADOS ANTERIORMENTE",
+    "porte": "MICRO EMPRESA",
+    "natureza_juridica": "Empresário (Individual)",
+    "regime_tributario": null,
+    "simples_nacional": false,
+    "mei": false,
+    "capital_social": 5000.0,
+    "municipio": "SALVADOR",
+    "uf": "BA",
+    "cep": "40280060",
+    "endereco": "PARQUE BELA VISTA",
+    "email": null,
+    "telefone": null,
+    "cnaes_secundarios": [
+      {
+        "codigo": "4742300",
+        "descricao": "Comércio varejista de material elétrico"
+      },
+      {
+        "codigo": "5620104",
+        "descricao": "Fornecimento de alimentos preparados preponderantemente para consumo domiciliar"
+      },
+      {
+        "codigo": "4789099",
+        "descricao": "Comércio varejista de outros produtos não especificados anteriormente"
+      },
+      {
+        "codigo": "4321500",
+        "descricao": "Instalação e manutenção elétrica"
+      },
+      {
+        "codigo": "4322301",
+        "descricao": "Instalações hidráulicas, sanitárias e de gás"
+      },
+      {
+        "codigo": "4772500",
+        "descricao": "Comércio varejista de cosméticos, produtos de perfumaria e de higiene pessoal"
+      },
+      {
+        "codigo": "4330404",
+        "descricao": "Serviços de pintura de edifícios em geral"
+      },
+      {
+        "codigo": "4744001",
+        "descricao": "Comércio varejista de ferragens e ferramentas"
+      },
+      {
+        "codigo": "4744099",
+        "descricao": "Comércio varejista de materiais de construção em geral"
+      }
+    ],
+    "socios": [],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "66528056000121": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "66.528.056/0001-21",
+    "cnpj_limpo": "66528056000121",
+    "razao_social": "JOAO PEDRO R ROCHA",
+    "nome_fantasia": "SERVFRIO CLIMATIZACAO",
+    "situacao_cadastral": "ATIVA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2026-04-29",
+    "cnae_principal": {
+      "codigo": "4753900",
+      "descricao": "Comércio varejista especializado de eletrodomésticos e equipamentos de áudio e vídeo"
+    },
+    "setor": "COMÉRCIO; REPARAÇÃO DE VEÍCULOS AUTOMOTORES E MOTOCICLETAS",
+    "segmento": "COMÉRCIO VAREJISTA",
+    "grupo_cnae": "COMÉRCIO VAREJISTA DE EQUIPAMENTOS DE INFORMÁTICA E COMUNICAÇÃO; EQUIPAMENTOS E ARTIGOS DE USO DOMÉSTICO",
+    "classe_cnae": "COMÉRCIO VAREJISTA ESPECIALIZADO DE ELETRODOMÉSTICOS E EQUIPAMENTOS DE ÁUDIO E VÍDEO",
+    "porte": "MICRO EMPRESA",
+    "natureza_juridica": "Empresário (Individual)",
+    "regime_tributario": "Simples Nacional",
+    "simples_nacional": true,
+    "mei": false,
+    "capital_social": 5000.0,
+    "municipio": "MACEIO",
+    "uf": "AL",
+    "cep": "57025260",
+    "endereco": "POÇO",
+    "email": null,
+    "telefone": null,
+    "cnaes_secundarios": [
+      {
+        "codigo": "9521500",
+        "descricao": "Reparação e manutenção de equipamentos eletroeletrônicos de uso pessoal e doméstico"
+      }
+    ],
+    "socios": [],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "06937571000133": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "06.937.571/0001-33",
+    "cnpj_limpo": "06937571000133",
+    "razao_social": "J F TURBINAS LTDA",
+    "nome_fantasia": "",
+    "situacao_cadastral": "ATIVA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2004-07-09",
+    "cnae_principal": {
+      "codigo": "4530701",
+      "descricao": "Comércio por atacado de peças e acessórios novos para veículos automotores"
+    },
+    "setor": "COMÉRCIO; REPARAÇÃO DE VEÍCULOS AUTOMOTORES E MOTOCICLETAS",
+    "segmento": "COMÉRCIO E REPARAÇÃO DE VEÍCULOS AUTOMOTORES E MOTOCICLETAS",
+    "grupo_cnae": "COMÉRCIO DE PEÇAS E ACESSÓRIOS PARA VEÍCULOS AUTOMOTORES",
+    "classe_cnae": "COMÉRCIO DE PEÇAS E ACESSÓRIOS PARA VEÍCULOS AUTOMOTORES",
+    "porte": "MICRO EMPRESA",
+    "natureza_juridica": "Sociedade Empresária Limitada",
+    "regime_tributario": "Simples Nacional",
+    "simples_nacional": true,
+    "mei": false,
+    "capital_social": 10000.0,
+    "municipio": "JUIZ DE FORA",
+    "uf": "MG",
+    "cep": "36085000",
+    "endereco": "AVENIDA PRESIDENTE JUSCELINO KUBITSCHECK 2653 BARBOSA LAGE",
+    "email": null,
+    "telefone": "3232223782",
+    "cnaes_secundarios": [
+      {
+        "codigo": "4520001",
+        "descricao": "Serviços de manutenção e reparação mecânica de veículos automotores"
+      },
+      {
+        "codigo": "4520007",
+        "descricao": "Serviços de instalação, manutenção e reparação de acessórios para veículos automotores"
+      }
+    ],
+    "socios": [
+      {
+        "nome": "MARIA DAS GRACAS GONCALVES PEREIRA",
+        "qualificacao": "Sócio-Administrador"
+      },
+      {
+        "nome": "TADIER PEREIRA DA SILVA FILHO",
+        "qualificacao": "Sócio-Administrador"
+      }
+    ],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "12834009000187": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "12.834.009/0001-87",
+    "cnpj_limpo": "12834009000187",
+    "razao_social": "ARENA EMPREENDIMENTOS LTDA.",
+    "nome_fantasia": "GRUPO ARENA",
+    "situacao_cadastral": "ATIVA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2010-11-10",
+    "cnae_principal": {
+      "codigo": "4120400",
+      "descricao": "Construção de edifícios"
+    },
+    "setor": "CONSTRUÇÃO",
+    "segmento": "CONSTRUÇÃO DE EDIFÍCIOS",
+    "grupo_cnae": "CONSTRUÇÃO DE EDIFÍCIOS",
+    "classe_cnae": "CONSTRUÇÃO DE EDIFÍCIOS",
+    "porte": "EMPRESA DE PEQUENO PORTE",
+    "natureza_juridica": "Sociedade Empresária Limitada",
+    "regime_tributario": "Simples Nacional",
+    "simples_nacional": true,
+    "mei": false,
+    "capital_social": 100000.0,
+    "municipio": "BELO HORIZONTE",
+    "uf": "MG",
+    "cep": "31744007",
+    "endereco": "AVENIDA CRISTIANO MACHADO 11833 LOJA 3073 VILA CLORIS",
+    "email": null,
+    "telefone": "3194200083",
+    "cnaes_secundarios": [
+      {
+        "codigo": "2539001",
+        "descricao": "Serviços de usinagem, tornearia e solda"
+      },
+      {
+        "codigo": "2599302",
+        "descricao": "Serviço de corte e dobra de metais"
+      },
+      {
+        "codigo": "3313901",
+        "descricao": "Manutenção e reparação de geradores, transformadores e motores elétricos"
+      },
+      {
+        "codigo": "3314710",
+        "descricao": "Manutenção e reparação de máquinas e equipamentos para uso geral não especificados anteriormente"
+      },
+      {
+        "codigo": "4211101",
+        "descricao": "Construção de rodovias e ferrovias"
+      },
+      {
+        "codigo": "4211102",
+        "descricao": "Pintura para sinalização em pistas rodoviárias e aeroportos"
+      },
+      {
+        "codigo": "4213800",
+        "descricao": "Obras de urbanização - ruas, praças e calçadas"
+      },
+      {
+        "codigo": "4291000",
+        "descricao": "Obras portuárias, marítimas e fluviais"
+      },
+      {
+        "codigo": "4292802",
+        "descricao": "Obras de montagem industrial"
+      },
+      {
+        "codigo": "4299501",
+        "descricao": "Construção de instalações esportivas e recreativas"
+      },
+      {
+        "codigo": "4299599",
+        "descricao": "Outras obras de engenharia civil não especificadas anteriormente"
+      },
+      {
+        "codigo": "4311801",
+        "descricao": "Demolição de edifícios e outras estruturas"
+      },
+      {
+        "codigo": "4311802",
+        "descricao": "Preparação de canteiro e limpeza de terreno"
+      },
+      {
+        "codigo": "4312600",
+        "descricao": "Perfurações e sondagens"
+      },
+      {
+        "codigo": "4313400",
+        "descricao": "Obras de terraplenagem"
+      },
+      {
+        "codigo": "4319300",
+        "descricao": "Serviços de preparação do terreno não especificados anteriormente"
+      },
+      {
+        "codigo": "4321500",
+        "descricao": "Instalação e manutenção elétrica"
+      },
+      {
+        "codigo": "4322301",
+        "descricao": "Instalações hidráulicas, sanitárias e de gás"
+      },
+      {
+        "codigo": "4322302",
+        "descricao": "Instalação e manutenção de sistemas centrais de ar condicionado, de ventilação e refrigeração"
+      },
+      {
+        "codigo": "4322303",
+        "descricao": "Instalações de sistema de prevenção contra incêndio"
+      },
+      {
+        "codigo": "4329103",
+        "descricao": "Instalação, manutenção e reparação de elevadores, escadas e esteiras rolantes"
+      },
+      {
+        "codigo": "4329104",
+        "descricao": "Montagem e instalação de sistemas e equipamentos de iluminação e sinalização em vias públicas, portos e aeroportos"
+      },
+      {
+        "codigo": "4329199",
+        "descricao": "Outras obras de instalações em construções não especificadas anteriormente"
+      },
+      {
+        "codigo": "4330401",
+        "descricao": "Impermeabilização em obras de engenharia civil"
+      },
+      {
+        "codigo": "4330402",
+        "descricao": "Instalação de portas, janelas, tetos, divisórias e armários embutidos de qualquer material"
+      },
+      {
+        "codigo": "4330403",
+        "descricao": "Obras de acabamento em gesso e estuque"
+      },
+      {
+        "codigo": "4330404",
+        "descricao": "Serviços de pintura de edifícios em geral"
+      },
+      {
+        "codigo": "4330405",
+        "descricao": "Aplicação de revestimentos e de resinas em interiores e exteriores"
+      },
+      {
+        "codigo": "4330499",
+        "descricao": "Outras obras de acabamento da construção"
+      },
+      {
+        "codigo": "4391600",
+        "descricao": "Obras de fundações"
+      },
+      {
+        "codigo": "4399101",
+        "descricao": "Administração de obras"
+      },
+      {
+        "codigo": "4399102",
+        "descricao": "Montagem e desmontagem de andaimes e outras estruturas temporárias"
+      },
+      {
+        "codigo": "4399103",
+        "descricao": "Obras de alvenaria"
+      },
+      {
+        "codigo": "4399104",
+        "descricao": "Serviços de operação e fornecimento de equipamentos para transporte e elevação de cargas e pessoas para uso em obras"
+      },
+      {
+        "codigo": "4399105",
+        "descricao": "Perfuração e construção de poços de água"
+      },
+      {
+        "codigo": "4399199",
+        "descricao": "Serviços especializados para construção não especificados anteriormente"
+      },
+      {
+        "codigo": "5920100",
+        "descricao": "Atividades de gravação de som e de edição de música"
+      },
+      {
+        "codigo": "6201501",
+        "descricao": "Desenvolvimento de programas de computador sob encomenda"
+      },
+      {
+        "codigo": "6202300",
+        "descricao": "Desenvolvimento e licenciamento de programas de computador customizáveis"
+      },
+      {
+        "codigo": "6203100",
+        "descricao": "Desenvolvimento e licenciamento de programas de computador não-customizáveis"
+      },
+      {
+        "codigo": "6204000",
+        "descricao": "Consultoria em tecnologia da informação"
+      },
+      {
+        "codigo": "6209100",
+        "descricao": "Suporte técnico, manutenção e outros serviços em tecnologia da informação"
+      },
+      {
+        "codigo": "6399200",
+        "descricao": "Outras atividades de prestação de serviços de informação não especificadas anteriormente"
+      },
+      {
+        "codigo": "7111100",
+        "descricao": "Serviços de arquitetura"
+      },
+      {
+        "codigo": "7112000",
+        "descricao": "Serviços de engenharia"
+      },
+      {
+        "codigo": "7119701",
+        "descricao": "Serviços de cartografia, topografia e geodésia"
+      },
+      {
+        "codigo": "7119702",
+        "descricao": "Atividades de estudos geológicos"
+      },
+      {
+        "codigo": "7119703",
+        "descricao": "Serviços de desenho técnico relacionados à arquitetura e engenharia"
+      },
+      {
+        "codigo": "7119704",
+        "descricao": "Serviços de perícia técnica relacionados à segurança do trabalho"
+      },
+      {
+        "codigo": "7119799",
+        "descricao": "Atividades técnicas relacionadas à engenharia e arquitetura não especificadas anteriormente"
+      },
+      {
+        "codigo": "7311400",
+        "descricao": "Agências de publicidade"
+      },
+      {
+        "codigo": "7319001",
+        "descricao": "Criação de estandes para feiras e exposições"
+      },
+      {
+        "codigo": "7410202",
+        "descricao": "Design de interiores"
+      },
+      {
+        "codigo": "7420001",
+        "descricao": "Atividades de produção de fotografias, exceto aérea e submarina"
+      },
+      {
+        "codigo": "7420004",
+        "descricao": "Filmagem de festas e eventos"
+      },
+      {
+        "codigo": "7490105",
+        "descricao": "Agenciamento de profissionais para atividades esportivas, culturais e artísticas"
+      },
+      {
+        "codigo": "7711000",
+        "descricao": "Locação de automóveis sem condutor"
+      },
+      {
+        "codigo": "7721700",
+        "descricao": "Aluguel de equipamentos recreativos e esportivos"
+      },
+      {
+        "codigo": "7731400",
+        "descricao": "Aluguel de máquinas e equipamentos agrícolas sem operador"
+      },
+      {
+        "codigo": "7732201",
+        "descricao": "Aluguel de máquinas e equipamentos para construção sem operador, exceto andaimes"
+      },
+      {
+        "codigo": "7732202",
+        "descricao": "Aluguel de andaimes"
+      },
+      {
+        "codigo": "7739003",
+        "descricao": "Aluguel de palcos, coberturas e outras estruturas de uso temporário, exceto andaimes"
+      },
+      {
+        "codigo": "7739099",
+        "descricao": "Aluguel de outras máquinas e equipamentos comerciais e industriais não especificados anteriormente, sem operador"
+      },
+      {
+        "codigo": "7911200",
+        "descricao": "Agências de viagens"
+      },
+      {
+        "codigo": "7990200",
+        "descricao": "Serviços de reservas e outros serviços de turismo não especificados anteriormente"
+      },
+      {
+        "codigo": "8011102",
+        "descricao": "Serviços de adestramento de cães de guarda"
+      },
+      {
+        "codigo": "8130300",
+        "descricao": "Atividades paisagísticas"
+      },
+      {
+        "codigo": "8599604",
+        "descricao": "Treinamento em desenvolvimento profissional e gerencial"
+      },
+      {
+        "codigo": "8660700",
+        "descricao": "Atividades de apoio à gestão de saúde"
+      },
+      {
+        "codigo": "9001903",
+        "descricao": "Produção de espetáculos de dança"
+      },
+      {
+        "codigo": "9001905",
+        "descricao": "Produção de espetáculos de rodeios, vaquejadas e similares"
+      },
+      {
+        "codigo": "9001906",
+        "descricao": "Atividades de sonorização e de iluminação"
+      },
+      {
+        "codigo": "9102302",
+        "descricao": "Restauração e conservação de lugares e prédios históricos"
+      },
+      {
+        "codigo": "9313100",
+        "descricao": "Atividades de condicionamento físico"
+      }
+    ],
+    "socios": [
+      {
+        "nome": "NATALIA BIANE ALVES DOS SANTOS",
+        "qualificacao": "Sócio-Administrador"
+      }
+    ],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "24797785000133": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "24.797.785/0001-33",
+    "cnpj_limpo": "24797785000133",
+    "razao_social": "WEB AUTOMACAO E TECNOLOGIA LTDA",
+    "nome_fantasia": "WEB AUTOMACAO E INFORMATICA",
+    "situacao_cadastral": "ATIVA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2016-05-13",
+    "cnae_principal": {
+      "codigo": "4751201",
+      "descricao": "Comércio varejista especializado de equipamentos e suprimentos de informática"
+    },
+    "setor": "COMÉRCIO; REPARAÇÃO DE VEÍCULOS AUTOMOTORES E MOTOCICLETAS",
+    "segmento": "COMÉRCIO VAREJISTA",
+    "grupo_cnae": "COMÉRCIO VAREJISTA DE EQUIPAMENTOS DE INFORMÁTICA E COMUNICAÇÃO; EQUIPAMENTOS E ARTIGOS DE USO DOMÉSTICO",
+    "classe_cnae": "COMÉRCIO VAREJISTA ESPECIALIZADO DE EQUIPAMENTOS E SUPRIMENTOS DE INFORMÁTICA",
+    "porte": "MICRO EMPRESA",
+    "natureza_juridica": "Sociedade Empresária Limitada",
+    "regime_tributario": "Simples Nacional",
+    "simples_nacional": true,
+    "mei": false,
+    "capital_social": 10000.0,
+    "municipio": "FLORIANOPOLIS",
+    "uf": "SC",
+    "cep": "88085120",
+    "endereco": "RUA JOAQUIM CARNEIRO 135 SALA 5 CAPOEIRAS",
+    "email": null,
+    "telefone": "4888553960",
+    "cnaes_secundarios": [
+      {
+        "codigo": "2610800",
+        "descricao": "Fabricação de componentes eletrônicos"
+      },
+      {
+        "codigo": "6202300",
+        "descricao": "Desenvolvimento e licenciamento de programas de computador customizáveis"
+      },
+      {
+        "codigo": "6203100",
+        "descricao": "Desenvolvimento e licenciamento de programas de computador não-customizáveis"
+      },
+      {
+        "codigo": "7733100",
+        "descricao": "Aluguel de máquinas e equipamentos para escritórios"
+      },
+      {
+        "codigo": "9511800",
+        "descricao": "Reparação e manutenção de computadores e de equipamentos periféricos"
+      }
+    ],
+    "socios": [
+      {
+        "nome": "MARCUS MARCELO DA SILVA",
+        "qualificacao": "Sócio-Administrador"
+      },
+      {
+        "nome": "RAFAELA CARDOSO DA SILVA",
+        "qualificacao": "Sócio-Administrador"
+      }
+    ],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "13586248000128": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "13.586.248/0001-28",
+    "cnpj_limpo": "13586248000128",
+    "razao_social": "VITORIA DIGITAL LTDA",
+    "nome_fantasia": "VITORIA DIGITAL",
+    "situacao_cadastral": "ATIVA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2011-05-03",
+    "cnae_principal": {
+      "codigo": "4744099",
+      "descricao": "Comércio varejista de materiais de construção em geral"
+    },
+    "setor": "COMÉRCIO; REPARAÇÃO DE VEÍCULOS AUTOMOTORES E MOTOCICLETAS",
+    "segmento": "COMÉRCIO VAREJISTA",
+    "grupo_cnae": "COMÉRCIO VAREJISTA DE MATERIAL DE CONSTRUÇÃO",
+    "classe_cnae": "COMÉRCIO VAREJISTA DE FERRAGENS, MADEIRA E MATERIAIS DE CONSTRUÇÃO",
+    "porte": "MICRO EMPRESA",
+    "natureza_juridica": "Sociedade Empresária Limitada",
+    "regime_tributario": "Simples Nacional",
+    "simples_nacional": true,
+    "mei": false,
+    "capital_social": 120000.0,
+    "municipio": "BELO HORIZONTE",
+    "uf": "MG",
+    "cep": "31748141",
+    "endereco": "RUA JANUARIO PEREIRA GONCALVES 170 LOJA A JAQUELINE",
+    "email": null,
+    "telefone": "3199739532",
+    "cnaes_secundarios": [
+      {
+        "codigo": "3299003",
+        "descricao": "Fabricação de letras, letreiros e placas de qualquer material, exceto luminosos"
+      },
+      {
+        "codigo": "4120400",
+        "descricao": "Construção de edifícios"
+      }
+    ],
+    "socios": [
+      {
+        "nome": "LAIS VITORIA CORDEIRO DO NASCIMENTO",
+        "qualificacao": "Sócio-Administrador"
+      }
+    ],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "09471606000180": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "09.471.606/0001-80",
+    "cnpj_limpo": "09471606000180",
+    "razao_social": "M ALVES R LTDA",
+    "nome_fantasia": "MUNDIAL FUNERARIA SAO RAIMUNDO NONATO",
+    "situacao_cadastral": "ATIVA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2008-03-27",
+    "cnae_principal": {
+      "codigo": "9603304",
+      "descricao": "Serviços de funerárias"
+    },
+    "setor": "OUTRAS ATIVIDADES DE SERVIÇOS",
+    "segmento": "OUTRAS ATIVIDADES DE SERVIÇOS PESSOAIS",
+    "grupo_cnae": "OUTRAS ATIVIDADES DE SERVIÇOS PESSOAIS",
+    "classe_cnae": "ATIVIDADES FUNERÁRIAS E SERVIÇOS RELACIONADOS",
+    "porte": "MICRO EMPRESA",
+    "natureza_juridica": "Sociedade Empresária Limitada",
+    "regime_tributario": "Simples Nacional",
+    "simples_nacional": true,
+    "mei": false,
+    "capital_social": 350000.0,
+    "municipio": "SAO RAIMUNDO NONATO",
+    "uf": "PI",
+    "cep": "64770000",
+    "endereco": "RUA DOM INOCENCIO 1114 ALDEIA",
+    "email": null,
+    "telefone": "8981136813",
+    "cnaes_secundarios": [
+      {
+        "codigo": "9603301",
+        "descricao": "Gestão e manutenção de cemitérios"
+      },
+      {
+        "codigo": "9603303",
+        "descricao": "Serviços de sepultamento"
+      },
+      {
+        "codigo": "9603305",
+        "descricao": "Serviços de somatoconservação"
+      }
+    ],
+    "socios": [
+      {
+        "nome": "MARCIONE ALVES RODRIGUES",
+        "qualificacao": "Sócio-Administrador"
+      }
+    ],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "04330324000149": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "04.330.324/0001-49",
+    "cnpj_limpo": "04330324000149",
+    "razao_social": "ITA INSTALADORA TECNOLOGIA EM ALARMES LTDA",
+    "nome_fantasia": "ITA PROTECAO 24 HORAS",
+    "situacao_cadastral": "ATIVA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2001-01-24",
+    "cnae_principal": {
+      "codigo": "8020001",
+      "descricao": "Atividades de monitoramento de sistemas de segurança eletrônico"
+    },
+    "setor": "ATIVIDADES ADMINISTRATIVAS E SERVIÇOS COMPLEMENTARES",
+    "segmento": "ATIVIDADES DE VIGILÂNCIA, SEGURANÇA E INVESTIGAÇÃO",
+    "grupo_cnae": "ATIVIDADES DE MONITORAMENTO DE SISTEMAS DE SEGURANÇA",
+    "classe_cnae": "ATIVIDADES DE MONITORAMENTO DE SISTEMAS DE SEGURANÇA",
+    "porte": "EMPRESA DE PEQUENO PORTE",
+    "natureza_juridica": "Sociedade Empresária Limitada",
+    "regime_tributario": "Simples Nacional",
+    "simples_nacional": true,
+    "mei": false,
+    "capital_social": 20000.0,
+    "municipio": "BELO HORIZONTE",
+    "uf": "MG",
+    "cep": "30710560",
+    "endereco": "RUA TRES PONTAS 928 CARLOS PRATES",
+    "email": null,
+    "telefone": "3134137872",
+    "cnaes_secundarios": [
+      {
+        "codigo": "4321500",
+        "descricao": "Instalação e manutenção elétrica"
+      },
+      {
+        "codigo": "4520007",
+        "descricao": "Serviços de instalação, manutenção e reparação de acessórios para veículos automotores"
+      },
+      {
+        "codigo": "4742300",
+        "descricao": "Comércio varejista de material elétrico"
+      },
+      {
+        "codigo": "4753900",
+        "descricao": "Comércio varejista especializado de eletrodomésticos e equipamentos de áudio e vídeo"
+      },
+      {
+        "codigo": "4759899",
+        "descricao": "Comércio varejista de outros artigos de uso pessoal e doméstico não especificados anteriormente"
+      },
+      {
+        "codigo": "7739099",
+        "descricao": "Aluguel de outras máquinas e equipamentos comerciais e industriais não especificados anteriormente, sem operador"
+      }
+    ],
+    "socios": [
+      {
+        "nome": "CHRISTIANO LUIZ PELIZARI",
+        "qualificacao": "Sócio-Administrador"
+      },
+      {
+        "nome": "DANIELA LUCIA FERREIRA PELIZARI",
+        "qualificacao": "Sócio-Administrador"
+      },
+      {
+        "nome": "GABRIELLA LUCIA FERREIRA PELIZARI",
+        "qualificacao": "Sócio-Administrador"
+      }
+    ],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "14515150000142": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "14.515.150/0001-42",
+    "cnpj_limpo": "14515150000142",
+    "razao_social": "JAMES DA S.FERREIRA",
+    "nome_fantasia": "FRIO GRAU REFRIGERACAO",
+    "situacao_cadastral": "INAPTA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2011-10-24",
+    "cnae_principal": {
+      "codigo": "4757100",
+      "descricao": "Comércio varejista especializado de peças e acessórios para aparelhos eletroeletrônicos para uso doméstico, exceto informática e comunicação"
+    },
+    "setor": "COMÉRCIO; REPARAÇÃO DE VEÍCULOS AUTOMOTORES E MOTOCICLETAS",
+    "segmento": "COMÉRCIO VAREJISTA",
+    "grupo_cnae": "COMÉRCIO VAREJISTA DE EQUIPAMENTOS DE INFORMÁTICA E COMUNICAÇÃO; EQUIPAMENTOS E ARTIGOS DE USO DOMÉSTICO",
+    "classe_cnae": "COMÉRCIO VAREJISTA ESPECIALIZADO DE PEÇAS E ACESSÓRIOS PARA APARELHOS ELETROELETRÔNICOS PARA USO DOMÉSTICO, EXCETO INFORMÁTICA E COMUNICAÇÃO",
+    "porte": "MICRO EMPRESA",
+    "natureza_juridica": "Empresário (Individual)",
+    "regime_tributario": "LUCRO PRESUMIDO",
+    "simples_nacional": false,
+    "mei": false,
+    "capital_social": 50000.0,
+    "municipio": "SAO LUIS",
+    "uf": "MA",
+    "cep": "65056040",
+    "endereco": "SAO BERNARDO",
+    "email": null,
+    "telefone": null,
+    "cnaes_secundarios": [
+      {
+        "codigo": "3101200",
+        "descricao": "Fabricação de móveis com predominância de madeira"
+      },
+      {
+        "codigo": "3102100",
+        "descricao": "Fabricação de móveis com predominância de metal"
+      },
+      {
+        "codigo": "3329501",
+        "descricao": "Serviços de montagem de móveis de qualquer material"
+      },
+      {
+        "codigo": "4321500",
+        "descricao": "Instalação e manutenção elétrica"
+      },
+      {
+        "codigo": "4322302",
+        "descricao": "Instalação e manutenção de sistemas centrais de ar condicionado, de ventilação e refrigeração"
+      },
+      {
+        "codigo": "4330404",
+        "descricao": "Serviços de pintura de edifícios em geral"
+      },
+      {
+        "codigo": "4712100",
+        "descricao": "Comércio varejista de mercadorias em geral, com predominância de produtos alimentícios - minimercados, mercearias e armazéns"
+      },
+      {
+        "codigo": "4742300",
+        "descricao": "Comércio varejista de material elétrico"
+      },
+      {
+        "codigo": "4743100",
+        "descricao": "Comércio varejista de vidros"
+      },
+      {
+        "codigo": "4753900",
+        "descricao": "Comércio varejista especializado de eletrodomésticos e equipamentos de áudio e vídeo"
+      },
+      {
+        "codigo": "8020001",
+        "descricao": "Atividades de monitoramento de sistemas de segurança eletrônico"
+      },
+      {
+        "codigo": "9521500",
+        "descricao": "Reparação e manutenção de equipamentos eletroeletrônicos de uso pessoal e doméstico"
+      },
+      {
+        "codigo": "9529105",
+        "descricao": "Reparação de artigos do mobiliário"
+      }
+    ],
+    "socios": [],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "16850606000156": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "16.850.606/0001-56",
+    "cnpj_limpo": "16850606000156",
+    "razao_social": "IRMAOS FERREIRA COMUNICACAO VISUAL LTDA",
+    "nome_fantasia": "SOUL COMUNICACAO VISUAL",
+    "situacao_cadastral": "ATIVA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2012-09-13",
+    "cnae_principal": {
+      "codigo": "4329101",
+      "descricao": "Instalação de painéis publicitários"
+    },
+    "setor": "CONSTRUÇÃO",
+    "segmento": "SERVIÇOS ESPECIALIZADOS PARA CONSTRUÇÃO",
+    "grupo_cnae": "INSTALAÇÕES ELÉTRICAS, HIDRÁULICAS E OUTRAS INSTALAÇÕES EM CONSTRUÇÕES",
+    "classe_cnae": "OBRAS DE INSTALAÇÕES EM CONSTRUÇÕES NÃO ESPECIFICADAS ANTERIORMENTE",
+    "porte": "MICRO EMPRESA",
+    "natureza_juridica": "Sociedade Empresária Limitada",
+    "regime_tributario": null,
+    "simples_nacional": false,
+    "mei": false,
+    "capital_social": 10000.0,
+    "municipio": "ARACAJU",
+    "uf": "SE",
+    "cep": "49040110",
+    "endereco": "RUA CECILIA MEIRELES 246 INACIO BARBOSA",
+    "email": null,
+    "telefone": "7930412591",
+    "cnaes_secundarios": [
+      {
+        "codigo": "4329102",
+        "descricao": "Instalação de equipamentos para orientação à navegação marítima fluvial e lacustre"
+      },
+      {
+        "codigo": "1813001",
+        "descricao": "Impressão de material para uso publicitário"
+      },
+      {
+        "codigo": "8299799",
+        "descricao": "Outras atividades de serviços prestados principalmente às empresas não especificadas anteriormente"
+      },
+      {
+        "codigo": "3299004",
+        "descricao": "Fabricação de painéis e letreiros luminosos"
+      }
+    ],
+    "socios": [
+      {
+        "nome": "MARCOS DE MELLO FERREIRA TELLES",
+        "qualificacao": "Sócio-Administrador"
+      },
+      {
+        "nome": "YARA MARIA DE MELLO FERREIRA TELLES",
+        "qualificacao": "Sócio"
+      }
+    ],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "00826021000160": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "00.826.021/0001-60",
+    "cnpj_limpo": "00826021000160",
+    "razao_social": "R4 INFORMATICA LTDA",
+    "nome_fantasia": "",
+    "situacao_cadastral": "ATIVA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "1995-09-12",
+    "cnae_principal": {
+      "codigo": "6319400",
+      "descricao": "Portais, provedores de conteúdo e outros serviços de informação na internet"
+    },
+    "setor": "INFORMAÇÃO E COMUNICAÇÃO",
+    "segmento": "ATIVIDADES DE PRESTAÇÃO DE SERVIÇOS DE INFORMAÇÃO",
+    "grupo_cnae": "TRATAMENTO DE DADOS, HOSPEDAGEM NA INTERNET E OUTRAS ATIVIDADES RELACIONADAS",
+    "classe_cnae": "PORTAIS, PROVEDORES DE CONTEÚDO E OUTROS SERVIÇOS DE INFORMAÇÃO NA INTERNET",
+    "porte": "EMPRESA DE PEQUENO PORTE",
+    "natureza_juridica": "Sociedade Empresária Limitada",
+    "regime_tributario": "Simples Nacional",
+    "simples_nacional": true,
+    "mei": false,
+    "capital_social": 10000.0,
+    "municipio": "MARINGA",
+    "uf": "PR",
+    "cep": "87020025",
+    "endereco": "AVENIDA DUQUE DE CAXIAS 882 ANDAR 8 SALA 802 ZONA 01",
+    "email": null,
+    "telefone": "4430288819",
+    "cnaes_secundarios": [],
+    "socios": [
+      {
+        "nome": "RICARDO WAGNER TEIXEIRA",
+        "qualificacao": "Sócio-Administrador"
+      },
+      {
+        "nome": "ROBERTO WILSON TEIXEIRA",
+        "qualificacao": "Sócio-Administrador"
+      },
+      {
+        "nome": "ROBINSON WALTER TEIXEIRA",
+        "qualificacao": "Sócio-Administrador"
+      },
+      {
+        "nome": "SONJA ODET CHAVES",
+        "qualificacao": "Sócio"
+      }
+    ],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "06001981000178": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "06.001.981/0001-78",
+    "cnpj_limpo": "06001981000178",
+    "razao_social": "DISK-ART PRODUTOS DE HIGIENE LTDA",
+    "nome_fantasia": "",
+    "situacao_cadastral": "ATIVA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2003-11-07",
+    "cnae_principal": {
+      "codigo": "1749400",
+      "descricao": "Fabricação de produtos de pastas celulósicas, papel, cartolina, papel-cartão e papelão ondulado não especificados anteriormente"
+    },
+    "setor": "INDÚSTRIAS DE TRANSFORMAÇÃO",
+    "segmento": "FABRICAÇÃO DE CELULOSE, PAPEL E PRODUTOS DE PAPEL",
+    "grupo_cnae": "FABRICAÇÃO DE PRODUTOS DIVERSOS DE PAPEL, CARTOLINA, PAPEL-CARTÃO E PAPELÃO ONDULADO",
+    "classe_cnae": "FABRICAÇÃO DE PRODUTOS DE PASTAS CELULÓSICAS, PAPEL, CARTOLINA, PAPEL-CARTÃO E PAPELÃO ONDULADO NÃO ESPECIFICADOS ANTERIORMENTE",
+    "porte": "MICRO EMPRESA",
+    "natureza_juridica": "Sociedade Empresária Limitada",
+    "regime_tributario": "Simples Nacional",
+    "simples_nacional": true,
+    "mei": false,
+    "capital_social": 170000.0,
+    "municipio": "SAO PAULO",
+    "uf": "SP",
+    "cep": "03120010",
+    "endereco": "RUA CURUPACE 188 MOOCA",
+    "email": null,
+    "telefone": "1122920177",
+    "cnaes_secundarios": [
+      {
+        "codigo": "1742799",
+        "descricao": "Fabricação de produtos de papel para uso doméstico e higiênico-sanitário não especificados anteriormente"
+      }
+    ],
+    "socios": [
+      {
+        "nome": "CLAUDIA PERI LA TORRE",
+        "qualificacao": "Sócio-Administrador"
+      },
+      {
+        "nome": "CLAUDIO LA TORRE",
+        "qualificacao": "Sócio-Administrador"
+      }
+    ],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "49907711000133": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "49.907.711/0001-33",
+    "cnpj_limpo": "49907711000133",
+    "razao_social": "STEEL COLOR LTDA",
+    "nome_fantasia": "STEEL COLOR",
+    "situacao_cadastral": "ATIVA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2023-03-13",
+    "cnae_principal": {
+      "codigo": "2539002",
+      "descricao": "Serviços de tratamento e revestimento em metais"
+    },
+    "setor": "INDÚSTRIAS DE TRANSFORMAÇÃO",
+    "segmento": "FABRICAÇÃO DE PRODUTOS DE METAL, EXCETO MÁQUINAS  E EQUIPAMENTOS",
+    "grupo_cnae": "FORJARIA, ESTAMPARIA, METALURGIA DO PÓ E SERVIÇOS DE TRATAMENTO DE METAIS",
+    "classe_cnae": "SERVIÇOS DE USINAGEM, SOLDA, TRATAMENTO E REVESTIMENTO EM METAIS",
+    "porte": "MICRO EMPRESA",
+    "natureza_juridica": "Sociedade Empresária Limitada",
+    "regime_tributario": "Simples Nacional",
+    "simples_nacional": true,
+    "mei": false,
+    "capital_social": 200000.0,
+    "municipio": "IBIRITE",
+    "uf": "MG",
+    "cep": "32415166",
+    "endereco": "RUA BARE 16 INDUSTRIAL DE IBIRITE",
+    "email": null,
+    "telefone": "3125147840",
+    "cnaes_secundarios": [
+      {
+        "codigo": "2511000",
+        "descricao": "Fabricação de estruturas metálicas"
+      },
+      {
+        "codigo": "2512800",
+        "descricao": "Fabricação de esquadrias de metal"
+      },
+      {
+        "codigo": "2532201",
+        "descricao": "Produção de artefatos estampados de metal"
+      },
+      {
+        "codigo": "2542000",
+        "descricao": "Fabricação de artigos de serralheria, exceto esquadrias"
+      },
+      {
+        "codigo": "2599399",
+        "descricao": "Fabricação de outros produtos de metal não especificados anteriormente"
+      }
+    ],
+    "socios": [
+      {
+        "nome": "ALEX HENRIQUE PEREIRA DE FARIA",
+        "qualificacao": "Sócio-Administrador"
+      },
+      {
+        "nome": "LORENNA THAYLANE ANDRE DE FARIA",
+        "qualificacao": "Sócio-Administrador"
+      }
+    ],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "09250949000114": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "09.250.949/0001-14",
+    "cnpj_limpo": "09250949000114",
+    "razao_social": "FASOLLA OFICINA E COMERCIO DE INSTRUMENTOS MUSICAIS LTDA",
+    "nome_fantasia": "FASOLLA",
+    "situacao_cadastral": "ATIVA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2007-10-29",
+    "cnae_principal": {
+      "codigo": "4756300",
+      "descricao": "Comércio varejista especializado de instrumentos musicais e acessórios"
+    },
+    "setor": "COMÉRCIO; REPARAÇÃO DE VEÍCULOS AUTOMOTORES E MOTOCICLETAS",
+    "segmento": "COMÉRCIO VAREJISTA",
+    "grupo_cnae": "COMÉRCIO VAREJISTA DE EQUIPAMENTOS DE INFORMÁTICA E COMUNICAÇÃO; EQUIPAMENTOS E ARTIGOS DE USO DOMÉSTICO",
+    "classe_cnae": "COMÉRCIO VAREJISTA ESPECIALIZADO DE INSTRUMENTOS MUSICAIS E ACESSÓRIOS",
+    "porte": "MICRO EMPRESA",
+    "natureza_juridica": "Sociedade Empresária Limitada",
+    "regime_tributario": "Simples Nacional",
+    "simples_nacional": true,
+    "mei": false,
+    "capital_social": 11000.0,
+    "municipio": "SAO PAULO",
+    "uf": "SP",
+    "cep": "03164300",
+    "endereco": "RUA VISCONDE DE PARNAIBA 1724 MOOCA",
+    "email": null,
+    "telefone": "1126925313",
+    "cnaes_secundarios": [
+      {
+        "codigo": "9529199",
+        "descricao": "Reparação e manutenção de outros objetos e equipamentos pessoais e domésticos não especificados anteriormente"
+      }
+    ],
+    "socios": [
+      {
+        "nome": "GUILHERME HENRIQUE FERTONANI",
+        "qualificacao": "Sócio"
+      },
+      {
+        "nome": "RUBERVAL CESAR FERTONANI",
+        "qualificacao": "Sócio-Administrador"
+      }
+    ],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "12013278000182": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "12.013.278/0001-82",
+    "cnpj_limpo": "12013278000182",
+    "razao_social": "AGRO SAS LTDA",
+    "nome_fantasia": "AGRO SAS",
+    "situacao_cadastral": "ATIVA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2010-05-28",
+    "cnae_principal": {
+      "codigo": "7490103",
+      "descricao": "Serviços de agronomia e de consultoria às atividades agrícolas e pecuárias"
+    },
+    "setor": "ATIVIDADES PROFISSIONAIS, CIENTÍFICAS E TÉCNICAS",
+    "segmento": "OUTRAS ATIVIDADES PROFISSIONAIS, CIENTÍFICAS E TÉCNICAS",
+    "grupo_cnae": "ATIVIDADES PROFISSIONAIS, CIENTÍFICAS E TÉCNICAS NÃO ESPECIFICADAS ANTERIORMENTE",
+    "classe_cnae": "ATIVIDADES PROFISSIONAIS, CIENTÍFICAS E TÉCNICAS NÃO ESPECIFICADAS ANTERIORMENTE",
+    "porte": "EMPRESA DE PEQUENO PORTE",
+    "natureza_juridica": "Sociedade Empresária Limitada",
+    "regime_tributario": "Simples Nacional",
+    "simples_nacional": true,
+    "mei": false,
+    "capital_social": 75000.0,
+    "municipio": "SAO JOAO DEL REI",
+    "uf": "MG",
+    "cep": "36307372",
+    "endereco": "AVENIDA NOSSA SENHORA DO PILAR 291 CENTRO",
+    "email": null,
+    "telefone": "3233732568",
+    "cnaes_secundarios": [
+      {
+        "codigo": "4319300",
+        "descricao": "Serviços de preparação do terreno não especificados anteriormente"
+      },
+      {
+        "codigo": "6621501",
+        "descricao": "Peritos e avaliadores de seguros"
+      },
+      {
+        "codigo": "6821801",
+        "descricao": "Corretagem na compra e venda e avaliação de imóveis"
+      },
+      {
+        "codigo": "7112000",
+        "descricao": "Serviços de engenharia"
+      },
+      {
+        "codigo": "7119701",
+        "descricao": "Serviços de cartografia, topografia e geodésia"
+      },
+      {
+        "codigo": "7119702",
+        "descricao": "Atividades de estudos geológicos"
+      },
+      {
+        "codigo": "8211300",
+        "descricao": "Serviços combinados de escritório e apoio administrativo"
+      },
+      {
+        "codigo": "8219999",
+        "descricao": "Preparação de documentos e serviços especializados de apoio administrativo não especificados anteriormente"
+      },
+      {
+        "codigo": "8299799",
+        "descricao": "Outras atividades de serviços prestados principalmente às empresas não especificadas anteriormente"
+      },
+      {
+        "codigo": "8599604",
+        "descricao": "Treinamento em desenvolvimento profissional e gerencial"
+      }
+    ],
+    "socios": [
+      {
+        "nome": "ANDRE ASSIS MAFRA",
+        "qualificacao": "Sócio-Administrador"
+      },
+      {
+        "nome": "SAMUEL ANTONIO DE SOUSA",
+        "qualificacao": "Sócio-Administrador"
+      }
+    ],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "19129895000197": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "19.129.895/0001-97",
+    "cnpj_limpo": "19129895000197",
+    "razao_social": "A U CAMARA",
+    "nome_fantasia": "ITEMTUDO CEL",
+    "situacao_cadastral": "ATIVA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2013-10-23",
+    "cnae_principal": {
+      "codigo": "4752100",
+      "descricao": "Comércio varejista especializado de equipamentos de telefonia e comunicação"
+    },
+    "setor": "COMÉRCIO; REPARAÇÃO DE VEÍCULOS AUTOMOTORES E MOTOCICLETAS",
+    "segmento": "COMÉRCIO VAREJISTA",
+    "grupo_cnae": "COMÉRCIO VAREJISTA DE EQUIPAMENTOS DE INFORMÁTICA E COMUNICAÇÃO; EQUIPAMENTOS E ARTIGOS DE USO DOMÉSTICO",
+    "classe_cnae": "COMÉRCIO VAREJISTA ESPECIALIZADO DE EQUIPAMENTOS DE TELEFONIA E COMUNICAÇÃO",
+    "porte": "MICRO EMPRESA",
+    "natureza_juridica": "Empresário (Individual)",
+    "regime_tributario": "Simples Nacional",
+    "simples_nacional": true,
+    "mei": false,
+    "capital_social": 50000.0,
+    "municipio": "TERESINA",
+    "uf": "PI",
+    "cep": "64052675",
+    "endereco": "HORTO",
+    "email": null,
+    "telefone": null,
+    "cnaes_secundarios": [
+      {
+        "codigo": "4751201",
+        "descricao": "Comércio varejista especializado de equipamentos e suprimentos de informática"
+      },
+      {
+        "codigo": "4753900",
+        "descricao": "Comércio varejista especializado de eletrodomésticos e equipamentos de áudio e vídeo"
+      },
+      {
+        "codigo": "4757100",
+        "descricao": "Comércio varejista especializado de peças e acessórios para aparelhos eletroeletrônicos para uso doméstico, exceto informática e comunicação"
+      },
+      {
+        "codigo": "9512600",
+        "descricao": "Reparação e manutenção de equipamentos de comunicação"
+      }
+    ],
+    "socios": [],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "24219161000139": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "24.219.161/0001-39",
+    "cnpj_limpo": "24219161000139",
+    "razao_social": "MVIDAL COMERCIO DE MATERIAIS DE ESCRITORIO LTDA",
+    "nome_fantasia": "ALIMP",
+    "situacao_cadastral": "ATIVA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2016-02-19",
+    "cnae_principal": {
+      "codigo": "4761003",
+      "descricao": "Comércio varejista de artigos de papelaria"
+    },
+    "setor": "COMÉRCIO; REPARAÇÃO DE VEÍCULOS AUTOMOTORES E MOTOCICLETAS",
+    "segmento": "COMÉRCIO VAREJISTA",
+    "grupo_cnae": "COMÉRCIO VAREJISTA DE ARTIGOS CULTURAIS, RECREATIVOS E ESPORTIVOS",
+    "classe_cnae": "COMÉRCIO VAREJISTA DE LIVROS, JORNAIS, REVISTAS E PAPELARIA",
+    "porte": "MICRO EMPRESA",
+    "natureza_juridica": "Sociedade Empresária Limitada",
+    "regime_tributario": "Simples Nacional",
+    "simples_nacional": true,
+    "mei": false,
+    "capital_social": 20000.0,
+    "municipio": "DUQUE DE CAXIAS",
+    "uf": "RJ",
+    "cep": "25250410",
+    "endereco": "RUA MARCIO SANTOS DA SILVA 2062 XEREM",
+    "email": null,
+    "telefone": "2181310788",
+    "cnaes_secundarios": [
+      {
+        "codigo": "4772500",
+        "descricao": "Comércio varejista de cosméticos, produtos de perfumaria e de higiene pessoal"
+      }
+    ],
+    "socios": [
+      {
+        "nome": "MARCELLE DE SOUZA VIDAL",
+        "qualificacao": "Sócio-Administrador"
+      },
+      {
+        "nome": "RODRIGO MELLO DE SOUZA LOBO",
+        "qualificacao": "Sócio"
+      }
+    ],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "21613520000140": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "21.613.520/0001-40",
+    "cnpj_limpo": "21613520000140",
+    "razao_social": "VISION LINE TELECOM COMERCIO E SERVICOS LTDA",
+    "nome_fantasia": "VISION LINE TELECOM",
+    "situacao_cadastral": "ATIVA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2014-12-30",
+    "cnae_principal": {
+      "codigo": "4752100",
+      "descricao": "Comércio varejista especializado de equipamentos de telefonia e comunicação"
+    },
+    "setor": "COMÉRCIO; REPARAÇÃO DE VEÍCULOS AUTOMOTORES E MOTOCICLETAS",
+    "segmento": "COMÉRCIO VAREJISTA",
+    "grupo_cnae": "COMÉRCIO VAREJISTA DE EQUIPAMENTOS DE INFORMÁTICA E COMUNICAÇÃO; EQUIPAMENTOS E ARTIGOS DE USO DOMÉSTICO",
+    "classe_cnae": "COMÉRCIO VAREJISTA ESPECIALIZADO DE EQUIPAMENTOS DE TELEFONIA E COMUNICAÇÃO",
+    "porte": "MICRO EMPRESA",
+    "natureza_juridica": "Sociedade Empresária Limitada",
+    "regime_tributario": "Simples Nacional",
+    "simples_nacional": true,
+    "mei": false,
+    "capital_social": 10000.0,
+    "municipio": "SAO PAULO",
+    "uf": "SP",
+    "cep": "03543140",
+    "endereco": "RUA PEIROPOLIS 25 SALA 07 VILA GUILHERMINA",
+    "email": null,
+    "telefone": "1125713641",
+    "cnaes_secundarios": [
+      {
+        "codigo": "4321500",
+        "descricao": "Instalação e manutenção elétrica"
+      },
+      {
+        "codigo": "4619200",
+        "descricao": "Representantes comerciais e agentes do comércio de mercadorias em geral não especializado"
+      },
+      {
+        "codigo": "4652400",
+        "descricao": "Comércio atacadista de componentes eletrônicos e equipamentos de telefonia e comunicação"
+      },
+      {
+        "codigo": "4751201",
+        "descricao": "Comércio varejista especializado de equipamentos e suprimentos de informática"
+      },
+      {
+        "codigo": "6110899",
+        "descricao": "Serviços de telecomunicações por fio não especificados anteriormente"
+      },
+      {
+        "codigo": "6190601",
+        "descricao": "Provedores de acesso às redes de comunicações"
+      },
+      {
+        "codigo": "6190699",
+        "descricao": "Outras atividades de telecomunicações não especificadas anteriormente"
+      },
+      {
+        "codigo": "7490104",
+        "descricao": "Atividades de intermediação e agenciamento de serviços e negócios em geral, exceto imobiliários"
+      },
+      {
+        "codigo": "7733100",
+        "descricao": "Aluguel de máquinas e equipamentos para escritórios"
+      },
+      {
+        "codigo": "7739099",
+        "descricao": "Aluguel de outras máquinas e equipamentos comerciais e industriais não especificados anteriormente, sem operador"
+      },
+      {
+        "codigo": "9512600",
+        "descricao": "Reparação e manutenção de equipamentos de comunicação"
+      }
+    ],
+    "socios": [
+      {
+        "nome": "LUCIANA SANDES DO NASCIMENTO FAUSTO",
+        "qualificacao": "Sócio-Administrador"
+      },
+      {
+        "nome": "RAFAEL DO CARMO FAUSTO",
+        "qualificacao": "Sócio-Administrador"
+      }
+    ],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "08758874000114": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "08.758.874/0001-14",
+    "cnpj_limpo": "08758874000114",
+    "razao_social": "LC & CL ASSESSORIA E CONSULTORIA EM SEGURANCA DO TRABALHO LTDA",
+    "nome_fantasia": "SUPREMA SEGURANCA DO TRABALHO",
+    "situacao_cadastral": "ATIVA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2007-03-22",
+    "cnae_principal": {
+      "codigo": "8219999",
+      "descricao": "Preparação de documentos e serviços especializados de apoio administrativo não especificados anteriormente"
+    },
+    "setor": "ATIVIDADES ADMINISTRATIVAS E SERVIÇOS COMPLEMENTARES",
+    "segmento": "SERVIÇOS DE ESCRITÓRIO, DE APOIO ADMINISTRATIVO E OUTROS SERVIÇOS PRESTADOS PRINCIPALMENTE ÀS EMPRESAS",
+    "grupo_cnae": "SERVIÇOS DE ESCRITÓRIO E APOIO ADMINISTRATIVO",
+    "classe_cnae": "FOTOCÓPIAS, PREPARAÇÃO DE DOCUMENTOS E OUTROS SERVIÇOS ESPECIALIZADOS DE APOIO ADMINISTRATIVO",
+    "porte": "MICRO EMPRESA",
+    "natureza_juridica": "Sociedade Empresária Limitada",
+    "regime_tributario": "Simples Nacional",
+    "simples_nacional": true,
+    "mei": false,
+    "capital_social": 20000.0,
+    "municipio": "CONGONHAS",
+    "uf": "MG",
+    "cep": "36412082",
+    "endereco": "RUA ANESTOR PEREIRA DE SOUSA 187 NOVO BELVEDERE",
+    "email": null,
+    "telefone": "3137314311",
+    "cnaes_secundarios": [
+      {
+        "codigo": "7119704",
+        "descricao": "Serviços de perícia técnica relacionados à segurança do trabalho"
+      },
+      {
+        "codigo": "7490199",
+        "descricao": "Outras atividades profissionais, científicas e técnicas não especificadas anteriormente"
+      },
+      {
+        "codigo": "8299799",
+        "descricao": "Outras atividades de serviços prestados principalmente às empresas não especificadas anteriormente"
+      },
+      {
+        "codigo": "8599604",
+        "descricao": "Treinamento em desenvolvimento profissional e gerencial"
+      }
+    ],
+    "socios": [
+      {
+        "nome": "CLAUDIANE LINO COSTA",
+        "qualificacao": "Sócio"
+      },
+      {
+        "nome": "LUIZ CLAUDIO DA SILVA",
+        "qualificacao": "Sócio-Administrador"
+      }
+    ],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "21051318000171": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "21.051.318/0001-71",
+    "cnpj_limpo": "21051318000171",
+    "razao_social": "PROTEGIL SEGURANCA ELETRONICA LTDA",
+    "nome_fantasia": "PROTEGIL",
+    "situacao_cadastral": "ATIVA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2014-09-16",
+    "cnae_principal": {
+      "codigo": "4759899",
+      "descricao": "Comércio varejista de outros artigos de uso pessoal e doméstico não especificados anteriormente"
+    },
+    "setor": "COMÉRCIO; REPARAÇÃO DE VEÍCULOS AUTOMOTORES E MOTOCICLETAS",
+    "segmento": "COMÉRCIO VAREJISTA",
+    "grupo_cnae": "COMÉRCIO VAREJISTA DE EQUIPAMENTOS DE INFORMÁTICA E COMUNICAÇÃO; EQUIPAMENTOS E ARTIGOS DE USO DOMÉSTICO",
+    "classe_cnae": "COMÉRCIO VAREJISTA DE ARTIGOS DE USO DOMÉSTICO NÃO ESPECIFICADOS ANTERIORMENTE",
+    "porte": "MICRO EMPRESA",
+    "natureza_juridica": "Sociedade Empresária Limitada",
+    "regime_tributario": "Simples Nacional",
+    "simples_nacional": true,
+    "mei": false,
+    "capital_social": 100000.0,
+    "municipio": "CAMPO GRANDE",
+    "uf": "MS",
+    "cep": "79002100",
+    "endereco": "RUA JOAQUIM MURTINHO 200 CENTRO",
+    "email": null,
+    "telefone": "6792157417",
+    "cnaes_secundarios": [
+      {
+        "codigo": "4321500",
+        "descricao": "Instalação e manutenção elétrica"
+      },
+      {
+        "codigo": "4649402",
+        "descricao": "Comércio atacadista de aparelhos eletrônicos de uso pessoal e doméstico"
+      },
+      {
+        "codigo": "4649499",
+        "descricao": "Comércio atacadista de outros equipamentos e artigos de uso pessoal e doméstico não especificados anteriormente"
+      },
+      {
+        "codigo": "4651601",
+        "descricao": "Comércio atacadista de equipamentos de informática"
+      },
+      {
+        "codigo": "4665600",
+        "descricao": "Comércio atacadista de máquinas e equipamentos para uso comercial; partes e peças"
+      },
+      {
+        "codigo": "4751201",
+        "descricao": "Comércio varejista especializado de equipamentos e suprimentos de informática"
+      },
+      {
+        "codigo": "4753900",
+        "descricao": "Comércio varejista especializado de eletrodomésticos e equipamentos de áudio e vídeo"
+      },
+      {
+        "codigo": "8020001",
+        "descricao": "Atividades de monitoramento de sistemas de segurança eletrônico"
+      },
+      {
+        "codigo": "9511800",
+        "descricao": "Reparação e manutenção de computadores e de equipamentos periféricos"
+      },
+      {
+        "codigo": "9521500",
+        "descricao": "Reparação e manutenção de equipamentos eletroeletrônicos de uso pessoal e doméstico"
+      }
+    ],
+    "socios": [
+      {
+        "nome": "MARCOS FARIAS DA SILVA",
+        "qualificacao": "Sócio-Administrador"
+      }
+    ],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "17469498000139": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "17.469.498/0001-39",
+    "cnpj_limpo": "17469498000139",
+    "razao_social": "CEGT ACADEMIA DE ALTA GASTRONOMIA LTDA",
+    "nome_fantasia": "CENTRO EUROPEU",
+    "situacao_cadastral": "ATIVA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2012-12-19",
+    "cnae_principal": {
+      "codigo": "8599604",
+      "descricao": "Treinamento em desenvolvimento profissional e gerencial"
+    },
+    "setor": "EDUCAÇÃO",
+    "segmento": "EDUCAÇÃO",
+    "grupo_cnae": "OUTRAS ATIVIDADES DE ENSINO",
+    "classe_cnae": "ATIVIDADES DE ENSINO NÃO ESPECIFICADAS ANTERIORMENTE",
+    "porte": "DEMAIS",
+    "natureza_juridica": "Sociedade Empresária Limitada",
+    "regime_tributario": "LUCRO REAL",
+    "simples_nacional": null,
+    "mei": null,
+    "capital_social": 10000.0,
+    "municipio": "CURITIBA",
+    "uf": "PR",
+    "cep": "80730460",
+    "endereco": "RUA ALFERES ANGELO SAMPAIO 2575 BIGORRILHO",
+    "email": null,
+    "telefone": "4199459253",
+    "cnaes_secundarios": [
+      {
+        "codigo": "4781400",
+        "descricao": "Comércio varejista de artigos do vestuário e acessórios"
+      },
+      {
+        "codigo": "4761001",
+        "descricao": "Comércio varejista de livros"
+      },
+      {
+        "codigo": "4759899",
+        "descricao": "Comércio varejista de outros artigos de uso pessoal e doméstico não especificados anteriormente"
+      },
+      {
+        "codigo": "8599699",
+        "descricao": "Outras atividades de ensino não especificadas anteriormente"
+      }
+    ],
+    "socios": [
+      {
+        "nome": "CENTRO EUROPEU ESCOLA DE PROFISSOES E IDIOMAS LTDA",
+        "qualificacao": "Sócio"
+      },
+      {
+        "nome": "JOSE ELDIR OST",
+        "qualificacao": "Administrador"
+      }
+    ],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  },
+  "32251294000110": {
+    "fonte": "BrasilAPI / Minha Receita",
+    "cnpj": "32.251.294/0001-10",
+    "cnpj_limpo": "32251294000110",
+    "razao_social": "JOAO BAPTISTA BOMFIM PEREIRA NETO",
+    "nome_fantasia": "TECHSCREEN TECNOLOGIA EM TELAS",
+    "situacao_cadastral": "ATIVA",
+    "matriz_filial": "MATRIZ",
+    "data_abertura": "2018-12-13",
+    "cnae_principal": {
+      "codigo": "9512600",
+      "descricao": "Reparação e manutenção de equipamentos de comunicação"
+    },
+    "setor": "OUTRAS ATIVIDADES DE SERVIÇOS",
+    "segmento": "REPARAÇÃO E MANUTENÇÃO DE EQUIPAMENTOS DE INFORMÁTICA E COMUNICAÇÃO E DE OBJETOS PESSOAIS E DOMÉSTICOS",
+    "grupo_cnae": "REPARAÇÃO E MANUTENÇÃO DE EQUIPAMENTOS DE INFORMÁTICA E COMUNICAÇÃO",
+    "classe_cnae": "REPARAÇÃO E MANUTENÇÃO DE EQUIPAMENTOS DE COMUNICAÇÃO",
+    "porte": "MICRO EMPRESA",
+    "natureza_juridica": "Empresário (Individual)",
+    "regime_tributario": "Simples Nacional",
+    "simples_nacional": true,
+    "mei": false,
+    "capital_social": 10000.0,
+    "municipio": "SAO JOSE",
+    "uf": "SC",
+    "cep": "88117405",
+    "endereco": "BARREIROS",
+    "email": null,
+    "telefone": null,
+    "cnaes_secundarios": [
+      {
+        "codigo": "4752100",
+        "descricao": "Comércio varejista especializado de equipamentos de telefonia e comunicação"
+      },
+      {
+        "codigo": "4757100",
+        "descricao": "Comércio varejista especializado de peças e acessórios para aparelhos eletroeletrônicos para uso doméstico, exceto informática e comunicação"
+      },
+      {
+        "codigo": "4785799",
+        "descricao": "Comércio varejista de outros artigos usados"
+      }
+    ],
+    "socios": [],
+    "numero_colaboradores": null,
+    "numero_colaboradores_observacao": "Não disponível de forma confiável nas fontes públicas integradas. O dashboard não estima esse número para evitar informação inventada.",
+    "aviso_fonte": "Dados públicos podem ter alguma defasagem em relação à Receita Federal. Use a informação como enriquecimento cadastral, não como certidão oficial."
+  }
+}

@@ -45,26 +45,41 @@ def _create_source_engine() -> Engine:
 
 
 def _create_supabase_engine() -> Engine:
+    # O projeto usa o Shared Pooler do Supabase. Quando a configuração ainda
+    # estiver apontando para a porta 5432 (Session mode), trocamos
+    # automaticamente para 6543 (Transaction mode). Isso evita que o FastAPI
+    # e o sincronizador ocupem as 15 sessões disponíveis por longos períodos.
+    host = settings.supabase_db_host or None
+    configured_port = settings.supabase_db_port
+    use_transaction_pooler = bool(host and "pooler.supabase.com" in host and configured_port == 5432)
+    port = 6543 if use_transaction_pooler else configured_port
+
     url = URL.create(
         drivername="postgresql+psycopg",
         username=settings.supabase_db_user or None,
         password=settings.supabase_db_password or None,
-        host=settings.supabase_db_host or None,
-        port=settings.supabase_db_port,
+        host=host,
+        port=port,
         database=settings.supabase_db_name or None,
     )
 
     connect_args = {
         "sslmode": settings.supabase_db_sslmode,
+        # O Supavisor em transaction mode não deve usar prepared statements.
         "prepare_threshold": None,
+        "connect_timeout": 8,
     }
 
     return create_engine(
         url,
         pool_pre_ping=True,
-        pool_recycle=280,
-        pool_size=5,
-        max_overflow=10,
+        pool_recycle=120,
+        # Cada processo usa no máximo uma conexão do pooler. Assim o site pode
+        # ficar aberto enquanto o script de enriquecimento roda em paralelo.
+        pool_size=1,
+        max_overflow=0,
+        pool_timeout=10,
+        pool_use_lifo=True,
         connect_args=connect_args,
     )
 

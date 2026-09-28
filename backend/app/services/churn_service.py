@@ -53,6 +53,15 @@ CHURN_CLIENTS_SQL = text(
             e.empresa_indicacao_id,
             e.tipo_cobranca,
             e.ativou_em,
+            ep.cpf_cnpj,
+            (
+                SELECT nfs_doc.dest_cnpj
+                FROM notas_fiscais_servicos nfs_doc
+                WHERE nfs_doc.plano_id = ep.id
+                  AND nfs_doc.situacao < 4
+                ORDER BY nfs_doc.data_emissao DESC, nfs_doc.id DESC
+                LIMIT 1
+            ) AS dest_cnpj,
             CASE
                 WHEN e.modalidade = 'ERP' THEN 'GestãoClick'
                 WHEN e.modalidade IN ('NFE', 'FIS') THEN 'ClickNotas'
@@ -121,6 +130,8 @@ CHURN_CLIENTS_SQL = text(
             ce.origem,
             ce.pagador,
             ce.ativou_em,
+            ce.cpf_cnpj,
+            ce.dest_cnpj,
             ce.nome_plano,
             ce.duracao,
             ce.data_vencimento,
@@ -145,6 +156,8 @@ CHURN_CLIENTS_SQL = text(
             ce.origem,
             ce.pagador,
             ce.ativou_em,
+            ce.cpf_cnpj,
+            ce.dest_cnpj,
             ce.nome_plano,
             ce.duracao,
             ce.data_vencimento,
@@ -160,6 +173,8 @@ CHURN_CLIENTS_SQL = text(
         origem,
         pagador,
         ativou_em,
+        cpf_cnpj,
+        dest_cnpj,
         nome_plano,
         duracao,
         data_vencimento,
@@ -298,6 +313,8 @@ def _rows_to_payload(db_rows) -> list[dict]:
                 "empresa": str(row.get("empresa") or "Não informado"),
                 "origem": str(row.get("origem") or "Não informado"),
                 "pagador": str(row.get("pagador") or "Não informado"),
+                "cpf_cnpj": str(row.get("cpf_cnpj") or "").strip() or None,
+                "dest_cnpj": str(row.get("dest_cnpj") or "").strip() or None,
                 "nome_plano": str(row.get("nome_plano") or "Não informado"),
                 "duracao": str(row.get("duracao") or ""),
                 "duracao_label": _duration_label(row.get("duracao")),
