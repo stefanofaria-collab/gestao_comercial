@@ -42,6 +42,14 @@ SELECT_PROFILE_COLUMNS = """
     atualizado_em
 """
 
+SELECT_ANALYTICS_COLUMNS = """
+    cnpj,
+    regime_tributario,
+    porte,
+    setor,
+    segmento
+"""
+
 UPSERT_PROFILE_SQL = text(
     """
     INSERT INTO public.perfil_empresas_enriquecidas (
@@ -280,6 +288,81 @@ def get_business_profiles(cnpjs: list[str] | set[str] | tuple[str, ...]) -> dict
     return result
 
 
+def get_business_analytics_snapshot(
+    cnpjs: list[str] | set[str] | tuple[str, ...],
+) -> tuple[dict[str, dict], dict]:
+    """Lê do Supabase somente os campos usados nos gráficos de Perfil.
+
+    Os CNPJs relevantes são enviados como um array PostgreSQL e consultados em
+    uma única instrução. Não carregamos payload_bruto, sócios ou CNAEs
+    secundários nesta etapa, então a leitura fica pequena e rápida.
+    """
+    values = sorted({str(value) for value in cnpjs if value})
+    profiles: dict[str, dict] = {}
+
+    sql = text(
+        f"""
+        SELECT {SELECT_ANALYTICS_COLUMNS}
+        FROM public.perfil_empresas_enriquecidas
+        WHERE cnpj = ANY(CAST(:cnpjs AS text[]))
+          AND erro_ultima_consulta IS NULL
+        """
+    )
+
+    with supabase_engine.connect() as connection:
+        if values:
+            rows = connection.execute(sql, {"cnpjs": values}).mappings().all()
+            for row in rows:
+                cnpj = str(row["cnpj"])
+                profiles[cnpj] = {
+                    "cnpj_limpo": cnpj,
+                    "regime_tributario": row.get("regime_tributario"),
+                    "porte": row.get("porte"),
+                    "setor": row.get("setor"),
+                    "segmento": row.get("segmento"),
+                }
+
+        mapped_companies = int(connection.execute(
+            text("SELECT COUNT(*) FROM public.perfil_cliente_documentos")
+        ).scalar_one())
+        mapped_pj = int(connection.execute(text(
+            "SELECT COUNT(*) FROM public.perfil_cliente_documentos "
+            "WHERE cnpj_cadastro IS NOT NULL OR cnpj_nota IS NOT NULL"
+        )).scalar_one())
+        unique_cnpjs = int(connection.execute(text("""
+            SELECT COUNT(DISTINCT cnpj)
+            FROM (
+                SELECT cnpj_cadastro AS cnpj
+                FROM public.perfil_cliente_documentos
+                WHERE cnpj_cadastro IS NOT NULL
+                UNION ALL
+                SELECT cnpj_nota AS cnpj
+                FROM public.perfil_cliente_documentos
+                WHERE cnpj_nota IS NOT NULL
+            ) x
+        """)).scalar_one())
+        enriched = int(connection.execute(text(
+            "SELECT COUNT(*) FROM public.perfil_empresas_enriquecidas "
+            "WHERE erro_ultima_consulta IS NULL"
+        )).scalar_one())
+        failed = int(connection.execute(text(
+            "SELECT COUNT(*) FROM public.perfil_empresas_enriquecidas "
+            "WHERE erro_ultima_consulta IS NOT NULL"
+        )).scalar_one())
+
+    pending = max(0, unique_cnpjs - enriched)
+    status = {
+        "empresas_mapeadas": mapped_companies,
+        "empresas_com_cnpj": mapped_pj,
+        "cnpjs_unicos": unique_cnpjs,
+        "cnpjs_enriquecidos": enriched,
+        "cnpjs_com_erro": failed,
+        "cnpjs_pendentes": pending,
+        "percentual": round((enriched / unique_cnpjs * 100), 2) if unique_cnpjs else 0.0,
+    }
+    return profiles, status
+
+
 def upsert_business_profile(profile: dict, payload_bruto: dict | list | None = None, erro: str | None = None) -> None:
     now = datetime.now(timezone.utc)
     main_cnae = profile.get("cnae_principal") or {}
@@ -442,3 +525,55 @@ def get_sync_status() -> dict:
         "cnpjs_pendentes": pending,
         "percentual": round((enriched / unique_cnpjs * 100), 2) if unique_cnpjs else 0.0,
     }
+
+
+def get_business_filter_options() -> dict:
+    sql = text(
+        """
+        SELECT
+            ARRAY_REMOVE(ARRAY_AGG(DISTINCT regime_tributario ORDER BY regime_tributario), NULL) AS regimes,
+            ARRAY_REMOVE(ARRAY_AGG(DISTINCT porte ORDER BY porte), NULL) AS portes,
+            ARRAY_REMOVE(ARRAY_AGG(DISTINCT setor ORDER BY setor), NULL) AS setores,
+            ARRAY_REMOVE(ARRAY_AGG(DISTINCT segmento ORDER BY segmento), NULL) AS segmentos
+        FROM public.perfil_empresas_enriquecidas
+        WHERE erro_ultima_consulta IS NULL
+        """
+    )
+    with supabase_engine.connect() as connection:
+        row = connection.execute(sql).mappings().first() or {}
+    return {
+        "regimes": [str(value) for value in (row.get("regimes") or []) if value],
+        "portes": [str(value) for value in (row.get("portes") or []) if value],
+        "setores": [str(value) for value in (row.get("setores") or []) if value],
+        "segmentos": [str(value) for value in (row.get("segmentos") or []) if value],
+    }
+
+
+def get_matching_business_cnpjs(
+    regime_tributario: str = "",
+    porte: str = "",
+    setor: str = "",
+    segmento: str = "",
+) -> set[str]:
+    clauses = ["erro_ultima_consulta IS NULL"]
+    params: dict[str, str] = {}
+
+    filters = {
+        "regime_tributario": regime_tributario,
+        "porte": porte,
+        "setor": setor,
+        "segmento": segmento,
+    }
+    for field, value in filters.items():
+        cleaned = str(value or "").strip()
+        if cleaned:
+            clauses.append(f"LOWER({field}) LIKE LOWER(:{field})")
+            params[field] = f"%{cleaned}%"
+
+    sql = text(
+        "SELECT cnpj FROM public.perfil_empresas_enriquecidas WHERE "
+        + " AND ".join(clauses)
+    )
+    with supabase_engine.connect() as connection:
+        rows = connection.execute(sql, params).scalars().all()
+    return {str(value) for value in rows if value}

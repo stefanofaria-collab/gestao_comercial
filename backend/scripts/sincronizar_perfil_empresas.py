@@ -21,7 +21,7 @@ from app.repositories.perfil_supabase_repository import (
 from app.services.perfil_service import (
     PROFILE_EXCLUDED_COMPANY_IDS,
     _document_payload,
-    get_cnpj_profile,
+    enrich_cnpj_profile_for_sync,
 )
 
 
@@ -140,7 +140,7 @@ def enriquecer_cnpjs(limit: int | None, delay: float) -> None:
 
     for index, cnpj in enumerate(pending, start=1):
         try:
-            profile = get_cnpj_profile(cnpj, force_refresh=True)
+            profile = enrich_cnpj_profile_for_sync(cnpj)
             success += 1
             company = profile.get("nome_fantasia") or profile.get("razao_social") or "sem nome"
             print(f"[{index}/{total}] OK   {cnpj}  {company}")

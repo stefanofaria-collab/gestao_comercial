@@ -1,5 +1,6 @@
 from sqlalchemy import URL, create_engine, text
 from sqlalchemy.engine import Engine
+from sqlalchemy.pool import NullPool
 
 from app.config import settings
 
@@ -45,13 +46,16 @@ def _create_source_engine() -> Engine:
 
 
 def _create_supabase_engine() -> Engine:
-    # O projeto usa o Shared Pooler do Supabase. Quando a configuração ainda
-    # estiver apontando para a porta 5432 (Session mode), trocamos
-    # automaticamente para 6543 (Transaction mode). Isso evita que o FastAPI
-    # e o sincronizador ocupem as 15 sessões disponíveis por longos períodos.
+    # O Supabase usa Supavisor. O site trabalha em Transaction Mode (6543)
+    # e NÃO mantém um QueuePool local. Cada consulta abre uma conexão curta,
+    # usa o pooler do Supabase e libera imediatamente. Isso evita o erro
+    # "QueuePool limit reached" quando o sincronizador e o dashboard rodam
+    # ao mesmo tempo.
     host = settings.supabase_db_host or None
     configured_port = settings.supabase_db_port
-    use_transaction_pooler = bool(host and "pooler.supabase.com" in host and configured_port == 5432)
+    use_transaction_pooler = bool(
+        host and "pooler.supabase.com" in host and configured_port == 5432
+    )
     port = 6543 if use_transaction_pooler else configured_port
 
     url = URL.create(
@@ -67,19 +71,12 @@ def _create_supabase_engine() -> Engine:
         "sslmode": settings.supabase_db_sslmode,
         # O Supavisor em transaction mode não deve usar prepared statements.
         "prepare_threshold": None,
-        "connect_timeout": 8,
+        "connect_timeout": 10,
     }
 
     return create_engine(
         url,
-        pool_pre_ping=True,
-        pool_recycle=120,
-        # Cada processo usa no máximo uma conexão do pooler. Assim o site pode
-        # ficar aberto enquanto o script de enriquecimento roda em paralelo.
-        pool_size=1,
-        max_overflow=0,
-        pool_timeout=10,
-        pool_use_lifo=True,
+        poolclass=NullPool,
         connect_args=connect_args,
     )
 

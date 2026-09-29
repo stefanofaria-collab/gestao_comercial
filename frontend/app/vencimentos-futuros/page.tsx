@@ -1,5 +1,10 @@
 import AppShell from "@/components/layout/AppShell";
-import PlaceholderPage from "@/components/layout/PlaceholderPage";
+import VencimentosFuturosDashboard from "@/components/vencimentos-futuros/VencimentosFuturosDashboard";
+
 export default function VencimentosFuturosPage() {
-  return <AppShell><PlaceholderPage title="Vencimentos Futuros" description="Visão dos contratos e valores que vencem nos próximos períodos." /></AppShell>;
+  return (
+    <AppShell>
+      <VencimentosFuturosDashboard />
+    </AppShell>
+  );
 }

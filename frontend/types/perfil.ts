@@ -95,6 +95,7 @@ export type ProfileClient = {
   meses_cliente?: number;
   renovacoes?: number;
   ltv?: number;
+  ticket_medio?: number;
   valor_perdido?: number;
 };
 
@@ -205,3 +206,35 @@ export type ProfileBusinessAnalyticsResponse = {
   };
 };
 
+
+export type ProfileClientMetrics = {
+  empresa_id: number;
+  ultimo_vencimento: string | null;
+  ativou_em: string | null;
+  tempo_cliente_dias: number;
+  tempo_cliente_meses: number;
+  ltv: number;
+  ticket_medio: number;
+  qtd_pagamentos: number;
+  renovacoes: number;
+  reativacoes: number;
+  media_dias_pagamento_real: number | null;
+};
+
+export type ProfileFilterOptions = {
+  regimes_tributarios: string[];
+  portes: string[];
+  setores: string[];
+  segmentos: string[];
+  planos: string[];
+  duracoes: { value: string; label: string }[];
+};
+
+export type ProfileClientFilters = {
+  regime_tributario: string;
+  porte: string;
+  setor: string;
+  segmento: string;
+  plano: string;
+  duracao: string;
+};

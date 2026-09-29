@@ -15,15 +15,16 @@ from sqlalchemy import bindparam, text
 from app.constants import EXCLUDED_COMPANY_IDS
 from app.database import source_engine
 from app.repositories.perfil_supabase_repository import (
-    count_business_profiles,
+    get_business_analytics_snapshot,
+    get_business_filter_options,
     get_business_profile as get_business_profile_from_db,
-    get_business_profiles,
-    get_sync_status,
+    get_matching_business_cnpjs,
     mark_business_profile_error,
     upsert_business_profile,
     upsert_client_documents,
 )
 from app.services.churn_service import get_churn_dashboard
+from app.services.payment_metrics_service import get_payment_metric
 
 
 VALID_COMPANY_FILTERS = {"todos", "gestaoclick", "clicknotas"}
@@ -130,6 +131,48 @@ ACTIVE_CLIENTS_SQL = text(
     ORDER BY empresa_id
     """
 ).bindparams(bindparam("excluidos", expanding=True))
+
+
+PROFILE_PLAN_OPTIONS_SQL = text(
+    f"""
+    SELECT DISTINCT
+        REPLACE(REPLACE(ep.nome_plano, ' + recursos', ''), ' (+) recursos', '') AS nome_plano,
+        ep.duracao
+    FROM empresas_planos ep
+    JOIN empresas e ON e.id = ep.empresa_id
+    WHERE
+        ep.plano_id <> 1
+        AND ep.atual = 1
+        AND ep.nota_fiscal_servico_id IS NOT NULL
+        AND e.id NOT IN :excluidos
+        {DIMENSION_FILTER_SQL}
+    ORDER BY nome_plano, ep.duracao
+    """
+).bindparams(bindparam("excluidos", expanding=True))
+
+
+CLIENT_METRICS_BASE_SQL = text(
+    """
+    SELECT
+        e.id AS empresa_id,
+        e.ativou_em,
+        REPLACE(REPLACE(ep.nome_plano, ' + recursos', ''), ' (+) recursos', '') AS nome_plano,
+        ep.duracao,
+        ep.data_vencimento,
+        CASE
+            WHEN ep.plano_agregado > ep.valor THEN ep.plano_agregado
+            ELSE ep.valor
+        END AS valor
+    FROM empresas e
+    LEFT JOIN empresas_planos ep
+        ON ep.empresa_id = e.id
+       AND ep.plano_id <> 1
+       AND ep.nota_fiscal_servico_id IS NOT NULL
+    WHERE e.id = :empresa_id
+    ORDER BY ep.atual DESC, ep.data_vencimento DESC, ep.id DESC
+    LIMIT 1
+    """
+)
 
 
 def _validate(year: int, month: int, empresa: str, origem: str, pagador: str) -> None:
@@ -402,8 +445,16 @@ def get_perfil_clients(
     search: str = "",
     page: int = 1,
     limit: int = 50,
+    cnpj_source: str = "cadastro",
+    regime_tributario: str = "",
+    porte: str = "",
+    setor: str = "",
+    segmento: str = "",
+    plano: str = "",
+    duracao: str = "",
 ) -> dict:
     _validate(year, month, empresa, origem, pagador)
+    _validate_cnpj_source(cnpj_source)
     if grupo not in {"ativos", "churn"}:
         raise ValueError("Grupo inválido. Use ativos ou churn.")
     if page < 1:
@@ -416,6 +467,28 @@ def get_perfil_clients(
         churn = get_churn_dashboard(year, month, empresa, origem, pagador)
         rows = [_serialize_churn_client(row) for row in churn.get("clientes", [])]
 
+    plan_term = plano.strip().lower()
+    duration_term = duracao.strip().lower()
+    if plan_term:
+        rows = [row for row in rows if plan_term in str(row.get("nome_plano") or "").strip().lower()]
+    if duration_term:
+        rows = [
+            row for row in rows
+            if duration_term in str(row.get("duracao") or "").strip().lower()
+            or duration_term in str(row.get("duracao_label") or "").strip().lower()
+        ]
+
+    if any(str(value or "").strip() for value in (regime_tributario, porte, setor, segmento)):
+        matching_cnpjs = get_matching_business_cnpjs(
+            regime_tributario=regime_tributario,
+            porte=porte,
+            setor=setor,
+            segmento=segmento,
+        )
+        rows = [
+            row for row in rows
+            if (cnpj := _pick_analysis_cnpj(row, cnpj_source)) and cnpj in matching_cnpjs
+        ]
 
     term = search.strip().lower()
     if term:
@@ -440,6 +513,83 @@ def get_perfil_clients(
         "total": total,
         "total_paginas": max(1, (total + limit - 1) // limit),
         "clientes": rows[start:end],
+    }
+
+
+def get_perfil_filter_options(
+    year: int,
+    month: int,
+    empresa: str = "todos",
+    origem: str = "todos",
+    pagador: str = "todos",
+) -> dict:
+    _validate(year, month, empresa, origem, pagador)
+    business_options = get_business_filter_options()
+    with source_engine.connect() as connection:
+        rows = connection.execute(
+            PROFILE_PLAN_OPTIONS_SQL,
+            {
+                "empresa": empresa,
+                "origem": origem,
+                "pagador": pagador,
+                "excluidos": PROFILE_EXCLUDED_COMPANY_IDS,
+            },
+        ).mappings().all()
+
+    plans = sorted({str(row.get("nome_plano") or "").strip() for row in rows if str(row.get("nome_plano") or "").strip()})
+    duration_map = {}
+    for row in rows:
+        code = str(row.get("duracao") or "").strip()
+        if code:
+            duration_map[code] = _duration_label(code)
+
+    return {
+        "regimes_tributarios": business_options.get("regimes", []),
+        "portes": business_options.get("portes", []),
+        "setores": business_options.get("setores", []),
+        "segmentos": business_options.get("segmentos", []),
+        "planos": plans,
+        "duracoes": [
+            {"value": code, "label": label}
+            for code, label in sorted(duration_map.items(), key=lambda item: item[1])
+        ],
+    }
+
+
+def get_perfil_client_metrics(empresa_id: int, status_base: str = "Ativo") -> dict:
+    if empresa_id <= 0:
+        raise ValueError("ID do cliente inválido.")
+
+    with source_engine.connect() as connection:
+        row = connection.execute(CLIENT_METRICS_BASE_SQL, {"empresa_id": empresa_id}).mappings().first()
+
+    if not row:
+        raise ValueError("Cliente não encontrado.")
+
+    activated_at = row.get("ativou_em")
+    due_date = row.get("data_vencimento")
+    if hasattr(activated_at, "date"):
+        activated_at = activated_at.date()
+    if hasattr(due_date, "date"):
+        due_date = due_date.date()
+
+    end_date = due_date if status_base.lower() == "churn" and due_date else date.today()
+    days_as_client = max((end_date - activated_at).days, 0) if activated_at else 0
+    months_as_client = round(days_as_client / 30.4375, 1) if days_as_client else 0.0
+
+    payment = get_payment_metric(empresa_id)
+    return {
+        "empresa_id": empresa_id,
+        "ultimo_vencimento": due_date.isoformat() if due_date else None,
+        "ativou_em": activated_at.isoformat() if activated_at else None,
+        "tempo_cliente_dias": days_as_client,
+        "tempo_cliente_meses": months_as_client,
+        "ltv": round(float(payment.get("ltv") or 0), 2),
+        "ticket_medio": round(float(payment.get("ticket_medio") or 0), 2),
+        "qtd_pagamentos": int(payment.get("qtd_pagamentos") or 0),
+        "renovacoes": int(payment.get("renovacoes_realizadas") or 0),
+        "reativacoes": int(payment.get("reativacoes") or 0),
+        "media_dias_pagamento_real": payment.get("media_dias_pagamento_real"),
     }
 
 
@@ -615,21 +765,74 @@ def _normalize_cnpjws(payload: dict, cnpj: str) -> dict:
 
 
 def get_cnpj_profile(cnpj: str, force_refresh: bool = False) -> dict:
+    """Usado pelo SITE: consulta SOMENTE o banco Gestão Comercial.
+
+    O parâmetro force_refresh é mantido apenas por compatibilidade com versões
+    anteriores, mas nunca provoca chamada externa quando esta função é usada
+    pelo FastAPI.
+    """
     cleaned = _clean_document(cnpj)
     if len(cleaned) != 14 or not cleaned.isalnum():
         raise ValueError("CNPJ inválido. Informe 14 caracteres.")
 
-    # A aplicação web não consulta mais APIs externas. Enquanto o processo de
-    # sincronização roda em paralelo, o site exibe apenas CNPJs que já foram
-    # enriquecidos e persistidos no Supabase.
     stored = get_business_profile_from_db(cleaned)
     if isinstance(stored, dict):
         return stored
 
     raise RuntimeError(
-        "Este CNPJ ainda não foi enriquecido no banco Gestão Comercial. "
-        "Aguarde o processo de sincronização e use o botão 'Atualizar dados do banco'."
+        "Este CNPJ ainda não possui dados enriquecidos no banco Gestão Comercial."
     )
+
+
+def enrich_cnpj_profile_for_sync(cnpj: str) -> dict:
+    """Usado SOMENTE pelo sincronizador em PowerShell/Python.
+
+    Esta é a única função que consulta fontes externas. Cada sucesso é gravado
+    imediatamente no Supabase para que o site consuma apenas o banco.
+    """
+    cleaned = _clean_document(cnpj)
+    if len(cleaned) != 14 or not cleaned.isalnum():
+        raise ValueError("CNPJ inválido. Informe 14 caracteres.")
+
+    errors: list[str] = []
+    try:
+        payload = _fetch_json(
+            f"https://brasilapi.com.br/api/cnpj/v1/{quote(cleaned)}",
+            timeout=12,
+        )
+        if isinstance(payload, dict):
+            result = _normalize_brasilapi(payload, cleaned)
+            result["aviso_fonte"] = (
+                "Dados públicos podem ter alguma defasagem. "
+                "A resposta foi persistida no Supabase do projeto Gestão Comercial."
+            )
+            upsert_business_profile(result, payload_bruto=payload)
+            return result
+    except (HTTPError, URLError, TimeoutError, ValueError, json.JSONDecodeError) as exc:
+        errors.append(f"BrasilAPI: {type(exc).__name__}")
+
+    try:
+        payload = _fetch_json(
+            f"https://publica.cnpj.ws/cnpj/{quote(cleaned)}",
+            timeout=12,
+        )
+        if isinstance(payload, dict):
+            result = _normalize_cnpjws(payload, cleaned)
+            result["aviso_fonte"] = (
+                "Dados públicos podem ter alguma defasagem. "
+                "A resposta foi persistida no Supabase do projeto Gestão Comercial."
+            )
+            upsert_business_profile(result, payload_bruto=payload)
+            return result
+    except (HTTPError, URLError, TimeoutError, ValueError, json.JSONDecodeError) as exc:
+        errors.append(f"CNPJ.ws: {type(exc).__name__}")
+
+    message = "Não foi possível consultar o CNPJ nas fontes públicas integradas. " + "; ".join(errors)
+    try:
+        mark_business_profile_error(cleaned, message)
+    except Exception:
+        pass
+    raise RuntimeError(message)
 
 
 def _validate_cnpj_source(value: str) -> None:
@@ -781,20 +984,19 @@ def get_perfil_empresarial(
     active_rows, churn_rows = _profile_rows_for_analysis(year, month, empresa, origem, pagador)
 
     relevant_cnpjs = _collect_analysis_cnpjs([*active_rows, *churn_rows], cnpj_source)
-    stored_profiles = get_business_profiles(relevant_cnpjs)
-    cache = {
-        cnpj: profile
-        for cnpj, profile in stored_profiles.items()
-        if not profile.get("erro_ultima_consulta")
-    }
+
+    # Esta leitura vem EXCLUSIVAMENTE do Supabase. A função abaixo seleciona
+    # apenas os campos usados nos gráficos e devolve o status da carga usando
+    # a mesma conexão curta, reduzindo bastante o tempo e a concorrência.
+    cache, sync_status = get_business_analytics_snapshot(relevant_cnpjs)
 
     return {
         "fonte_cnpj": cnpj_source,
-        "sincronizacao_global": get_sync_status(),
+        "sincronizacao_global": sync_status,
         "cobertura": {
             "ativos": _business_coverage(active_rows, cache, cnpj_source),
             "churn": _business_coverage(churn_rows, cache, cnpj_source),
-            "banco_cnpjs": count_business_profiles(),
+            "banco_cnpjs": sync_status.get("cnpjs_enriquecidos", 0),
         },
         "regime_tributario": _comparison_categories(active_rows, churn_rows, cache, cnpj_source, "regime_tributario"),
         "porte": _comparison_categories(active_rows, churn_rows, cache, cnpj_source, "porte"),

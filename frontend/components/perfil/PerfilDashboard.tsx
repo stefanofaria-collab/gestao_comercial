@@ -20,8 +20,10 @@ import {
   enrichProfileBusinessAnalytics,
   fetchCnpjProfile,
   fetchProfileBusinessAnalytics,
+  fetchProfileClientMetrics,
   fetchProfileClients,
   fetchProfileDashboard,
+  fetchProfileFilterOptions,
 } from "@/lib/perfil-api";
 import type {
   CompanyProfile,
@@ -32,8 +34,11 @@ import type {
   ProfileBusinessTopItem,
   PersonTypeSummary,
   ProfileClient,
+  ProfileClientFilters,
   ProfileClientListResponse,
+  ProfileClientMetrics,
   ProfileDashboardResponse,
+  ProfileFilterOptions,
 } from "@/types/perfil";
 
 const ReactECharts = dynamic(() => import("echarts-for-react"), { ssr: false });
@@ -80,6 +85,19 @@ function formatDate(value: string | null | undefined) {
   const parts = value.slice(0, 10).split("-");
   if (parts.length !== 3) return value;
   return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
+function formatTenure(months: number) {
+  if (!Number.isFinite(months) || months <= 0) return "0 meses";
+  if (months < 12) return `${number2.format(months)} meses`;
+  return `${number2.format(months / 12)} anos`;
+}
+
+function paymentAverageText(value: number | null | undefined) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "Sem histórico de renovação";
+  if (value < 0) return `${number2.format(Math.abs(value))} dias antes do vencimento`;
+  if (value > 0) return `${number2.format(value)} dias depois do vencimento`;
+  return "Pagamento no vencimento";
 }
 
 function HelpTip({ text }: { text: string }) {
@@ -457,22 +475,54 @@ function ClientModal({ client, onClose }: { client: ProfileClient; onClose: () =
   const [company, setCompany] = useState<CompanyProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [metrics, setMetrics] = useState<ProfileClientMetrics | null>(null);
+  const [metricsLoading, setMetricsLoading] = useState(false);
 
   useEffect(() => {
     if (!selectedCnpj) {
       setCompany(null);
       return;
     }
+
+    const controller = new AbortController();
     let active = true;
     setLoading(true);
     setError(null);
     setCompany(null);
-    fetchCnpjProfile(selectedCnpj)
+
+    fetchCnpjProfile(selectedCnpj, controller.signal)
       .then((response) => active && setCompany(response))
-      .catch((err) => active && setError(err instanceof Error ? err.message : "Erro ao consultar o CNPJ."))
+      .catch((err) => {
+        if (!active || controller.signal.aborted) return;
+        setError(err instanceof Error ? err.message : "Erro ao consultar o CNPJ no banco.");
+      })
       .finally(() => active && setLoading(false));
-    return () => { active = false; };
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, [selectedCnpj]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+    setMetricsLoading(true);
+    setMetrics(null);
+
+    fetchProfileClientMetrics(client.empresa_id, client.status_base, controller.signal)
+      .then((response) => active && setMetrics(response))
+      .catch(() => {
+        if (!active || controller.signal.aborted) return;
+        setMetrics(null);
+      })
+      .finally(() => active && setMetricsLoading(false));
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [client.empresa_id, client.status_base]);
 
   const intranet = `https://intranet.clickdigital.com.br/clientes/visualizar/${client.empresa_id}?aba=5`;
 
@@ -505,11 +555,22 @@ function ClientModal({ client, onClose }: { client: ProfileClient; onClose: () =
             <Kpi title="Valor do plano" value={formatMoney(client.valor)} subtitle={client.status_base === "Ativo" ? "Valor atual do plano." : "Valor do último plano antes do churn."} helpText="Mostra o valor financeiro associado ao plano usado nesta análise." />
           </div>
 
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Kpi title="Último vencimento" value={metricsLoading ? "Carregando..." : formatDate(client.status_base === "Churn" ? client.data_vencimento : metrics?.ultimo_vencimento)} subtitle="Data de vencimento do plano mais recente do cliente." helpText="Mostra o vencimento mais recente encontrado para o cliente." />
+            <Kpi title="Tempo como cliente" value={metricsLoading ? "Carregando..." : formatTenure(client.status_base === "Churn" ? (client.meses_cliente ?? 0) : (metrics?.tempo_cliente_meses ?? 0))} subtitle={metrics ? `${formatInteger(client.status_base === "Churn" ? Math.round((client.meses_cliente ?? 0) * 30.4375) : metrics.tempo_cliente_dias)} dias aproximadamente.` : ""} helpText="Mostra há quanto tempo o cliente está ou ficou conosco, usando a data de ativação como início." />
+            <Kpi title="Renovações" value={metricsLoading ? "Carregando..." : formatInteger(client.status_base === "Churn" ? (client.renovacoes ?? 0) : (metrics?.renovacoes ?? 0))} subtitle="Quantidade de renovações registradas no histórico." helpText="Mostra quantas vezes o cliente voltou a pagar um novo ciclo depois da primeira contratação." />
+            <Kpi title="Reativações" value={metricsLoading ? "Carregando..." : formatInteger(metrics?.reativacoes ?? 0)} subtitle="Retornos após 60 dias ou mais sem renovação." helpText="Uma reativação acontece quando o cliente já havia sido considerado churn, por ficar 60 dias ou mais sem renovar, e depois voltou." />
+            <Kpi title="LTV" value={metricsLoading ? "Carregando..." : formatMoney(client.status_base === "Churn" ? (client.ltv ?? 0) : (metrics?.ltv ?? 0))} subtitle="Tudo o que o cliente pagou em planos no histórico." helpText="LTV é quanto dinheiro o cliente deixou ao longo de todo o relacionamento conosco." />
+            <Kpi title="Ticket médio" value={metricsLoading ? "Carregando..." : formatMoney(client.status_base === "Churn" ? (client.ticket_medio ?? 0) : (metrics?.ticket_medio ?? 0))} subtitle="Valor médio dos pagamentos históricos." helpText="É a média do valor pago em cada contratação ou renovação do cliente." />
+            <Kpi title="Média real de pagamento" value={metricsLoading ? "Carregando..." : paymentAverageText(metrics?.media_dias_pagamento_real)} subtitle="Reativações não entram nesta média." helpText="Mostra, em média, quantos dias antes ou depois do vencimento o cliente renova. Quando uma volta aconteceu após 60 dias, esse período não é tratado como atraso: é uma reativação e fica fora da média." />
+            <Kpi title="Pagamentos encontrados" value={metricsLoading ? "Carregando..." : formatInteger(metrics?.qtd_pagamentos ?? 0)} subtitle="Inclui a primeira contratação e os ciclos seguintes." helpText="É a quantidade total de pagamentos de planos encontrados para este cliente." />
+          </div>
+
           <div className="rounded-2xl border border-slate-200 p-5">
             <SectionTitle
               title="Dados públicos da empresa"
-              subtitle="Esta tela mostra somente CNPJs que já foram enriquecidos e gravados no Supabase do Gestão Comercial."
-              helpText="O site não consulta mais APIs externas quando você abre um cliente. Ele apenas busca no nosso banco os dados empresariais que já foram enriquecidos pelo processo de sincronização."
+              subtitle="Informações cadastrais disponíveis para o CNPJ selecionado."
+              helpText="Ao abrir um cliente, esta área lê os dados empresariais que já estão disponíveis no banco do projeto."
             />
 
             {cnpjOptions.length > 1 && (
@@ -533,11 +594,11 @@ function ClientModal({ client, onClose }: { client: ProfileClient; onClose: () =
 
             {cnpjOptions.length === 0 && (
               <div className="rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-                Não existe um CNPJ consultável para este cliente. Se o cadastro for CPF, não há dados empresariais para buscar no Supabase.
+                Não existe um CNPJ consultável para este cliente. Se o cadastro for CPF, não há dados empresariais disponíveis.
               </div>
             )}
 
-            {loading && <LoadingBlock text="Buscando os dados já enriquecidos no Supabase..." />}
+            {loading && <LoadingBlock text="Buscando os dados empresariais no banco..." />}
             {error && <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</div>}
 
             {company && !loading && (
@@ -631,6 +692,15 @@ export default function PerfilDashboard() {
   const [businessUpdating, setBusinessUpdating] = useState(false);
   const [businessError, setBusinessError] = useState<string | null>(null);
   const [cnpjSource, setCnpjSource] = useState<"cadastro" | "nota">("cadastro");
+  const [filterOptions, setFilterOptions] = useState<ProfileFilterOptions | null>(null);
+  const [clientFilters, setClientFilters] = useState<ProfileClientFilters>({
+    regime_tributario: "",
+    porte: "",
+    setor: "",
+    segmento: "",
+    plano: "",
+    duracao: "",
+  });
 
   const years = useMemo(() => Array.from({ length: currentYear - 2024 + 1 }, (_, index) => 2024 + index), [currentYear]);
 
@@ -639,55 +709,97 @@ export default function PerfilDashboard() {
       setMonth(currentMonth);
       return;
     }
+
+    const controller = new AbortController();
     let active = true;
     setLoading(true);
     setError(null);
-    fetchProfileDashboard(year, month, filters)
+
+    fetchProfileDashboard(year, month, filters, controller.signal)
       .then((response) => active && setData(response))
-      .catch((err) => active && setError(err instanceof Error ? err.message : "Erro ao carregar o perfil."))
+      .catch((err) => {
+        if (!active || controller.signal.aborted) return;
+        setError(err instanceof Error ? err.message : "Erro ao carregar o perfil.");
+      })
       .finally(() => active && setLoading(false));
-    return () => { active = false; };
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, [year, month, currentYear, currentMonth, filters, reloadKey]);
 
   useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+    fetchProfileFilterOptions(year, month, filters, controller.signal)
+      .then((response) => active && setFilterOptions(response))
+      .catch(() => active && setFilterOptions(null));
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [year, month, filters, reloadKey]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+
     const timer = globalThis.setTimeout(() => {
-      let active = true;
       setClientsLoading(true);
-      fetchProfileClients(year, month, filters, group, search, page, 50)
+      fetchProfileClients(year, month, filters, group, search, page, 50, controller.signal, clientFilters, cnpjSource)
         .then((response) => active && setClientList(response))
-        .catch(() => active && setClientList(null))
+        .catch(() => {
+          if (!active || controller.signal.aborted) return;
+          setClientList(null);
+        })
         .finally(() => active && setClientsLoading(false));
-      return () => { active = false; };
     }, 250);
-    return () => globalThis.clearTimeout(timer);
-  }, [year, month, filters, group, search, page]);
+
+    return () => {
+      active = false;
+      controller.abort();
+      globalThis.clearTimeout(timer);
+    };
+  }, [year, month, filters, group, search, page, clientFilters, cnpjSource]);
 
 
   useEffect(() => {
+    const controller = new AbortController();
     let active = true;
     setBusinessLoading(true);
     setBusinessError(null);
-    fetchProfileBusinessAnalytics(year, month, filters, cnpjSource)
+
+    fetchProfileBusinessAnalytics(year, month, filters, cnpjSource, controller.signal)
       .then((response) => active && setBusinessData(response))
-      .catch((err) => active && setBusinessError(err instanceof Error ? err.message : "Erro ao carregar os dados empresariais."))
+      .catch((err) => {
+        if (!active || controller.signal.aborted) return;
+        setBusinessError(err instanceof Error ? err.message : "Erro ao carregar os dados empresariais do banco.");
+      })
       .finally(() => active && setBusinessLoading(false));
-    return () => { active = false; };
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, [year, month, filters, cnpjSource, reloadKey]);
 
   async function updateBusinessData() {
+    if (businessUpdating || businessLoading) return;
+
     setBusinessUpdating(true);
     setBusinessError(null);
     try {
       const response = await enrichProfileBusinessAnalytics(year, month, filters, cnpjSource, 50);
       setBusinessData(response);
     } catch (err) {
-      setBusinessError(err instanceof Error ? err.message : "Erro ao atualizar os dados do Supabase.");
+      setBusinessError(err instanceof Error ? err.message : "Erro ao reler os dados empresariais do banco.");
     } finally {
       setBusinessUpdating(false);
     }
   }
 
-  useEffect(() => { setPage(1); }, [group, search, year, month, filters]);
+  useEffect(() => { setPage(1); }, [group, search, year, month, filters, clientFilters, cnpjSource]);
 
   const pj = person(data, "PJ");
   const pf = person(data, "PF");
@@ -731,7 +843,7 @@ export default function PerfilDashboard() {
             <p className="text-sm font-medium text-blue-600">Gestão Comercial</p>
             <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-950">Perfil dos clientes</h1>
             <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-500">
-              Esta página compara quem continua ativo com quem entrou em churn e usa somente os CNPJs que já foram enriquecidos e salvos no Supabase do Gestão Comercial.
+              Esta página compara quem continua ativo com quem entrou em churn e usa as informações empresariais disponíveis no banco do projeto.
             </p>
           </div>
           <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
@@ -829,8 +941,8 @@ export default function PerfilDashboard() {
                 <div>
                   <SectionTitle
                     title="Perfil empresarial dos clientes"
-                    subtitle="Regime tributário, porte, setores e segmentos usam dados públicos de CNPJ salvos no Supabase do Gestão Comercial."
-                    helpText="Estes gráficos usam somente os CNPJs que o sincronizador já gravou no Supabase. Conforme a carga avança, clique em Atualizar dados do banco para incluir os novos registros nas análises."
+                    subtitle="Regime tributário, porte, setores e segmentos dos clientes com informações empresariais disponíveis."
+                    helpText="Os gráficos usam as informações empresariais que já estão disponíveis no banco. O botão Atualizar dados do banco relê os registros mais recentes."
                   />
                   {businessData && (
                     <div className="space-y-1 text-xs text-slate-500">
@@ -839,7 +951,7 @@ export default function PerfilDashboard() {
                         {' '}Cobertura do churn: <strong>{formatInteger(businessData.cobertura.churn.clientes_enriquecidos)}</strong> de {formatInteger(businessData.cobertura.churn.clientes_com_cnpj)} ({number2.format(businessData.cobertura.churn.percentual)}%).
                       </p>
                       <p>
-                        Supabase geral: <strong>{formatInteger(businessData.sincronizacao_global.cnpjs_enriquecidos)}</strong> de {formatInteger(businessData.sincronizacao_global.cnpjs_unicos)} CNPJs enriquecidos ({number2.format(businessData.sincronizacao_global.percentual)}%).
+                        Base empresarial: <strong>{formatInteger(businessData.sincronizacao_global.cnpjs_enriquecidos)}</strong> de {formatInteger(businessData.sincronizacao_global.cnpjs_unicos)} CNPJs enriquecidos ({number2.format(businessData.sincronizacao_global.percentual)}%).
                         {' '}Pendentes: <strong>{formatInteger(businessData.sincronizacao_global.cnpjs_pendentes)}</strong>.
                       </p>
                     </div>
@@ -853,16 +965,13 @@ export default function PerfilDashboard() {
                       <option value="nota">Emissão da nota fiscal</option>
                     </select>
                   </label>
-                  <button type="button" onClick={updateBusinessData} disabled={businessUpdating} className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
-                    {businessUpdating ? "Atualizando dados..." : "Atualizar dados do banco"}
+                  <button type="button" onClick={updateBusinessData} disabled={businessUpdating || businessLoading} className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
+                    {businessUpdating ? "Atualizando dados..." : businessLoading ? "Carregando banco..." : "Atualizar dados do banco"}
                   </button>
                 </div>
               </div>
-              <div className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
-                Esta área mostra somente CNPJs que já existem na tabela de enriquecimento do Supabase. O processo de carga continua separado no PowerShell. Use o botão acima para reler o banco e incluir imediatamente os novos CNPJs que já tiverem sido gravados pelo sincronizador. Se cadastro e nota tiverem CNPJs diferentes, o seletor acima define qual documento será usado nestes gráficos.
-              </div>
               {businessError && <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{businessError}</div>}
-              {businessData && <div className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-600">Banco enriquecido até agora: {formatInteger(businessData.sincronizacao_global.cnpjs_enriquecidos)} de {formatInteger(businessData.sincronizacao_global.cnpjs_unicos)} CNPJs únicos ({formatNumber2(businessData.sincronizacao_global.percentual)}%).</div>}
+              {businessData && <div className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-600">CNPJs disponíveis no banco: {formatInteger(businessData.sincronizacao_global.cnpjs_enriquecidos)} de {formatInteger(businessData.sincronizacao_global.cnpjs_unicos)} CNPJs únicos ({formatNumber2(businessData.sincronizacao_global.percentual)}%).</div>}
             </div>
 
             {businessLoading && <div className="mt-6"><LoadingBlock text="Carregando o perfil empresarial já enriquecido..." /></div>}
@@ -892,9 +1001,9 @@ export default function PerfilDashboard() {
                   <div className="flex items-center gap-2">
                     <h2 className="font-semibold text-slate-950">Consultar clientes e dados da empresa</h2>
                     <MousePointerClick className="text-blue-600" size={15} />
-                    <HelpTip text="Clique em um cliente para abrir o perfil. Se o CNPJ já estiver enriquecido no Supabase, os dados empresariais serão exibidos. Caso ainda esteja na fila de sincronização, o dashboard avisa que os dados ainda não chegaram ao banco." />
+                    <HelpTip text="Clique em um cliente para abrir o perfil e visualizar as informações empresariais disponíveis no banco." />
                   </div>
-                  <p className="mt-1 text-xs text-slate-500">Abrir um cliente não chama APIs externas. O dashboard consulta somente o que já foi salvo no Supabase.</p>
+                  <p className="mt-1 text-xs text-slate-500">Ao abrir um cliente, o dashboard consulta as informações já gravadas no banco do projeto.</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button type="button" onClick={() => setGroup("ativos")} className={`rounded-xl px-4 py-2 text-sm font-semibold ${group === "ativos" ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-600"}`}>Base ativa</button>
@@ -906,6 +1015,45 @@ export default function PerfilDashboard() {
                 <div className="relative max-w-xl">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
                   <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por ID, plano, CNPJ, empresa ou origem..." className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+
+                <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+                  {[
+                    { key: "regime_tributario", label: "Regime tributário", options: filterOptions?.regimes_tributarios ?? [] },
+                    { key: "porte", label: "Porte", options: filterOptions?.portes ?? [] },
+                    { key: "setor", label: "Setor", options: filterOptions?.setores ?? [] },
+                    { key: "segmento", label: "Segmento", options: filterOptions?.segmentos ?? [] },
+                    { key: "plano", label: "Plano", options: filterOptions?.planos ?? [] },
+                    { key: "duracao", label: "Duração", options: (filterOptions?.duracoes ?? []).map((item) => item.label) },
+                  ].map((field) => {
+                    const listId = `perfil-filter-${field.key}`;
+                    return (
+                      <label key={field.key} className="grid gap-1 text-xs font-semibold text-slate-500">
+                        {field.label}
+                        <input
+                          list={listId}
+                          value={clientFilters[field.key as keyof ProfileClientFilters]}
+                          onChange={(event) => setClientFilters((current) => ({ ...current, [field.key]: event.target.value }))}
+                          placeholder={`Digite para buscar ${field.label.toLowerCase()}...`}
+                          className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <datalist id={listId}>
+                          {field.options.map((option) => <option key={option} value={option} />)}
+                        </datalist>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <p className="text-xs text-slate-400">Digite nos filtros e o navegador sugere as opções já disponíveis no banco.</p>
+                  <button
+                    type="button"
+                    onClick={() => setClientFilters({ regime_tributario: "", porte: "", setor: "", segmento: "", plano: "", duracao: "" })}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                  >
+                    Limpar filtros
+                  </button>
                 </div>
               </div>
 
