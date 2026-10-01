@@ -51,6 +51,7 @@ GENERAL_TOTAL_SQL = text(
     WHERE
         nfs.empresa_id = 1
         AND nfs.situacao < 4
+        AND nfs.data_emissao_ano BETWEEN :ano_inicio AND :ano_fim
         AND nfs.data_emissao >= :data_inicio
         AND nfs.data_emissao < :data_fim
     """
@@ -67,6 +68,7 @@ FILTERED_TOTAL_SQL = text(
     WHERE
         nfs.empresa_id = 1
         AND nfs.situacao < 4
+        AND nfs.data_emissao_ano BETWEEN :ano_inicio AND :ano_fim
         AND nfs.data_emissao >= :data_inicio
         AND nfs.data_emissao < :data_fim
         AND e.id NOT IN :excluidos
@@ -115,6 +117,7 @@ PLAN_COMPARE_SQL = text(
     WHERE
         nfs.empresa_id = 1
         AND nfs.situacao < 4
+        AND nfs.data_emissao_ano BETWEEN :ano_inicio AND :ano_fim
         AND nfs.data_emissao >= :data_anterior_inicio
         AND nfs.data_emissao < :data_fim
         AND e.id NOT IN :excluidos
@@ -151,6 +154,7 @@ PLAN_DETAIL_DURATION_SQL = text(
     WHERE
         nfs.empresa_id = 1
         AND nfs.situacao < 4
+        AND nfs.data_emissao_ano BETWEEN :ano_inicio AND :ano_fim
         AND nfs.data_emissao >= :data_anterior_inicio
         AND nfs.data_emissao < :data_fim
         AND e.id NOT IN :excluidos
@@ -174,6 +178,7 @@ PLAN_12M_HISTORY_SQL = text(
     WHERE
         nfs.empresa_id = 1
         AND nfs.situacao < 4
+        AND nfs.data_emissao_ano BETWEEN :ano_inicio AND :ano_fim
         AND nfs.data_emissao >= :data_inicio
         AND nfs.data_emissao < :data_fim
         AND e.id NOT IN :excluidos
@@ -195,6 +200,7 @@ HISTORY_GENERAL_SQL = text(
     WHERE
         nfs.empresa_id = 1
         AND nfs.situacao < 4
+        AND nfs.data_emissao_ano BETWEEN :ano_inicio AND :ano_fim
         AND nfs.data_emissao >= :data_inicio
         AND nfs.data_emissao < :data_fim
     GROUP BY YEAR(nfs.data_emissao), MONTH(nfs.data_emissao)
@@ -215,6 +221,7 @@ HISTORY_FILTERED_SQL = text(
     WHERE
         nfs.empresa_id = 1
         AND nfs.situacao < 4
+        AND nfs.data_emissao_ano BETWEEN :ano_inicio AND :ano_fim
         AND nfs.data_emissao >= :data_inicio
         AND nfs.data_emissao < :data_fim
         AND e.id NOT IN :excluidos
@@ -335,6 +342,8 @@ def _period_params(year: int, month: int, empresa: str, origem: str, pagador: st
         "data_fim": current_end,
         "data_anterior_inicio": previous_start,
         "data_anterior_fim": previous_end,
+        "ano_inicio": min(previous_start.year, current_start.year),
+        "ano_fim": (current_end - timedelta(days=1)).year,
         "ano_anterior": previous_year,
         "mes_anterior": previous_month,
         "empresa": empresa,
@@ -441,9 +450,15 @@ def _total_sql(filters_active: bool):
 
 
 def _base_params(start: date, end: date, empresa: str, origem: str, pagador: str) -> dict:
+    # data_emissao_ano existe na base oficial e é muito mais barata para o
+    # otimizador usar como primeiro corte do que varrer toda a tabela apenas
+    # por data_emissao. O filtro de data continua sendo a regra definitiva.
+    last_inclusive = end - timedelta(days=1)
     return {
         "data_inicio": start,
         "data_fim": end,
+        "ano_inicio": start.year,
+        "ano_fim": last_inclusive.year,
         "empresa": empresa,
         "origem": origem,
         "pagador": pagador,
@@ -471,6 +486,8 @@ def _component_query(component: str, filters_active: bool):
             JOIN empresas e ON ep.empresa_id = e.id
             WHERE nfs.empresa_id = 1
               AND nfs.situacao < 4
+              AND nfs.data_emissao_ano BETWEEN :ano_inicio AND :ano_fim
+        AND nfs.data_emissao_ano BETWEEN :ano_inicio AND :ano_fim
               AND nfs.data_emissao >= :data_inicio
               AND nfs.data_emissao < :data_fim
               AND e.id NOT IN :excluidos
@@ -487,6 +504,8 @@ def _component_query(component: str, filters_active: bool):
             JOIN empresas e ON ep.empresa_id = e.id
             WHERE nfs.empresa_id = 1
               AND nfs.situacao < 4
+              AND nfs.data_emissao_ano BETWEEN :ano_inicio AND :ano_fim
+        AND nfs.data_emissao_ano BETWEEN :ano_inicio AND :ano_fim
               AND nfs.data_emissao >= :data_inicio
               AND nfs.data_emissao < :data_fim
               AND e.id NOT IN :excluidos
@@ -505,6 +524,8 @@ def _component_query(component: str, filters_active: bool):
             JOIN empresas e ON ep.empresa_id = e.id
             WHERE nfs.empresa_id = 1
               AND nfs.situacao < 4
+              AND nfs.data_emissao_ano BETWEEN :ano_inicio AND :ano_fim
+        AND nfs.data_emissao_ano BETWEEN :ano_inicio AND :ano_fim
               AND nfs.data_emissao >= :data_inicio
               AND nfs.data_emissao < :data_fim
               AND e.id NOT IN :excluidos
@@ -523,6 +544,8 @@ def _component_query(component: str, filters_active: bool):
             FROM notas_fiscais_servicos nfs
             WHERE nfs.empresa_id = 1
               AND nfs.situacao < 4
+              AND nfs.data_emissao_ano BETWEEN :ano_inicio AND :ano_fim
+        AND nfs.data_emissao_ano BETWEEN :ano_inicio AND :ano_fim
               AND nfs.data_emissao >= :data_inicio
               AND nfs.data_emissao < :data_fim
               AND nfs.plano_id IS NULL
@@ -538,6 +561,8 @@ def _component_query(component: str, filters_active: bool):
             FROM notas_fiscais_servicos nfs
             WHERE nfs.empresa_id = 1
               AND nfs.situacao < 4
+              AND nfs.data_emissao_ano BETWEEN :ano_inicio AND :ano_fim
+        AND nfs.data_emissao_ano BETWEEN :ano_inicio AND :ano_fim
               AND nfs.data_emissao >= :data_inicio
               AND nfs.data_emissao < :data_fim
               AND nfs.loja_id = 304927
@@ -616,6 +641,11 @@ def _build_plan_detail(connection, plan_name: str, year: int, month: int, empres
             "data_fim": context["periodo_atual"]["data_fim"],
             "data_anterior_inicio": context["mes_anterior"]["data_inicio"],
             "data_anterior_fim": context["mes_anterior"]["data_fim"],
+            "ano_inicio": min(
+                context["mes_anterior"]["data_inicio"].year,
+                context["periodo_atual"]["data_inicio"].year,
+            ),
+            "ano_fim": (context["periodo_atual"]["data_fim"] - timedelta(days=1)).year,
             "empresa": empresa,
             "origem": origem,
             "pagador": pagador,
@@ -668,6 +698,8 @@ def _build_plan_detail(connection, plan_name: str, year: int, month: int, empres
         {
             "data_inicio": _month_start(start_year, start_month),
             "data_fim": _period_bounds(year, effective_month)[1],
+            "ano_inicio": start_year,
+            "ano_fim": (_period_bounds(year, effective_month)[1] - timedelta(days=1)).year,
             "empresa": empresa,
             "origem": origem,
             "pagador": pagador,
@@ -708,6 +740,8 @@ def _build_plan_detail(connection, plan_name: str, year: int, month: int, empres
                 "data_fim": end,
                 "data_anterior_inicio": start,
                 "data_anterior_fim": start,
+                "ano_inicio": start.year,
+                "ano_fim": (end - timedelta(days=1)).year,
                 "empresa": empresa,
                 "origem": origem,
                 "pagador": pagador,
@@ -1027,6 +1061,8 @@ def get_faturamento_historico(
     params = {
         "data_inicio": history_start,
         "data_fim": history_end,
+        "ano_inicio": history_start.year,
+        "ano_fim": (history_end - timedelta(days=1)).year,
         "empresa": empresa,
         "origem": origem,
         "pagador": pagador,

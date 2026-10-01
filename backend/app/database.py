@@ -10,8 +10,8 @@ def _build_source_connect_args() -> dict:
         "password": settings.db_password.encode("utf-8"),
         # Evita que o dashboard fique indefinidamente aguardando uma conexão MySQL.
         "connect_timeout": 8,
-        "read_timeout": 180,
-        "write_timeout": 180,
+        "read_timeout": 300,
+        "write_timeout": 300,
     }
 
     if settings.db_ssl:
