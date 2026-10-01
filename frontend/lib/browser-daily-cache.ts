@@ -13,6 +13,12 @@ type StoredValue<T> = {
   value: T;
 };
 
+function isFallbackValue(value: unknown) {
+  if (!value || typeof value !== "object") return false;
+  const info = (value as { _cache_info?: { fallback?: boolean } })._cache_info;
+  return Boolean(info?.fallback);
+}
+
 export async function browserDailyCache<T>(key: string, loader: () => Promise<T>): Promise<T> {
   if (typeof window === "undefined") {
     return loader();
@@ -25,14 +31,16 @@ export async function browserDailyCache<T>(key: string, loader: () => Promise<T>
     const raw = window.sessionStorage.getItem(storageKey);
     if (raw) {
       const parsed = JSON.parse(raw) as StoredValue<T>;
-      if (parsed?.date === today) {
+      if (parsed?.date === today && !isFallbackValue(parsed.value)) {
         // Responde imediatamente com o que a tela já carregou hoje e atualiza
-        // silenciosamente para a próxima visita. Isso deixa a troca entre páginas
-        // praticamente instantânea sem impedir a atualização diária do backend.
+        // silenciosamente para a próxima visita. Snapshots temporários de um
+        // período anterior nunca são fixados como o cache definitivo do dia.
         void loader()
           .then((fresh) => {
             try {
-              window.sessionStorage.setItem(storageKey, JSON.stringify({ date: today, value: fresh }));
+              if (!isFallbackValue(fresh)) {
+                window.sessionStorage.setItem(storageKey, JSON.stringify({ date: today, value: fresh }));
+              }
             } catch {
               // Cache do navegador é apenas uma otimização.
             }
@@ -47,7 +55,9 @@ export async function browserDailyCache<T>(key: string, loader: () => Promise<T>
 
   const fresh = await loader();
   try {
-    window.sessionStorage.setItem(storageKey, JSON.stringify({ date: today, value: fresh }));
+    if (!isFallbackValue(fresh)) {
+      window.sessionStorage.setItem(storageKey, JSON.stringify({ date: today, value: fresh }));
+    }
   } catch {
     // Sem impacto funcional.
   }

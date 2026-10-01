@@ -95,6 +95,31 @@ function formatValue(value: number, quantitative: boolean, compact = false) {
   return compact ? formatCompactMoney(value) : formatMoney(value);
 }
 
+
+type CacheNotice = {
+  sourceDate?: string | null;
+  sourceYear?: number | null;
+  sourceMonth?: number | null;
+};
+
+function cacheNoticeFromResponse(value: unknown): CacheNotice | null {
+  if (!value || typeof value !== "object") return null;
+  const info = (value as {
+    _cache_info?: {
+      fallback?: boolean;
+      source_date?: string | null;
+      source_params?: { ano?: number; mes?: number };
+    };
+  })._cache_info;
+
+  if (!info?.fallback) return null;
+  return {
+    sourceDate: info.source_date ?? null,
+    sourceYear: Number(info.source_params?.ano ?? 0) || null,
+    sourceMonth: Number(info.source_params?.mes ?? 0) || null,
+  };
+}
+
 function LoadingBlock({ text }: { text: string }) {
   return (
     <div className="flex min-h-[130px] items-center justify-center rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
@@ -390,6 +415,7 @@ export default function FaturamentoDashboard() {
   const [detailsError, setDetailsError] = useState<string | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [cacheNotice, setCacheNotice] = useState<CacheNotice | null>(null);
 
   const [selectedComponent, setSelectedComponent] = useState<{ key: string; label: string } | null>(null);
   const [componentDetail, setComponentDetail] = useState<RevenueComponentDetailResponse | null>(null);
@@ -445,19 +471,37 @@ export default function FaturamentoDashboard() {
     setDetailsError(null);
     setHistoryError(null);
     setPlanDetailCache({});
+    setCacheNotice(null);
+
+    const captureCacheNotice = (response: unknown) => {
+      const notice = cacheNoticeFromResponse(response);
+      if (notice && active) setCacheNotice(notice);
+    };
 
     fetchFaturamentoTotal(year, month, filters)
-      .then((response) => active && setTotal(response))
+      .then((response) => {
+        if (!active) return;
+        captureCacheNotice(response);
+        setTotal(response);
+      })
       .catch((error) => active && setTotalError(error instanceof Error ? error.message : "Erro ao carregar o total."))
       .finally(() => active && setTotalLoading(false));
 
     fetchFaturamentoDetalhes(year, month, filters)
-      .then((response) => active && setDetails(response))
+      .then((response) => {
+        if (!active) return;
+        captureCacheNotice(response);
+        setDetails(response);
+      })
       .catch((error) => active && setDetailsError(error instanceof Error ? error.message : "Erro ao carregar os detalhes."))
       .finally(() => active && setDetailsLoading(false));
 
     fetchFaturamentoHistorico(year, month, filters)
-      .then((response) => active && setHistory(response.pontos))
+      .then((response) => {
+        if (!active) return;
+        captureCacheNotice(response);
+        setHistory(response.pontos);
+      })
       .catch((error) => active && setHistoryError(error instanceof Error ? error.message : "Erro ao carregar o histórico."))
       .finally(() => active && setHistoryLoading(false));
 
@@ -681,6 +725,29 @@ export default function FaturamentoDashboard() {
             </div>
           </div>
         </div>
+
+        {cacheNotice && (
+          <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="font-semibold">Os dados do período atual estão sendo atualizados.</p>
+              <p className="mt-1 text-xs leading-5 text-amber-800">
+                Para não deixar o dashboard indisponível, estamos exibindo o último snapshot válido
+                {cacheNotice.sourceMonth && cacheNotice.sourceYear
+                  ? ` (${MONTHS[cacheNotice.sourceMonth - 1]}/${cacheNotice.sourceYear})`
+                  : ""}
+                {cacheNotice.sourceDate ? `, salvo em ${cacheNotice.sourceDate.split("-").reverse().join("/")}` : ""}.
+                A atualização do novo período continua em segundo plano.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReloadKey((value) => value + 1)}
+              className="shrink-0 rounded-xl border border-amber-300 bg-white px-4 py-2 text-sm font-semibold text-amber-900 transition hover:bg-amber-100"
+            >
+              Verificar atualização
+            </button>
+          </div>
+        )}
 
         {totalLoading && <LoadingBlock text="Buscando o resumo principal do mês..." />}
         {totalError && <ErrorBlock title="Não foi possível consultar o resumo principal" message={totalError} retry={() => setReloadKey((value) => value + 1)} />}

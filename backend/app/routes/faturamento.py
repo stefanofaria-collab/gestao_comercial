@@ -32,11 +32,13 @@ def _cached_handle(background_tasks, page, func, cache_params, **kwargs):
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
+        # Detalhes técnicos ficam apenas no backend. A interface não deve
+        # exibir SQL, nomes de tabelas ou mensagens internas do banco.
         raise HTTPException(
-            status_code=500,
+            status_code=503,
             detail=(
-                "Não foi possível carregar o snapshot do faturamento. "
-                f"Detalhe técnico: {type(exc).__name__}: {exc}"
+                "Os dados do faturamento ainda estão sendo atualizados no banco do dashboard. "
+                "Tente novamente em alguns instantes."
             ),
         ) from exc
 

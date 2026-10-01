@@ -13,7 +13,7 @@ if ((-not (Test-Path "$PWD\node_modules")) -or (-not (Test-Path "$PWD\node_modul
     npm install
 }
 
-Write-Host "Hotfix 3.19.1: gerando um novo build para garantir o menu Pagamentos..." -ForegroundColor Cyan
+Write-Host "Atualizacao 3.19.2: gerando build com a nova estrategia de cache diario..." -ForegroundColor Cyan
 
 npm run build
 
@@ -22,7 +22,7 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-Write-Host "[OK] Build 3.19.1 concluido." -ForegroundColor Green
+Write-Host "[OK] Build 3.19.2 concluido." -ForegroundColor Green
 
 Write-Host ""
 Write-Host "Iniciando frontend em http://localhost:3000 ..." -ForegroundColor Cyan

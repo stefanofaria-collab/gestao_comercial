@@ -19,7 +19,7 @@ from app.routes.pagamentos import router as pagamentos_router
 
 app = FastAPI(
     title="Gestão Comercial API",
-    version="3.19.1",
+    version="3.19.2",
     description=(
         "API do dashboard comercial. Mantém os indicadores existentes "
         "e adiciona as visões de faturamento, churn, ativos e atrasados, perfil, pagamentos e vencimentos futuros."
@@ -91,7 +91,7 @@ app.include_router(vencimentos_futuros_router)
 def root():
     return {
         "app": "Gestão Comercial API",
-        "version": "3.19.1",
+        "version": "3.19.2",
         "docs": "/docs",
         "health": "/health",
         "faturamento": "/api/faturamento",
