@@ -1,4 +1,5 @@
 import type { GlobalFilters } from "@/contexts/GlobalFiltersContext";
+import { browserDailyCache } from "@/lib/browser-daily-cache";
 import type { ChurnDashboardResponse, ChurnRenewalHistoryResponse } from "@/types/churn";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
@@ -49,7 +50,8 @@ export function fetchChurnDashboard(
   filters: GlobalFilters,
 ): Promise<ChurnDashboardResponse> {
   const params = buildBaseParams(ano, mes, filters);
-  return fetchWithTimeout<ChurnDashboardResponse>(`${API_URL}/api/churn?${params.toString()}`, 45000);
+  const url = `${API_URL}/api/churn?${params.toString()}`;
+  return browserDailyCache(`churn:${url}`, () => fetchWithTimeout<ChurnDashboardResponse>(url, 45000));
 }
 
 export function fetchChurnRenewalHistory(
@@ -64,6 +66,6 @@ export function fetchChurnRenewalHistory(
   params.set("valor", valor);
   return fetchWithTimeout<ChurnRenewalHistoryResponse>(
     `${API_URL}/api/churn/renovacoes-historico?${params.toString()}`,
-    45000,
+    90000,
   );
 }

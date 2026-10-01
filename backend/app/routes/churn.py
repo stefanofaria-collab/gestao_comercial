@@ -1,9 +1,9 @@
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 
 from app.services.churn_service import get_churn_dashboard, get_churn_renewal_history
-
+from app.services.dashboard_cache_service import cached_daily
 
 router = APIRouter(prefix="/api/churn", tags=["Churn"])
 
@@ -12,21 +12,13 @@ OriginFilter = Literal["todos", "gestaoclick", "parceiro"]
 PayerFilter = Literal["todos", "cliente", "parceiro"]
 
 
-@router.get("")
-def churn_dashboard(
-    ano: int = Query(..., ge=2024),
-    mes: int = Query(..., ge=0, le=12),
-    empresa: CompanyFilter = Query("todos"),
-    origem: OriginFilter = Query("todos"),
-    pagador: PayerFilter = Query("todos"),
-):
+def _cached_handle(background_tasks, page, params, builder):
     try:
-        return get_churn_dashboard(
-            year=ano,
-            month=mes,
-            empresa=empresa,
-            origem=origem,
-            pagador=pagador,
+        return cached_daily(
+            page=page,
+            params=params,
+            builder=builder,
+            background_tasks=background_tasks,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -34,14 +26,45 @@ def churn_dashboard(
         raise HTTPException(
             status_code=500,
             detail=(
-                "Erro ao consultar o churn no MySQL de origem. "
+                "Não foi possível carregar o snapshot do churn. "
                 f"Detalhe técnico: {type(exc).__name__}: {exc}"
             ),
         ) from exc
 
 
+@router.get("")
+def churn_dashboard(
+    background_tasks: BackgroundTasks,
+    ano: int = Query(..., ge=2024),
+    mes: int = Query(..., ge=0, le=12),
+    empresa: CompanyFilter = Query("todos"),
+    origem: OriginFilter = Query("todos"),
+    pagador: PayerFilter = Query("todos"),
+):
+    params = {
+        "ano": ano,
+        "mes": mes,
+        "empresa": empresa,
+        "origem": origem,
+        "pagador": pagador,
+    }
+    return _cached_handle(
+        background_tasks,
+        "churn.dashboard",
+        params,
+        lambda: get_churn_dashboard(
+            year=ano,
+            month=mes,
+            empresa=empresa,
+            origem=origem,
+            pagador=pagador,
+        ),
+    )
+
+
 @router.get("/renovacoes-historico")
 def churn_renewal_history(
+    background_tasks: BackgroundTasks,
     ano: int = Query(..., ge=2024),
     mes: int = Query(..., ge=0, le=12),
     dimensao: Literal["plano", "duracao"] = Query(...),
@@ -50,8 +73,20 @@ def churn_renewal_history(
     origem: OriginFilter = Query("todos"),
     pagador: PayerFilter = Query("todos"),
 ):
-    try:
-        return get_churn_renewal_history(
+    params = {
+        "ano": ano,
+        "mes": mes,
+        "dimensao": dimensao,
+        "valor": valor,
+        "empresa": empresa,
+        "origem": origem,
+        "pagador": pagador,
+    }
+    return _cached_handle(
+        background_tasks,
+        "churn.renovacoes_historico",
+        params,
+        lambda: get_churn_renewal_history(
             year=ano,
             month=mes,
             dimension=dimensao,
@@ -59,14 +94,5 @@ def churn_renewal_history(
             empresa=empresa,
             origem=origem,
             pagador=pagador,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                "Erro ao consultar a evolução de renovações no MySQL de origem. "
-                f"Detalhe técnico: {type(exc).__name__}: {exc}"
-            ),
-        ) from exc
+        ),
+    )

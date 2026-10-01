@@ -7,19 +7,22 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import test_supabase_connection
+from app.services.dashboard_cache_service import cache_status
 from app.routes.dashboard import router as dashboard_router
 from app.routes.faturamento import router as faturamento_router
 from app.routes.churn import router as churn_router
+from app.routes.ativos_atrasados import router as ativos_atrasados_router
 from app.routes.perfil import router as perfil_router
 from app.routes.vencimentos_futuros import router as vencimentos_futuros_router
+from app.routes.pagamentos import router as pagamentos_router
 
 
 app = FastAPI(
     title="Gestão Comercial API",
-    version="3.15.0",
+    version="3.19.1",
     description=(
         "API do dashboard comercial. Mantém os indicadores existentes "
-        "e adiciona as visões de faturamento, churn, perfil e vencimentos futuros."
+        "e adiciona as visões de faturamento, churn, ativos e atrasados, perfil, pagamentos e vencimentos futuros."
     ),
 )
 
@@ -78,7 +81,9 @@ app.add_middleware(
 app.include_router(dashboard_router)
 app.include_router(faturamento_router)
 app.include_router(churn_router)
+app.include_router(ativos_atrasados_router)
 app.include_router(perfil_router)
+app.include_router(pagamentos_router)
 app.include_router(vencimentos_futuros_router)
 
 
@@ -86,12 +91,14 @@ app.include_router(vencimentos_futuros_router)
 def root():
     return {
         "app": "Gestão Comercial API",
-        "version": "3.15.0",
+        "version": "3.19.1",
         "docs": "/docs",
         "health": "/health",
         "faturamento": "/api/faturamento",
         "churn": "/api/churn",
+        "ativos_atrasados": "/api/ativos-atrasados",
         "perfil": "/api/perfil",
+        "pagamentos": "/api/pagamentos",
         "vencimentos_futuros": "/api/vencimentos-futuros",
     }
 
@@ -112,3 +119,8 @@ def health():
             "supabase": "disconnected",
             "detail": str(exc),
         }
+
+
+@app.get("/api/cache/status")
+def dashboard_cache_status():
+    return cache_status()

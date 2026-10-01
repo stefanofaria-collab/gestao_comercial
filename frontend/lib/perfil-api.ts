@@ -27,7 +27,7 @@ async function parseResponse<T>(response: Response): Promise<T> {
 
 async function fetchWithTimeout<T>(
   url: string,
-  timeoutMs = 45000,
+  timeoutMs = 90000,
   method = "GET",
   externalSignal?: AbortSignal,
 ): Promise<T> {
@@ -77,7 +77,7 @@ export function fetchProfileDashboard(
   const query = params(ano, mes, filters);
   return fetchWithTimeout<ProfileDashboardResponse>(
     `${API_URL}/api/perfil?${query.toString()}`,
-    45000,
+    90000,
     "GET",
     signal,
   );
@@ -111,7 +111,7 @@ export function fetchProfileClients(
   }
   return fetchWithTimeout<ProfileClientListResponse>(
     `${API_URL}/api/perfil/clientes?${query.toString()}`,
-    45000,
+    90000,
     "GET",
     signal,
   );
@@ -126,7 +126,7 @@ export function fetchProfileFilterOptions(
   const query = params(ano, mes, filters);
   return fetchWithTimeout<ProfileFilterOptions>(
     `${API_URL}/api/perfil/filtros?${query.toString()}`,
-    30000,
+    90000,
     "GET",
     signal,
   );
@@ -140,7 +140,7 @@ export function fetchProfileClientMetrics(
   const query = new URLSearchParams({ status_base: statusBase });
   return fetchWithTimeout<ProfileClientMetrics>(
     `${API_URL}/api/perfil/cliente/${empresaId}/metricas?${query.toString()}`,
-    25000,
+    90000,
     "GET",
     signal,
   );
@@ -152,7 +152,7 @@ export function fetchCnpjProfile(cnpj: string, signal?: AbortSignal): Promise<Co
   // BrasilAPI/CNPJ.ws diretamente.
   return fetchWithTimeout<CompanyProfile>(
     `${API_URL}/api/perfil/cnpj/${encodeURIComponent(cnpj)}`,
-    25000,
+    90000,
     "GET",
     signal,
   );
@@ -169,7 +169,7 @@ export function fetchProfileBusinessAnalytics(
   query.set("fonte_cnpj", fonteCnpj);
   return fetchWithTimeout<ProfileBusinessAnalyticsResponse>(
     `${API_URL}/api/perfil/empresarial?${query.toString()}`,
-    45000,
+    90000,
     "GET",
     signal,
   );

@@ -66,8 +66,6 @@ const compactMoney = new Intl.NumberFormat("pt-BR", {
   maximumFractionDigits: 2,
 });
 
-const integer = new Intl.NumberFormat("pt-BR");
-
 const percent = new Intl.NumberFormat("pt-BR", {
   minimumFractionDigits: 1,
   maximumFractionDigits: 1,
@@ -86,7 +84,10 @@ function formatPercent(value: number | null) {
 }
 
 function formatCount(value: number) {
-  return integer.format(value || 0);
+  const rounded = Math.round(Number(value) || 0);
+  const sign = rounded < 0 ? "-" : "";
+  const digits = String(Math.abs(rounded));
+  return sign + digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
 function formatValue(value: number, quantitative: boolean, compact = false) {
@@ -559,7 +560,14 @@ export default function FaturamentoDashboard() {
   const getCompositionVariationPct = (item: RevenueCompositionItem) => quantitative ? item.variacao_quantidade_percentual ?? null : item.variacao_percentual;
 
   const historyOption = useMemo(() => ({
-    tooltip: { trigger: "axis" },
+    tooltip: {
+      trigger: "axis",
+      formatter: (params: Array<{ axisValue?: string; marker?: string; value?: number }>) => {
+        const first = params?.[0];
+        if (!first) return "";
+        return `${first.axisValue ?? ""}<br/>${first.marker ?? ""}${quantitative ? formatCount(Number(first.value ?? 0)) : formatMoney(Number(first.value ?? 0))}`;
+      },
+    },
     grid: { left: 20, right: 20, top: 25, bottom: 25, containLabel: true },
     xAxis: { type: "category", data: history.map((point) => point.label), boundaryGap: false },
     yAxis: {
@@ -574,7 +582,16 @@ export default function FaturamentoDashboard() {
     if (!planDetail) return null;
     const points = planDetail.historico_12_meses;
     return {
-      tooltip: { trigger: "axis" },
+      tooltip: {
+        trigger: "axis",
+        formatter: (params: Array<{ axisValue?: string; marker?: string; seriesName?: string; value?: number }>) => {
+          const rows = Array.isArray(params) ? params : [];
+          if (!rows.length) return "";
+          const title = rows[0]?.axisValue ?? "";
+          const body = rows.map((row) => `${row.marker ?? ""}${row.seriesName ?? ""}: ${quantitative ? formatCount(Number(row.value ?? 0)) : formatMoney(Number(row.value ?? 0))}`).join("<br/>");
+          return `${title}<br/>${body}`;
+        },
+      },
       grid: { left: 20, right: 20, top: 25, bottom: 25, containLabel: true },
       xAxis: { type: "category", data: points.map((item) => item.label), boundaryGap: false },
       yAxis: {

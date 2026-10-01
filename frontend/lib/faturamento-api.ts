@@ -1,4 +1,5 @@
 import type { GlobalFilters } from "@/contexts/GlobalFiltersContext";
+import { browserDailyCache } from "@/lib/browser-daily-cache";
 import type {
   RevenueComponentDetailResponse,
   RevenueDetailsResponse,
@@ -64,10 +65,8 @@ export function fetchFaturamentoTotal(
   filters: GlobalFilters,
 ): Promise<RevenueTotalResponse> {
   const params = buildParams(ano, mes, filters);
-  return fetchWithTimeout<RevenueTotalResponse>(
-    `${API_URL}/api/faturamento/total?${params.toString()}`,
-    15000,
-  );
+  const url = `${API_URL}/api/faturamento/total?${params.toString()}`;
+  return browserDailyCache(`faturamento-total:${url}`, () => fetchWithTimeout<RevenueTotalResponse>(url, 90000));
 }
 
 export function fetchFaturamentoDetalhes(
@@ -76,10 +75,8 @@ export function fetchFaturamentoDetalhes(
   filters: GlobalFilters,
 ): Promise<RevenueDetailsResponse> {
   const params = buildParams(ano, mes, filters);
-  return fetchWithTimeout<RevenueDetailsResponse>(
-    `${API_URL}/api/faturamento/detalhes?${params.toString()}`,
-    45000,
-  );
+  const url = `${API_URL}/api/faturamento/detalhes?${params.toString()}`;
+  return browserDailyCache(`faturamento-detalhes:${url}`, () => fetchWithTimeout<RevenueDetailsResponse>(url, 90000));
 }
 
 export function fetchFaturamentoHistorico(
@@ -88,10 +85,8 @@ export function fetchFaturamentoHistorico(
   filters: GlobalFilters,
 ): Promise<RevenueHistoryResponse> {
   const params = buildParams(ano, mes, filters);
-  return fetchWithTimeout<RevenueHistoryResponse>(
-    `${API_URL}/api/faturamento/historico?${params.toString()}`,
-    45000,
-  );
+  const url = `${API_URL}/api/faturamento/historico?${params.toString()}`;
+  return browserDailyCache(`faturamento-historico:${url}`, () => fetchWithTimeout<RevenueHistoryResponse>(url, 90000));
 }
 
 export function fetchFaturamentoComponente(
@@ -106,7 +101,7 @@ export function fetchFaturamentoComponente(
   params.set("compare_mode", compareMode);
   return fetchWithTimeout<RevenueComponentDetailResponse>(
     `${API_URL}/api/faturamento/componente?${params.toString()}`,
-    45000,
+    90000,
   );
 }
 
@@ -122,6 +117,6 @@ export function fetchFaturamentoPlanoDetalhe(
   params.set("compare_mode", compareMode);
   return fetchWithTimeout<RevenuePlanDetailResponse>(
     `${API_URL}/api/faturamento/plano-detalhe?${params.toString()}`,
-    45000,
+    90000,
   );
 }

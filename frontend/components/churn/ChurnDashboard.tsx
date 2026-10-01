@@ -9,7 +9,10 @@ import {
   ArrowUpDown,
   CalendarDays,
   CircleHelp,
+  ClipboardCopy,
+  Download,
   ExternalLink,
+  FileSpreadsheet,
   MousePointerClick,
   RefreshCw,
   Search,
@@ -51,7 +54,6 @@ const currency = new Intl.NumberFormat("pt-BR", {
   minimumFractionDigits: 2,
 });
 
-const integer = new Intl.NumberFormat("pt-BR");
 const percent = new Intl.NumberFormat("pt-BR", {
   minimumFractionDigits: 1,
   maximumFractionDigits: 1,
@@ -62,7 +64,10 @@ function formatMoney(value: number) {
 }
 
 function formatInteger(value: number) {
-  return integer.format(Math.round(value || 0));
+  const rounded = Math.round(Number(value) || 0);
+  const sign = rounded < 0 ? "-" : "";
+  const digits = String(Math.abs(rounded));
+  return sign + digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
 function formatPercent(value: number) {
@@ -305,6 +310,57 @@ function intranetUrl(empresaId: number) {
   return `https://intranet.clickdigital.com.br/clientes/visualizar/${empresaId}?aba=5`;
 }
 
+const CHURN_EXPORT_COLUMNS = [
+  "ID", "Cliente", "Empresa", "Origem", "Pagador", "Plano", "Duração",
+  "Vencimento", "Data do churn", "Tempo (meses)", "Renovações", "LTV", "Intranet",
+];
+
+function churnClientRows(clients: ChurnClient[]) {
+  return clients.map((client) => [
+    client.empresa_id,
+    client.cliente,
+    client.empresa,
+    client.origem,
+    client.pagador,
+    client.nome_plano,
+    client.duracao_label,
+    client.data_vencimento ?? "",
+    client.churn_em ?? "",
+    client.meses_cliente,
+    client.renovacoes,
+    client.ltv,
+    intranetUrl(client.empresa_id),
+  ]);
+}
+
+function downloadChurnCsv(clients: ChurnClient[], filename: string) {
+  const escape = (value: unknown) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+  const lines = churnClientRows(clients);
+  const content = `\uFEFF${CHURN_EXPORT_COLUMNS.map(escape).join(";")}\r\n${lines.map((row) => row.map(escape).join(";")).join("\r\n")}`;
+  const blob = new Blob([content], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+async function downloadChurnXlsx(clients: ChurnClient[], filename: string) {
+  const XLSX = await import("xlsx");
+  const payload = churnClientRows(clients).map((row) => Object.fromEntries(CHURN_EXPORT_COLUMNS.map((column, index) => [column, row[index]])));
+  const worksheet = XLSX.utils.json_to_sheet(payload);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Clientes");
+  XLSX.writeFile(workbook, filename);
+}
+
+async function copyChurnSheets(clients: ChurnClient[]) {
+  const rows = churnClientRows(clients).map((row) => row.map((value) => String(value ?? "").replaceAll("\t", " ").replaceAll("\n", " ")).join("\t"));
+  await navigator.clipboard.writeText([CHURN_EXPORT_COLUMNS.join("\t"), ...rows].join("\n"));
+  window.open("https://sheets.new", "_blank", "noopener,noreferrer");
+}
+
 function Modal({ open, title, subtitle, onClose, children }: { open: boolean; title: string; subtitle?: string; onClose: () => void; children: React.ReactNode }) {
   if (!open) return null;
   return (
@@ -343,12 +399,14 @@ export default function ChurnDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [selectedPlan, setSelectedPlan] = useState<ChurnPlan | null>(null);
+  const [selectedPlanDuration, setSelectedPlanDuration] = useState<string>("todos");
   const [selectedClient, setSelectedClient] = useState<ChurnClient | null>(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<SortKey>("ltv");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [selectedTenureBucket, setSelectedTenureBucket] = useState<ChurnBucket | null>(null);
+  const [selectedExactTenure, setSelectedExactTenure] = useState<string | null>(null);
   const [selectedRenewalAverage, setSelectedRenewalAverage] = useState<{ dimension: "plano" | "duracao"; item: ChurnRenewalAverage } | null>(null);
   const [renewalHistory, setRenewalHistory] = useState<ChurnRenewalHistoryResponse | null>(null);
   const [renewalHistoryLoading, setRenewalHistoryLoading] = useState(false);
@@ -422,8 +480,29 @@ export default function ChurnDashboard() {
 
   const selectedPlanClients = useMemo(() => {
     if (!data || !selectedPlan) return [];
-    return data.clientes.filter((client) => client.nome_plano === selectedPlan.nome_plano);
+    return data.clientes.filter((client) =>
+      client.nome_plano === selectedPlan.nome_plano &&
+      (selectedPlanDuration === "todos" || client.duracao === selectedPlanDuration),
+    );
+  }, [data, selectedPlan, selectedPlanDuration]);
+
+  const selectedPlanDurations = useMemo(() => {
+    if (!data || !selectedPlan) return [];
+    const grouped = new Map<string, { duracao: string; label: string; clientes: number; ltv: number; valor: number }>();
+    for (const client of data.clientes) {
+      if (client.nome_plano !== selectedPlan.nome_plano) continue;
+      const current = grouped.get(client.duracao) ?? { duracao: client.duracao, label: client.duracao_label, clientes: 0, ltv: 0, valor: 0 };
+      current.clientes += 1;
+      current.ltv += client.ltv;
+      current.valor += client.valor_perdido;
+      grouped.set(client.duracao, current);
+    }
+    return Array.from(grouped.values()).sort((a, b) => b.clientes - a.clientes || b.ltv - a.ltv);
   }, [data, selectedPlan]);
+
+  useEffect(() => {
+    setSelectedPlanDuration("todos");
+  }, [selectedPlan]);
 
   const tenureDetail = useMemo(() => {
     if (!data || !selectedTenureBucket) return [];
@@ -442,6 +521,14 @@ export default function ChurnDashboard() {
 
     return Array.from(grouped.values()).sort((a, b) => a.order - b.order);
   }, [data, selectedTenureBucket]);
+
+  const exactTenureClients = useMemo(() => {
+    if (!data || !selectedTenureBucket || !selectedExactTenure) return [];
+    return data.clientes.filter((client) =>
+      tenureBucketLabel(client.meses_cliente) === selectedTenureBucket.label &&
+      exactTenureLabel(client.meses_cliente) === selectedExactTenure,
+    );
+  }, [data, selectedTenureBucket, selectedExactTenure]);
 
   useEffect(() => {
     if (!selectedRenewalAverage) {
@@ -580,7 +667,7 @@ export default function ChurnDashboard() {
               items={data.tempo_faixas.map((item) => ({ key: item.label, label: item.label, item }))}
               value={(raw) => (raw as ChurnBucket).clientes}
               formatValue={formatInteger}
-              onClick={(raw) => setSelectedTenureBucket(raw as ChurnBucket)}
+              onClick={(raw) => { setSelectedTenureBucket(raw as ChurnBucket); setSelectedExactTenure(null); }}
             />
           </div>
         </div>
@@ -721,8 +808,33 @@ export default function ChurnDashboard() {
               <Kpi title="Tempo médio conosco" value={formatTenure(selectedPlan.tempo_medio_meses)} subtitle="Tempo médio até o churn." helpText="Quanto tempo, em média, os clientes deste plano ficaram conosco antes de sair." />
               <Kpi title="Renovações médias" value={percent.format(selectedPlan.renovacoes_media)} subtitle="Renovações antes do churn." helpText="Quantas vezes, em média, os clientes deste plano renovaram antes de sair." />
             </div>
+            <div className="space-y-4">
+              <SectionTitle title="Durações deste plano" subtitle="Escolha uma duração para refinar a lista de clientes." helpText="Os botões mostram quantos clientes saíram em cada duração. Ao escolher uma duração, a lista e as exportações abaixo passam a considerar somente esse grupo." />
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <button type="button" onClick={() => setSelectedPlanDuration("todos")} className={`rounded-2xl border p-4 text-left transition ${selectedPlanDuration === "todos" ? "border-blue-300 bg-blue-50" : "border-slate-200 hover:bg-slate-50"}`}>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Todas</p>
+                  <p className="mt-1 text-xl font-bold text-slate-950">{formatInteger(selectedPlan?.clientes ?? 0)}</p>
+                  <p className="mt-1 text-xs text-slate-500">cliente(s)</p>
+                </button>
+                {selectedPlanDurations.map((item) => (
+                  <button key={item.duracao} type="button" onClick={() => setSelectedPlanDuration(item.duracao)} className={`rounded-2xl border p-4 text-left transition ${selectedPlanDuration === item.duracao ? "border-blue-300 bg-blue-50" : "border-slate-200 hover:bg-slate-50"}`}>
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">{item.label}</p>
+                    <p className="mt-1 text-xl font-bold text-slate-950">{formatInteger(item.clientes)}</p>
+                    <p className="mt-1 text-xs text-slate-500">LTV {formatMoney(item.ltv)}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div>
-              <SectionTitle title="Clientes perdidos deste plano" helpText="Lista dos clientes que entraram em churn usando este plano." />
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <SectionTitle title="Clientes perdidos deste plano" subtitle={`${formatInteger(selectedPlanClients.length)} cliente(s) no recorte atual.`} helpText="Lista dos clientes que entraram em churn usando este plano. Você pode filtrar pelas durações acima e exportar somente o recorte escolhido." />
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => downloadChurnCsv(selectedPlanClients, "churn_plano.csv")} className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold"><Download size={14} /> CSV</button>
+                  <button type="button" onClick={() => void downloadChurnXlsx(selectedPlanClients, "churn_plano.xlsx")} className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold"><FileSpreadsheet size={14} /> XLSX</button>
+                  <button type="button" onClick={() => void copyChurnSheets(selectedPlanClients)} className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white"><ClipboardCopy size={14} /> Google Sheets</button>
+                </div>
+              </div>
               <div className="max-h-[420px] overflow-auto rounded-2xl border border-slate-200">
                 <table className="min-w-full text-sm">
                   <thead className="sticky top-0 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
@@ -746,7 +858,7 @@ export default function ChurnDashboard() {
         open={Boolean(selectedTenureBucket)}
         title={selectedTenureBucket ? `Detalhe de permanência: ${selectedTenureBucket.label}` : ""}
         subtitle="Veja exatamente quantos clientes foram perdidos em cada mês ou ano dentro desta faixa."
-        onClose={() => setSelectedTenureBucket(null)}
+        onClose={() => { setSelectedTenureBucket(null); setSelectedExactTenure(null); }}
       >
         {selectedTenureBucket && (
           <div className="space-y-6">
@@ -781,21 +893,61 @@ export default function ChurnDashboard() {
                 {tenureDetail.map((item) => {
                   const maxClients = Math.max(...tenureDetail.map((row) => row.clientes), 1);
                   return (
-                    <div key={item.label} className="rounded-2xl border border-slate-200 p-4">
+                    <button key={item.label} type="button" onClick={() => setSelectedExactTenure(item.label)} className={`w-full rounded-2xl border p-4 text-left transition hover:bg-slate-50 ${selectedExactTenure === item.label ? "border-blue-300 bg-blue-50/50" : "border-slate-200"}`}>
                       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <div>
-                          <p className="font-semibold text-slate-900">{item.label}</p>
-                          <p className="mt-1 text-xs text-slate-500">LTV: {formatMoney(item.ltv)} · valor do último plano: {formatMoney(item.valor_perdido)}</p>
+                          <p className="inline-flex items-center gap-2 font-semibold text-slate-900">{item.label} <MousePointerClick size={14} className="text-blue-600" /></p>
+                          <p className="mt-1 text-xs text-slate-500">LTV: {formatMoney(item.ltv)} · valor do último plano: {formatMoney(item.valor_perdido)} · clique para listar os clientes</p>
                         </div>
                         <p className="text-lg font-bold text-slate-950">{formatInteger(item.clientes)} cliente(s)</p>
                       </div>
                       <div className="mt-3 h-3 overflow-hidden rounded-full bg-slate-100">
                         <div className="h-full rounded-full bg-blue-600" style={{ width: `${Math.max(2, (item.clientes / maxClients) * 100)}%` }} />
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
+
+              {selectedExactTenure && (
+                <div className="mt-6 rounded-2xl border border-blue-100 bg-blue-50/40 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h4 className="font-semibold text-slate-950">Clientes com permanência de {selectedExactTenure}</h4>
+                      <p className="mt-1 text-xs text-slate-500">{formatInteger(exactTenureClients.length)} cliente(s) encontrados neste ponto exato.</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={() => {
+                        const header = ["ID","Cliente","Empresa","Origem","Pagador","Plano","Duração","Churn","Tempo (meses)","Renovações","LTV","Intranet"];
+                        const lines = exactTenureClients.map((client) => [client.empresa_id, client.cliente, client.empresa, client.origem, client.pagador, client.nome_plano, client.duracao_label, client.churn_em ?? "", client.meses_cliente, client.renovacoes, client.ltv, intranetUrl(client.empresa_id)]);
+                        const escape = (value: unknown) => `"${String(value ?? "").replaceAll('"','""')}"`;
+                        const csv = `\uFEFF${header.map(escape).join(";")}\r\n${lines.map((row) => row.map(escape).join(";")).join("\r\n")}`;
+                        const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a"); a.href = url; a.download = "churn_permanencia.csv"; a.click(); URL.revokeObjectURL(url);
+                      }} className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold"><Download size={14} /> CSV</button>
+                      <button type="button" onClick={async () => {
+                        const XLSX = await import("xlsx");
+                        const payload = exactTenureClients.map((client) => ({ ID: client.empresa_id, Cliente: client.cliente, Empresa: client.empresa, Origem: client.origem, Pagador: client.pagador, Plano: client.nome_plano, Duração: client.duracao_label, Churn: client.churn_em, "Tempo (meses)": client.meses_cliente, Renovações: client.renovacoes, LTV: client.ltv, Intranet: intranetUrl(client.empresa_id) }));
+                        const ws = XLSX.utils.json_to_sheet(payload); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Clientes"); XLSX.writeFile(wb, "churn_permanencia.xlsx");
+                      }} className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold"><FileSpreadsheet size={14} /> XLSX</button>
+                      <button type="button" onClick={async () => {
+                        const header = ["ID","Cliente","Empresa","Origem","Pagador","Plano","Duração","Churn","Tempo (meses)","Renovações","LTV","Intranet"].join("\t");
+                        const body = exactTenureClients.map((client) => [client.empresa_id, client.cliente, client.empresa, client.origem, client.pagador, client.nome_plano, client.duracao_label, client.churn_em ?? "", client.meses_cliente, client.renovacoes, client.ltv, intranetUrl(client.empresa_id)].join("\t"));
+                        await navigator.clipboard.writeText([header, ...body].join("\n")); window.open("https://sheets.new", "_blank", "noopener,noreferrer");
+                      }} className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white"><ClipboardCopy size={14} /> Google Sheets</button>
+                    </div>
+                  </div>
+                  <div className="mt-4 max-h-[360px] overflow-auto rounded-xl border border-slate-200 bg-white">
+                    <table className="min-w-[1000px] text-sm">
+                      <thead className="sticky top-0 bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-3 py-2 text-left">Cliente</th><th className="px-3 py-2 text-left">Plano</th><th className="px-3 py-2 text-left">Churn</th><th className="px-3 py-2 text-right">Renovações</th><th className="px-3 py-2 text-right">LTV</th></tr></thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {exactTenureClients.map((client) => <tr key={client.empresa_id}><td className="px-3 py-2"><a href={intranetUrl(client.empresa_id)} target="_blank" rel="noreferrer" className="font-semibold text-blue-700">{client.cliente}</a></td><td className="px-3 py-2">{client.nome_plano} · {client.duracao_label}</td><td className="px-3 py-2">{formatDate(client.churn_em)}</td><td className="px-3 py-2 text-right">{formatInteger(client.renovacoes)}</td><td className="px-3 py-2 text-right font-semibold">{formatMoney(client.ltv)}</td></tr>)}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useState } from "react";
 import {
   BadgeDollarSign,
@@ -10,9 +10,11 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleUserRound,
+  CreditCard,
   RotateCcw,
   SlidersHorizontal,
   TrendingDown,
+  UsersRound,
 } from "lucide-react";
 import {
   GlobalFiltersProvider,
@@ -26,8 +28,11 @@ import {
 const navigation = [
   { href: "/faturamento", label: "Faturamento", icon: BadgeDollarSign },
   { href: "/churn", label: "Churn", icon: TrendingDown },
+  { href: "/ativos-atrasados", label: "Ativos e Atrasados", icon: UsersRound },
   { href: "/indicadores", label: "Indicadores", icon: BarChart3 },
   { href: "/perfil", label: "Perfil", icon: CircleUserRound },
+  // Página de análise do comportamento de pagamento das renovações.
+  { href: "/pagamentos", label: "Pagamentos", icon: CreditCard },
   { href: "/vencimentos-futuros", label: "Vencimentos Futuros", icon: CalendarClock },
 ];
 
@@ -146,6 +151,7 @@ function GlobalFilterBar() {
 
 function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
@@ -155,6 +161,13 @@ function Shell({ children }: { children: React.ReactNode }) {
       // Mantém o menu aberto.
     }
   }, []);
+
+  useEffect(() => {
+    // Em produção o Next já faz prefetch dos links visíveis, mas deixamos o
+    // comportamento explícito para que as páginas do menu fiquem prontas
+    // enquanto o usuário lê a tela atual.
+    navigation.forEach((item) => router.prefetch(item.href));
+  }, [router]);
 
   function toggleSidebar() {
     setCollapsed((current) => {

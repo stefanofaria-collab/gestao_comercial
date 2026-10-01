@@ -64,7 +64,6 @@ const money = new Intl.NumberFormat("pt-BR", {
   currency: "BRL",
   minimumFractionDigits: 2,
 });
-const integer = new Intl.NumberFormat("pt-BR");
 const decimal = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const number2 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -73,7 +72,10 @@ function formatMoney(value: number) {
 }
 
 function formatInteger(value: number) {
-  return integer.format(Math.round(value || 0));
+  const rounded = Math.round(Number(value) || 0);
+  const sign = rounded < 0 ? "-" : "";
+  const digits = String(Math.abs(rounded));
+  return sign + digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
 function formatNumber2(value: number) {
@@ -562,7 +564,7 @@ function ClientModal({ client, onClose }: { client: ProfileClient; onClose: () =
             <Kpi title="Reativações" value={metricsLoading ? "Carregando..." : formatInteger(metrics?.reativacoes ?? 0)} subtitle="Retornos após 60 dias ou mais sem renovação." helpText="Uma reativação acontece quando o cliente já havia sido considerado churn, por ficar 60 dias ou mais sem renovar, e depois voltou." />
             <Kpi title="LTV" value={metricsLoading ? "Carregando..." : formatMoney(client.status_base === "Churn" ? (client.ltv ?? 0) : (metrics?.ltv ?? 0))} subtitle="Tudo o que o cliente pagou em planos no histórico." helpText="LTV é quanto dinheiro o cliente deixou ao longo de todo o relacionamento conosco." />
             <Kpi title="Ticket médio" value={metricsLoading ? "Carregando..." : formatMoney(client.status_base === "Churn" ? (client.ticket_medio ?? 0) : (metrics?.ticket_medio ?? 0))} subtitle="Valor médio dos pagamentos históricos." helpText="É a média do valor pago em cada contratação ou renovação do cliente." />
-            <Kpi title="Média real de pagamento" value={metricsLoading ? "Carregando..." : paymentAverageText(metrics?.media_dias_pagamento_real)} subtitle="Reativações não entram nesta média." helpText="Mostra, em média, quantos dias antes ou depois do vencimento o cliente renova. Quando uma volta aconteceu após 60 dias, esse período não é tratado como atraso: é uma reativação e fica fora da média." />
+            <Kpi title="Atraso real médio" value={metricsLoading ? "Carregando..." : paymentAverageText(metrics?.media_dias_pagamento_real)} subtitle="Reativações não entram nesta média." helpText="Mostra, em média, quantos dias antes ou depois do vencimento o cliente renova. Quando uma volta aconteceu após 60 dias, esse período não é tratado como atraso: é uma reativação e fica fora da média." />
             <Kpi title="Pagamentos encontrados" value={metricsLoading ? "Carregando..." : formatInteger(metrics?.qtd_pagamentos ?? 0)} subtitle="Inclui a primeira contratação e os ciclos seguintes." helpText="É a quantidade total de pagamentos de planos encontrados para este cliente." />
           </div>
 

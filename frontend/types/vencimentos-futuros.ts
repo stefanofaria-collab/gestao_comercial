@@ -113,8 +113,10 @@ export type FutureDueExportFilters = {
   plano: string;
   duracao: string;
   valor_minimo: number;
-  tempo_cliente_valor: number;
+  tempo_cliente_minimo: number | null;
+  tempo_cliente_maximo: number | null;
   tempo_cliente_unidade: "mes" | "ano";
+  somente_ultrapassou_media: boolean;
 };
 
 export type FutureDueExportRow = {

@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from "react";
 import {
   AlertTriangle,
   CalendarDays,
@@ -53,7 +53,6 @@ const currency = new Intl.NumberFormat("pt-BR", {
   maximumFractionDigits: 2,
 });
 
-const integer = new Intl.NumberFormat("pt-BR");
 const compactCurrency = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
@@ -66,7 +65,10 @@ function formatMoney(value: number) {
 }
 
 function formatInteger(value: number) {
-  return integer.format(Math.round(value || 0));
+  const rounded = Math.round(Number(value) || 0);
+  const sign = rounded < 0 ? "-" : "";
+  const digits = String(Math.abs(rounded));
+  return sign + digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
 function formatDate(value: string | null) {
@@ -235,7 +237,34 @@ function heatColor(item: FutureDueCalendarItem | undefined, maxValue: number) {
   return { backgroundColor: `rgba(59, 130, 246, ${Math.min(0.8, intensity)})` };
 }
 
-function MonthHeatmap({ year, month, items, today, churnDate }: { year: number; month: number; items: FutureDueCalendarItem[]; today: string; churnDate: string }) {
+function toIsoDate(year: number, month: number, day: number) {
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function dateInsideRange(value: string, range: { start: string; end: string } | null) {
+  if (!range) return false;
+  return value >= range.start && value <= range.end;
+}
+
+function MonthHeatmap({
+  year,
+  month,
+  items,
+  today,
+  churnDate,
+  rangeAnchor,
+  selectedRange,
+  onDateClick,
+}: {
+  year: number;
+  month: number;
+  items: FutureDueCalendarItem[];
+  today: string;
+  churnDate: string;
+  rangeAnchor: string | null;
+  selectedRange: { start: string; end: string } | null;
+  onDateClick: (date: string, event: ReactMouseEvent<HTMLButtonElement>) => void;
+}) {
   const matrix = useMemo(() => buildMonthMatrix(year, month), [year, month]);
   const byDay = useMemo(() => new Map(items.map((item) => [item.day, item])), [items]);
   const maxValue = useMemo(() => items.reduce((max, item) => Math.max(max, item.total_valor), 0), [items]);
@@ -247,6 +276,9 @@ function MonthHeatmap({ year, month, items, today, churnDate }: { year: number; 
           <h3 className="font-semibold text-slate-900">{MONTHS[month - 1]} de {year}</h3>
           <p className="text-xs text-slate-500">
             Azul = ainda vai vencer. Laranja = já venceu. Vermelho = entrou em churn (60 dias ou mais).
+          </p>
+          <p className="mt-1 text-[11px] font-medium text-blue-700">
+            Clique em um dia para ver os clientes. Para selecionar um intervalo, segure Shift e clique na primeira e na última data.
           </p>
         </div>
         <div className="text-right text-[11px] leading-5 text-slate-400">
@@ -269,11 +301,15 @@ function MonthHeatmap({ year, month, items, today, churnDate }: { year: number; 
 
           const item = byDay.get(day);
           const color = heatColor(item, maxValue);
+          const isoDate = toIsoDate(year, month, day);
+          const selected = dateInsideRange(isoDate, selectedRange) || rangeAnchor === isoDate;
 
           return (
-            <div
+            <button
+              type="button"
               key={`${year}-${month}-${day}`}
-              className={`min-h-[72px] rounded-xl border border-slate-100 p-2 ${item ? "text-slate-950" : "text-slate-400"}`}
+              onClick={(event) => onDateClick(isoDate, event)}
+              className={`min-h-[72px] rounded-xl border p-2 text-left transition hover:-translate-y-0.5 hover:shadow-md ${item ? "text-slate-950" : "text-slate-400"} ${selected ? "border-blue-700 ring-2 ring-blue-500 ring-offset-1" : "border-slate-100"}`}
               style={typeof color === "string" ? undefined : color}
               title={item ? `${formatDate(item.date)} · ${formatMoney(item.total_valor)} · ${formatInteger(item.total_clientes)} cliente(s)` : `${day}/${String(month).padStart(2, "0")}/${year} sem vencimentos`}
             >
@@ -283,8 +319,10 @@ function MonthHeatmap({ year, month, items, today, churnDate }: { year: number; 
                   <div className="mt-1 text-[11px] font-semibold leading-4">{formatCompactMoney(item.total_valor)}</div>
                   <div className="mt-1 text-[10px] leading-4">{formatInteger(item.total_clientes)} cliente(s)</div>
                 </>
-              ) : null}
-            </div>
+              ) : (
+                <div className="mt-2 text-[10px]">Sem vencimentos</div>
+              )}
+            </button>
           );
         })}
       </div>
@@ -326,7 +364,7 @@ function ClientRankingTable({
             <th className="px-3 py-3">Tempo</th>
             <th className="px-3 py-3">Vence em</th>
             <th className="px-3 py-3 text-right">Valor</th>
-            {showPaymentAverage ? <th className="px-3 py-3">Pagamento médio real</th> : null}
+            {showPaymentAverage ? <th className="px-3 py-3">Atraso real médio</th> : null}
           </tr>
         </thead>
         <tbody>
@@ -363,9 +401,9 @@ function ClientRankingTable({
 const EXPORT_COLUMNS: Array<{ key: keyof FutureDueExportRow; label: string }> = [
   { key: "id", label: "ID" },
   { key: "ativou_em", label: "Data da contratação" },
-  { key: "modalidade", label: "Modalidade" },
-  { key: "empresa_indicacao_id", label: "Empresa indicação ID" },
-  { key: "tipo_cobranca", label: "Tipo cobrança" },
+  { key: "modalidade", label: "Tipo de produto" },
+  { key: "empresa_indicacao_id", label: "Código da empresa indicadora" },
+  { key: "tipo_cobranca", label: "Forma de cobrança" },
   { key: "nome_plano", label: "Plano" },
   { key: "duracao", label: "Duração" },
   { key: "data_vencimento", label: "Data de vencimento" },
@@ -381,7 +419,7 @@ const EXPORT_COLUMNS: Array<{ key: keyof FutureDueExportRow; label: string }> = 
   { key: "qtd_pagamentos", label: "Pagamentos encontrados" },
   { key: "renovacoes", label: "Renovações" },
   { key: "reativacoes", label: "Reativações" },
-  { key: "media_dias_pagamento_real", label: "Média real de dias de pagamento" },
+  { key: "media_dias_pagamento_real", label: "Atraso real médio no pagamento (dias)" },
   { key: "ltv", label: "LTV" },
   { key: "ticket_medio_historico", label: "Ticket médio histórico" },
   { key: "intranet_url", label: "Intranet" },
@@ -418,9 +456,15 @@ function downloadBlob(content: BlobPart, mime: string, filename: string) {
 function ExportModal({
   initialFilters,
   onClose,
+  title = "Exportar vencimentos futuros",
+  subtitle = "Defina o recorte, gere a tabela e depois baixe em CSV/XLSX ou copie tudo para o Google Sheets.",
+  autoGenerate = false,
 }: {
   initialFilters: FutureDueExportFilters;
   onClose: () => void;
+  title?: string;
+  subtitle?: string;
+  autoGenerate?: boolean;
 }) {
   const [filters, setFilters] = useState<FutureDueExportFilters>(initialFilters);
   const [options, setOptions] = useState<FutureDueExportOptions | null>(null);
@@ -432,6 +476,24 @@ function ExportModal({
 
   useEffect(() => {
     fetchFutureDueExportOptions().then(setOptions).catch(() => setOptions(null));
+  }, []);
+
+  useEffect(() => {
+    if (!autoGenerate) return;
+    let active = true;
+    setLoading(true);
+    setError(null);
+    fetchFutureDueExport(initialFilters)
+      .then((response) => {
+        if (!active) return;
+        setResult(response);
+        setTablePage(1);
+      })
+      .catch((err) => active && setError(err instanceof Error ? err.message : "Erro ao carregar os vencimentos."))
+      .finally(() => active && setLoading(false));
+    return () => { active = false; };
+    // O modal é montado novamente sempre que o usuário escolhe outro dia ou intervalo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function generateTable() {
@@ -493,8 +555,8 @@ function ExportModal({
         <div className="sticky top-0 z-20 flex items-start justify-between border-b border-slate-200 bg-white px-6 py-5 lg:px-8">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-slate-400">Exportação</p>
-            <h3 className="mt-1 text-2xl font-bold text-slate-950">Exportar vencimentos futuros</h3>
-            <p className="mt-1 text-sm text-slate-500">Defina o recorte, gere a tabela e depois baixe em CSV/XLSX ou copie tudo para o Google Sheets.</p>
+            <h3 className="mt-1 text-2xl font-bold text-slate-950">{title}</h3>
+            <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
           </div>
           <button type="button" onClick={onClose} className="rounded-full border border-slate-200 p-2 text-slate-500 hover:bg-slate-50"><X size={20} /></button>
         </div>
@@ -536,13 +598,18 @@ function ExportModal({
             </label>
             <div className="grid gap-1 text-xs font-semibold text-slate-500 md:col-span-2">
               Tempo como cliente
-              <div className="grid grid-cols-[1fr_150px] gap-2">
-                <input type="number" min="0" step="0.1" value={filters.tempo_cliente_valor || ""} onChange={(event) => setFilters((current) => ({ ...current, tempo_cliente_valor: Number(event.target.value || 0) }))} placeholder="0" className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm" />
+              <div className="grid gap-2 md:grid-cols-[1fr_1fr_150px]">
+                <input type="number" min="0" step="0.1" value={filters.tempo_cliente_minimo ?? ""} onChange={(event) => setFilters((current) => ({ ...current, tempo_cliente_minimo: event.target.value === "" ? null : Number(event.target.value) }))} placeholder="Mínimo (opcional)" className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm" />
+                <input type="number" min="0" step="0.1" value={filters.tempo_cliente_maximo ?? ""} onChange={(event) => setFilters((current) => ({ ...current, tempo_cliente_maximo: event.target.value === "" ? null : Number(event.target.value) }))} placeholder="Máximo (opcional)" className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm" />
                 <select value={filters.tempo_cliente_unidade} onChange={(event) => setFilters((current) => ({ ...current, tempo_cliente_unidade: event.target.value as "mes" | "ano" }))} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm">
                   <option value="mes">Meses</option><option value="ano">Anos</option>
                 </select>
               </div>
             </div>
+            <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 md:col-span-2">
+              <input type="checkbox" checked={filters.somente_ultrapassou_media} onChange={(event) => setFilters((current) => ({ ...current, somente_ultrapassou_media: event.target.checked }))} />
+              Somente clientes que ultrapassaram a média real de atraso
+            </label>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -600,6 +667,54 @@ function ExportModal({
   );
 }
 
+
+function RangeSummaryModal({
+  start,
+  end,
+  totalValue,
+  totalClients,
+  onClose,
+  onShowClients,
+}: {
+  start: string;
+  end: string;
+  totalValue: number;
+  totalClients: number;
+  onClose: () => void;
+  onShowClients: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 p-4">
+      <div className="w-full max-w-xl rounded-[2rem] bg-white shadow-2xl">
+        <div className="flex items-start justify-between border-b border-slate-200 px-6 py-5">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-slate-400">Intervalo selecionado</p>
+            <h3 className="mt-1 text-2xl font-bold text-slate-950">{formatDate(start)} até {formatDate(end)}</h3>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-full border border-slate-200 p-2 text-slate-500 hover:bg-slate-50"><X size={20} /></button>
+        </div>
+        <div className="space-y-5 p-6">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+              <p className="text-sm font-medium text-slate-500">Valor total de vencimentos</p>
+              <p className="mt-2 text-2xl font-bold text-slate-950">{formatMoney(totalValue)}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+              <p className="text-sm font-medium text-slate-500">Clientes com vencimento</p>
+              <p className="mt-2 text-2xl font-bold text-slate-950">{formatInteger(totalClients)}</p>
+            </div>
+          </div>
+          <p className="text-sm leading-6 text-slate-600">Deseja exibir a lista completa de clientes com vencimento nesse intervalo? A tela seguinte terá os mesmos filtros e opções de exportação.</p>
+          <div className="flex flex-wrap justify-end gap-2">
+            <button type="button" onClick={onClose} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Fechar</button>
+            <button type="button" onClick={onShowClients} className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">Exibir lista de clientes</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function VencimentosFuturosDashboard() {
   const { filters } = useGlobalFilters();
   const [meta, setMeta] = useState<FutureDueMetaResponse | null>(null);
@@ -608,7 +723,10 @@ export default function VencimentosFuturosDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<FutureDueDashboardResponse | null>(null);
-  const [showExport, setShowExport] = useState(false);
+  const [exportRequest, setExportRequest] = useState<{ filters: FutureDueExportFilters; title?: string; subtitle?: string; autoGenerate?: boolean } | null>(null);
+  const [rangeAnchor, setRangeAnchor] = useState<string | null>(null);
+  const [selectedRange, setSelectedRange] = useState<{ start: string; end: string } | null>(null);
+  const [rangeSummary, setRangeSummary] = useState<{ start: string; end: string; totalValue: number; totalClients: number } | null>(null);
 
   const load = async (targetYear: number, targetMonth: number) => {
     setLoading(true);
@@ -666,6 +784,61 @@ export default function VencimentosFuturosDashboard() {
     return [{ month: data.periodo.mes, year: data.periodo.ano, items: map.get(data.periodo.mes) ?? [] }];
   }, [data]);
 
+  function baseExportFilters(start: string, end: string): FutureDueExportFilters {
+    return {
+      empresa: filters.empresa,
+      origem: filters.origem,
+      pagador: filters.pagador,
+      data_inicio: start,
+      data_fim: end,
+      plano: "",
+      duracao: "",
+      valor_minimo: 0,
+      tempo_cliente_minimo: null,
+      tempo_cliente_maximo: null,
+      tempo_cliente_unidade: "mes",
+      somente_ultrapassou_media: false,
+    };
+  }
+
+  function openDayDetails(date: string) {
+    setExportRequest({
+      filters: baseExportFilters(date, date),
+      title: `Vencimentos de ${formatDate(date)}`,
+      subtitle: "Veja todos os clientes com vencimento nesta data. Você pode refinar a lista com os mesmos filtros da exportação.",
+      autoGenerate: true,
+    });
+  }
+
+  function handleCalendarDateClick(date: string, event: ReactMouseEvent<HTMLButtonElement>) {
+    if (!data) return;
+
+    if (!event.shiftKey) {
+      setRangeAnchor(null);
+      setSelectedRange(null);
+      setRangeSummary(null);
+      openDayDetails(date);
+      return;
+    }
+
+    if (!rangeAnchor) {
+      setRangeAnchor(date);
+      setSelectedRange({ start: date, end: date });
+      setRangeSummary(null);
+      return;
+    }
+
+    const start = rangeAnchor <= date ? rangeAnchor : date;
+    const end = rangeAnchor <= date ? date : rangeAnchor;
+    const selectedItems = data.calendario.filter((item) => item.date >= start && item.date <= end);
+    const totalValue = selectedItems.reduce((sum, item) => sum + Number(item.total_valor || 0), 0);
+    const totalClients = selectedItems.reduce((sum, item) => sum + Number(item.total_clientes || 0), 0);
+
+    setSelectedRange({ start, end });
+    setRangeAnchor(null);
+    setRangeSummary({ start, end, totalValue, totalClients });
+  }
+
   const retry = () => {
     if (year !== null && month !== null) {
       void load(year, month);
@@ -687,7 +860,15 @@ export default function VencimentosFuturosDashboard() {
           <div className="flex flex-wrap items-end gap-3">
             <button
               type="button"
-              onClick={() => setShowExport(true)}
+              onClick={() => {
+                if (!data) return;
+                setExportRequest({
+                  filters: baseExportFilters(data.periodo.data_inicio, dayBefore(data.periodo.data_fim)),
+                  title: "Exportar vencimentos futuros",
+                  subtitle: "Defina o recorte, gere a tabela e depois baixe em CSV/XLSX ou copie tudo para o Google Sheets.",
+                  autoGenerate: false,
+                });
+              }}
               className="inline-flex h-[66px] items-center gap-2 rounded-2xl bg-slate-950 px-5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
             >
               <Download size={17} />
@@ -772,8 +953,8 @@ export default function VencimentosFuturosDashboard() {
               <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <SectionTitle
                   title={data.periodo.ano_completo ? "Calendário de vencimentos do ano" : "Calendário de vencimentos do mês"}
-                  subtitle={data.periodo.ano_completo ? "Cada mini calendário mostra quanto vence em cada dia de cada mês do ano." : "Cada quadrado mostra o total que vence naquele dia."}
-                  helpText="Este calendário funciona como um mapa de calor. Quanto mais forte a cor, maior o valor que vence naquele dia. Azul é futuro, laranja é atraso e vermelho é churn (60 dias ou mais)."
+                  subtitle={data.periodo.ano_completo ? "Clique em um dia para ver os clientes. Com Shift, selecione a primeira e a última data de um intervalo." : "Clique em um dia para ver os clientes. Com Shift, selecione a primeira e a última data de um intervalo."}
+                  helpText="Este calendário funciona como um mapa de calor. Quanto mais forte a cor, maior o valor que vence naquele dia. Um clique abre a lista daquele dia. Segurando Shift, clique em duas datas para selecionar todo o intervalo entre elas."
                   interactive
                 />
                 <div className={`grid gap-4 ${data.periodo.ano_completo ? "lg:grid-cols-2 2xl:grid-cols-3" : "grid-cols-1"}`}>
@@ -785,6 +966,9 @@ export default function VencimentosFuturosDashboard() {
                       items={calendar.items}
                       today={data.periodo.data_hoje}
                       churnDate={data.periodo.data_churn}
+                      rangeAnchor={rangeAnchor}
+                      selectedRange={selectedRange}
+                      onDateClick={handleCalendarDateClick}
                     />
                   ))}
                 </div>
@@ -851,21 +1035,36 @@ export default function VencimentosFuturosDashboard() {
         ) : null}
       </div>
 
-      {showExport && data && (
-        <ExportModal
-          initialFilters={{
-            empresa: filters.empresa,
-            origem: filters.origem,
-            pagador: filters.pagador,
-            data_inicio: data.periodo.data_inicio,
-            data_fim: dayBefore(data.periodo.data_fim),
-            plano: "",
-            duracao: "",
-            valor_minimo: 0,
-            tempo_cliente_valor: 0,
-            tempo_cliente_unidade: "mes",
+      {rangeSummary && (
+        <RangeSummaryModal
+          start={rangeSummary.start}
+          end={rangeSummary.end}
+          totalValue={rangeSummary.totalValue}
+          totalClients={rangeSummary.totalClients}
+          onClose={() => {
+            setRangeSummary(null);
+            setSelectedRange(null);
           }}
-          onClose={() => setShowExport(false)}
+          onShowClients={() => {
+            const current = rangeSummary;
+            setRangeSummary(null);
+            setExportRequest({
+              filters: baseExportFilters(current.start, current.end),
+              title: `Vencimentos de ${formatDate(current.start)} até ${formatDate(current.end)}`,
+              subtitle: "Veja os clientes do intervalo selecionado e use os filtros abaixo para refinar a lista.",
+              autoGenerate: true,
+            });
+          }}
+        />
+      )}
+
+      {exportRequest && (
+        <ExportModal
+          initialFilters={exportRequest.filters}
+          title={exportRequest.title}
+          subtitle={exportRequest.subtitle}
+          autoGenerate={exportRequest.autoGenerate}
+          onClose={() => setExportRequest(null)}
         />
       )}
     </div>

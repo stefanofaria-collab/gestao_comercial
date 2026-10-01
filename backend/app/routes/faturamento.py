@@ -1,8 +1,9 @@
 from datetime import date
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 
+from app.services.dashboard_cache_service import cached_daily
 from app.services.faturamento_service import (
     get_faturamento,
     get_faturamento_componente,
@@ -20,31 +21,51 @@ PayerFilter = Literal["todos", "cliente", "parceiro"]
 CompareMode = Literal["mes_completo", "mesmo_periodo_atual"]
 
 
-def _handle(func, **kwargs):
+def _cached_handle(background_tasks, page, func, cache_params, **kwargs):
     try:
-        return func(**kwargs)
+        return cached_daily(
+            page=page,
+            params=cache_params,
+            builder=lambda: func(**kwargs),
+            background_tasks=background_tasks,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(
             status_code=500,
             detail=(
-                "Erro ao consultar o faturamento no MySQL de origem. "
+                "Não foi possível carregar o snapshot do faturamento. "
                 f"Detalhe técnico: {type(exc).__name__}: {exc}"
             ),
         ) from exc
 
 
+def _base_params(ano, mes, empresa, origem, pagador):
+    return {
+        "ano": ano,
+        "mes": mes,
+        "empresa": empresa,
+        "origem": origem,
+        "pagador": pagador,
+    }
+
+
 @router.get("/total")
 def faturamento_total(
+    background_tasks: BackgroundTasks,
     ano: int = Query(..., ge=2024),
     mes: int = Query(..., ge=0, le=12),
     empresa: CompanyFilter = Query("todos"),
     origem: OriginFilter = Query("todos"),
     pagador: PayerFilter = Query("todos"),
 ):
-    return _handle(
+    params = _base_params(ano, mes, empresa, origem, pagador)
+    return _cached_handle(
+        background_tasks,
+        "faturamento.total",
         get_faturamento_total,
+        params,
         year=ano,
         month=mes,
         empresa=empresa,
@@ -55,14 +76,19 @@ def faturamento_total(
 
 @router.get("/detalhes")
 def faturamento_detalhes(
+    background_tasks: BackgroundTasks,
     ano: int = Query(..., ge=2024),
     mes: int = Query(..., ge=0, le=12),
     empresa: CompanyFilter = Query("todos"),
     origem: OriginFilter = Query("todos"),
     pagador: PayerFilter = Query("todos"),
 ):
-    return _handle(
+    params = _base_params(ano, mes, empresa, origem, pagador)
+    return _cached_handle(
+        background_tasks,
+        "faturamento.detalhes",
         get_faturamento_detalhes,
+        params,
         year=ano,
         month=mes,
         empresa=empresa,
@@ -73,6 +99,7 @@ def faturamento_detalhes(
 
 @router.get("/componente")
 def faturamento_componente(
+    background_tasks: BackgroundTasks,
     componente: str = Query(...),
     ano: int = Query(..., ge=2024),
     mes: int = Query(..., ge=0, le=12),
@@ -81,8 +108,16 @@ def faturamento_componente(
     pagador: PayerFilter = Query("todos"),
     compare_mode: CompareMode = Query("mes_completo"),
 ):
-    return _handle(
+    params = {
+        **_base_params(ano, mes, empresa, origem, pagador),
+        "componente": componente,
+        "compare_mode": compare_mode,
+    }
+    return _cached_handle(
+        background_tasks,
+        "faturamento.componente",
         get_faturamento_componente,
+        params,
         year=ano,
         month=mes,
         componente=componente,
@@ -95,6 +130,7 @@ def faturamento_componente(
 
 @router.get("/plano-detalhe")
 def faturamento_plano_detalhe(
+    background_tasks: BackgroundTasks,
     plano: str = Query(...),
     ano: int = Query(..., ge=2024),
     mes: int = Query(..., ge=0, le=12),
@@ -103,8 +139,16 @@ def faturamento_plano_detalhe(
     pagador: PayerFilter = Query("todos"),
     compare_mode: CompareMode = Query("mes_completo"),
 ):
-    return _handle(
+    params = {
+        **_base_params(ano, mes, empresa, origem, pagador),
+        "plano": plano,
+        "compare_mode": compare_mode,
+    }
+    return _cached_handle(
+        background_tasks,
+        "faturamento.plano_detalhe",
         get_faturamento_plano_detalhe,
+        params,
         year=ano,
         month=mes,
         plano=plano,
@@ -117,14 +161,19 @@ def faturamento_plano_detalhe(
 
 @router.get("")
 def faturamento(
+    background_tasks: BackgroundTasks,
     ano: int = Query(..., ge=2024),
     mes: int = Query(..., ge=0, le=12),
     empresa: CompanyFilter = Query("todos"),
     origem: OriginFilter = Query("todos"),
     pagador: PayerFilter = Query("todos"),
 ):
-    return _handle(
+    params = _base_params(ano, mes, empresa, origem, pagador)
+    return _cached_handle(
+        background_tasks,
+        "faturamento.pagina",
         get_faturamento,
+        params,
         year=ano,
         month=mes,
         empresa=empresa,
@@ -135,14 +184,19 @@ def faturamento(
 
 @router.get("/historico")
 def faturamento_historico(
+    background_tasks: BackgroundTasks,
     ano: int = Query(..., ge=2024),
     mes: int = Query(..., ge=0, le=12),
     empresa: CompanyFilter = Query("todos"),
     origem: OriginFilter = Query("todos"),
     pagador: PayerFilter = Query("todos"),
 ):
-    return _handle(
+    params = _base_params(ano, mes, empresa, origem, pagador)
+    return _cached_handle(
+        background_tasks,
+        "faturamento.historico",
         get_faturamento_historico,
+        params,
         year=ano,
         month=mes,
         empresa=empresa,

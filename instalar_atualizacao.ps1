@@ -5,9 +5,11 @@ $zip = Join-Path $base "download.zip"
 $projeto = Join-Path $base "gestao_clientes_dashboard"
 $temp = Join-Path $base "_atualizacao_temp"
 
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan
-Write-Host " ATUALIZANDO GESTAO CLIENTES"
+Write-Host " GESTAO COMERCIAL - ATUALIZACAO 3.19.0"
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -18,92 +20,90 @@ if (-not (Test-Path $zip)) {
 }
 
 if (-not (Test-Path $projeto)) {
-    Write-Host "ERRO: pasta do projeto nao encontrada:" -ForegroundColor Red
+    Write-Host "ERRO: projeto nao encontrado:" -ForegroundColor Red
     Write-Host $projeto -ForegroundColor Yellow
     exit 1
 }
 
-Write-Host "[1/7] Encerrando backend e frontend antigos..." -ForegroundColor Cyan
+Write-Host "[1/8] Encerrando frontend e backend..." -ForegroundColor Cyan
 Get-NetTCPConnection -LocalPort 3000,8000 -State Listen -ErrorAction SilentlyContinue |
     Select-Object -ExpandProperty OwningProcess -Unique |
-    ForEach-Object {
-        Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue
-    }
-Start-Sleep -Seconds 1
-Write-Host "[OK] Portas 3000 e 8000 liberadas." -ForegroundColor Green
+    ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }
+Start-Sleep -Seconds 2
 
-Write-Host "[2/7] Preparando pasta temporaria..." -ForegroundColor Cyan
-if (Test-Path $temp) {
-    Remove-Item $temp -Recurse -Force
-}
+Write-Host "[2/8] Preparando pasta temporaria..." -ForegroundColor Cyan
+if (Test-Path $temp) { Remove-Item $temp -Recurse -Force }
 New-Item -ItemType Directory -Path $temp -Force | Out-Null
 
-Write-Host "[3/7] Extraindo download.zip..." -ForegroundColor Cyan
+Write-Host "[3/8] Extraindo download.zip..." -ForegroundColor Cyan
 Expand-Archive -Path $zip -DestinationPath $temp -Force
 
-$arquivosObrigatorios = @(
-    "backend\app\database.py",
-    "backend\app\services\perfil_service.py",
-    "backend\app\services\payment_metrics_service.py",
-    "backend\app\services\vencimentos_futuros_service.py",
-    "backend\app\repositories\perfil_supabase_repository.py",
-    "backend\app\routes\perfil.py",
-    "backend\app\routes\vencimentos_futuros.py",
-    "frontend\components\perfil\PerfilDashboard.tsx",
-    "frontend\components\vencimentos-futuros\VencimentosFuturosDashboard.tsx",
-    "frontend\lib\perfil-api.ts",
-    "frontend\lib\vencimentos-futuros-api.ts",
-    "frontend\package.json",
+$obrigatorios = @(
+    "backend\app\services\pagamentos_service.py",
+    "backend\app\routes\pagamentos.py",
+    "backend\app\main.py",
+    "frontend\app\pagamentos\page.tsx",
+    "frontend\components\pagamentos\PagamentosDashboard.tsx",
+    "frontend\lib\pagamentos-api.ts",
+    "frontend\types\pagamentos.ts",
+    "frontend\components\layout\AppShell.tsx",
     "iniciar_frontend.ps1"
 )
 
-foreach ($arquivo in $arquivosObrigatorios) {
+foreach ($arquivo in $obrigatorios) {
     if (-not (Test-Path (Join-Path $temp $arquivo))) {
-        Write-Host "ERRO: o ZIP nao possui a estrutura esperada." -ForegroundColor Red
-        Write-Host "Arquivo ausente: $arquivo" -ForegroundColor Yellow
-        Remove-Item $temp -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Host "ERRO: arquivo ausente no ZIP: $arquivo" -ForegroundColor Red
         exit 1
     }
 }
 
-Write-Host "[4/7] Copiando atualizacao para o projeto..." -ForegroundColor Cyan
+Write-Host "[4/8] Atualizando projeto..." -ForegroundColor Cyan
 Copy-Item -Path "$temp\*" -Destination $projeto -Recurse -Force
-
-Write-Host "[5/7] Limpando build antigo do Next.js..." -ForegroundColor Cyan
-$nextCache = Join-Path $projeto "frontend\.next"
-if (Test-Path $nextCache) {
-    Remove-Item $nextCache -Recurse -Force
-}
-
 Remove-Item $temp -Recurse -Force
-Write-Host "[OK] Arquivos instalados." -ForegroundColor Green
+Write-Host "[OK] Projeto atualizado." -ForegroundColor Green
 
-Write-Host "[6/7] Iniciando backend..." -ForegroundColor Cyan
+Write-Host "[5/8] Limpando build antigo do frontend..." -ForegroundColor Cyan
+$next = Join-Path $projeto "frontend\.next"
+if (Test-Path $next) { Remove-Item $next -Recurse -Force }
+
+Write-Host "[6/8] Iniciando backend..." -ForegroundColor Cyan
 Start-Process powershell -ArgumentList @(
     "-NoExit",
     "-ExecutionPolicy", "Bypass",
-    "-Command",
-    "cd '$projeto'; .\iniciar_backend.ps1"
+    "-Command", "cd '$projeto'; .\iniciar_backend.ps1"
 )
 
-Start-Sleep -Seconds 6
-
-try {
-    $api = Invoke-RestMethod -Uri "http://127.0.0.1:8000/" -TimeoutSec 10
-    Write-Host "[OK] Backend respondeu. Versao: $($api.version)" -ForegroundColor Green
-} catch {
-    Write-Host "AVISO: backend ainda nao respondeu. Confira a janela do backend." -ForegroundColor Yellow
+$backendOnline = $false
+for ($i = 1; $i -le 20; $i++) {
+    Start-Sleep -Seconds 2
+    try {
+        $api = Invoke-RestMethod -Uri "http://127.0.0.1:8000/" -TimeoutSec 5
+        Write-Host "[OK] Backend respondeu. Versao: $($api.version)" -ForegroundColor Green
+        $backendOnline = $true
+        break
+    } catch {
+        Write-Host "Aguardando backend... $i/20"
+    }
 }
 
-Write-Host "[7/7] Iniciando frontend em modo de producao..." -ForegroundColor Cyan
-Write-Host "O primeiro inicio pode demorar porque todas as paginas serao compiladas agora." -ForegroundColor Yellow
-Write-Host "Depois do Ready, a troca entre paginas sera imediata." -ForegroundColor Yellow
+Write-Host "[7/8] Preparando a primeira leitura de Pagamentos..." -ForegroundColor Cyan
+if ($backendOnline) {
+    try {
+        Invoke-RestMethod `
+            -Uri "http://127.0.0.1:8000/api/pagamentos?empresa=todos&origem=todos&pagador=todos" `
+            -TimeoutSec 300 | Out-Null
+        Write-Host "[OK] Snapshot de Pagamentos pronto." -ForegroundColor Green
+    } catch {
+        Write-Host "AVISO: o snapshot de Pagamentos ainda nao ficou pronto." -ForegroundColor Yellow
+        Write-Host "A pagina tentara concluir automaticamente no primeiro acesso." -ForegroundColor Yellow
+    }
+}
 
+Write-Host "[8/8] Iniciando frontend..." -ForegroundColor Cyan
 Start-Process powershell -ArgumentList @(
     "-NoExit",
     "-ExecutionPolicy", "Bypass",
-    "-Command",
-    "cd '$projeto'; .\iniciar_frontend.ps1"
+    "-Command", "cd '$projeto'; .\iniciar_frontend.ps1"
 )
 
 Write-Host ""
@@ -111,9 +111,8 @@ Write-Host "============================================" -ForegroundColor Green
 Write-Host " ATUALIZACAO CONCLUIDA"
 Write-Host "============================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "Backend : http://127.0.0.1:8000" -ForegroundColor Cyan
-Write-Host "Frontend: http://localhost:3000" -ForegroundColor Cyan
-Write-Host "Perfil  : http://localhost:3000/perfil" -ForegroundColor Cyan
-Write-Host "Vencim. : http://localhost:3000/vencimentos-futuros" -ForegroundColor Cyan
+Write-Host "Dashboard: http://localhost:3000" -ForegroundColor Cyan
+Write-Host "Pagamentos: http://localhost:3000/pagamentos" -ForegroundColor Cyan
+Write-Host "Backend: http://127.0.0.1:8000" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "Aguarde a janela do frontend mostrar Ready antes de abrir o site." -ForegroundColor Yellow
+Write-Host "A primeira leitura do dia atualiza o snapshot salvo no banco do projeto." -ForegroundColor Yellow

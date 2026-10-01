@@ -218,6 +218,8 @@ def _serialize_row(row: dict, payment_stats: dict[int, dict], today: date) -> di
     payment = payment_stats.get(int(row["empresa_id"]), {})
     overdue_days = max((today - due_date).days, 0) if due_date else 0
     months_with_company = _months_between(activated_at, due_date or today)
+    real_average = payment.get("media_dias_pagamento_real")
+    considered_average = max(float(real_average or 0), 0.0)
 
     return {
         "empresa_id": int(row["empresa_id"]),
@@ -240,6 +242,8 @@ def _serialize_row(row: dict, payment_stats: dict[int, dict], today: date) -> di
         "tempo_casa_label": _tenure_label(months_with_company),
         "dias_vencido": overdue_days,
         "em_churn": overdue_days >= 60,
+        "media_dias_considerada": round(considered_average, 2),
+        "ultrapassou_media_atraso": overdue_days > considered_average,
         "nome_usuario": row.get("nome_usuario"),
         "telefone": row.get("telefone"),
         "celular": row.get("celular"),
@@ -474,8 +478,10 @@ def get_vencimentos_export_rows(
     plano: str = "",
     duracao: str = "",
     valor_minimo: float = 0.0,
-    tempo_cliente_valor: float = 0.0,
+    tempo_cliente_minimo: float | None = None,
+    tempo_cliente_maximo: float | None = None,
     tempo_cliente_unidade: str = "mes",
+    somente_ultrapassou_media: bool = False,
 ) -> dict:
     if data_fim < data_inicio:
         raise ValueError("A data final não pode ser menor que a data inicial.")
@@ -507,9 +513,9 @@ def get_vencimentos_export_rows(
 
     plan_term = plano.strip().lower()
     duration_term = duracao.strip().upper()
-    minimum_months = float(tempo_cliente_valor or 0)
-    if tempo_cliente_unidade == "ano":
-        minimum_months *= 12
+    multiplier = 12 if tempo_cliente_unidade == "ano" else 1
+    minimum_months = None if tempo_cliente_minimo is None else float(tempo_cliente_minimo) * multiplier
+    maximum_months = None if tempo_cliente_maximo is None else float(tempo_cliente_maximo) * multiplier
 
     filtered = []
     for row in rows:
@@ -519,7 +525,12 @@ def get_vencimentos_export_rows(
             continue
         if float(row.get("valor") or 0) < float(valor_minimo or 0):
             continue
-        if float(row.get("tempo_casa_meses") or 0) < minimum_months:
+        tenure = float(row.get("tempo_casa_meses") or 0)
+        if minimum_months is not None and tenure < minimum_months:
+            continue
+        if maximum_months is not None and tenure > maximum_months:
+            continue
+        if somente_ultrapassou_media and not bool(row.get("ultrapassou_media_atraso")):
             continue
         filtered.append(row)
 
@@ -564,8 +575,10 @@ def get_vencimentos_export_rows(
             "plano": plano,
             "duracao": duracao,
             "valor_minimo": float(valor_minimo or 0),
-            "tempo_cliente_valor": float(tempo_cliente_valor or 0),
+            "tempo_cliente_minimo": tempo_cliente_minimo,
+            "tempo_cliente_maximo": tempo_cliente_maximo,
             "tempo_cliente_unidade": tempo_cliente_unidade,
+            "somente_ultrapassou_media": somente_ultrapassou_media,
         },
         "total": len(export_rows),
         "rows": export_rows,
