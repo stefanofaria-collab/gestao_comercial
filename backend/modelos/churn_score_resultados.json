@@ -1,0 +1,133 @@
+﻿{
+    "status":  "treinado",
+    "version":  "3.26.0",
+    "trained_at":  "2026-10-02T16:37:58-03:00",
+    "model_name":  "Random Forest",
+    "threshold":  0.5932,
+    "validation_results":  {
+                               "RegressÃ£o LogÃ­stica":  {
+                                                             "roc_auc":  0.7953,
+                                                             "pr_auc":  0.3147,
+                                                             "brier":  0.1786,
+                                                             "log_loss":  0.5377,
+                                                             "accuracy":  0.857,
+                                                             "precision":  0.3335,
+                                                             "recall":  0.495,
+                                                             "f1":  0.3985,
+                                                             "lift_10":  3.7942,
+                                                             "captura_churn_10":  0.3795,
+                                                             "threshold":  0.6501
+                                                         },
+                               "Random Forest":  {
+                                                     "roc_auc":  0.818,
+                                                     "pr_auc":  0.3341,
+                                                     "brier":  0.1552,
+                                                     "log_loss":  0.4794,
+                                                     "accuracy":  0.8409,
+                                                     "precision":  0.319,
+                                                     "recall":  0.5842,
+                                                     "f1":  0.4127,
+                                                     "lift_10":  3.7809,
+                                                     "captura_churn_10":  0.3782,
+                                                     "threshold":  0.5932
+                                                 },
+                               "Extra Trees":  {
+                                                   "roc_auc":  0.7968,
+                                                   "pr_auc":  0.3099,
+                                                   "brier":  0.1791,
+                                                   "log_loss":  0.5406,
+                                                   "accuracy":  0.8536,
+                                                   "precision":  0.3203,
+                                                   "recall":  0.4727,
+                                                   "f1":  0.3819,
+                                                   "lift_10":  3.6444,
+                                                   "captura_churn_10":  0.3645,
+                                                   "threshold":  0.6456
+                                               }
+                           },
+    "test_metrics":  {
+                         "roc_auc":  0.8153,
+                         "pr_auc":  0.3308,
+                         "brier":  0.1503,
+                         "log_loss":  0.4672,
+                         "accuracy":  0.8442,
+                         "precision":  0.3272,
+                         "recall":  0.5413,
+                         "f1":  0.4079,
+                         "lift_10":  3.8367,
+                         "captura_churn_10":  0.3837,
+                         "threshold":  0.5932
+                     },
+    "feature_importance":  [
+                               {
+                                   "feature":  "atraso_ultima_renovacao",
+                                   "importance":  0.040493
+                               },
+                               {
+                                   "feature":  "pagamentos_anteriores",
+                                   "importance":  0.021169
+                               },
+                               {
+                                   "feature":  "tempo_vida_meses",
+                                   "importance":  0.01045
+                               },
+                               {
+                                   "feature":  "nome_plano",
+                                   "importance":  0.010405
+                               },
+                               {
+                                   "feature":  "dias_ciclo",
+                                   "importance":  0.007759
+                               },
+                               {
+                                   "feature":  "mudou_duracao",
+                                   "importance":  0.003783
+                               },
+                               {
+                                   "feature":  "valor",
+                                   "importance":  0.00285
+                               },
+                               {
+                                   "feature":  "variacao_valor_pct",
+                                   "importance":  0.00176
+                               },
+                               {
+                                   "feature":  "origem",
+                                   "importance":  0.001386
+                               }
+                           ],
+    "periods":  {
+                    "treino":  {
+                                   "inicio":  "2024-01-01",
+                                   "fim":  "2025-10-23",
+                                   "linhas":  136722,
+                                   "churns":  12786,
+                                   "taxa_churn":  0.0935
+                               },
+                    "validacao":  {
+                                      "inicio":  "2025-10-24",
+                                      "fim":  "2026-03-14",
+                                      "linhas":  31394,
+                                      "churns":  3004,
+                                      "taxa_churn":  0.0957
+                                  },
+                    "teste":  {
+                                  "inicio":  "2026-03-15",
+                                  "fim":  "2026-08-03",
+                                  "linhas":  32024,
+                                  "churns":  3174,
+                                  "taxa_churn":  0.0991
+                              }
+                },
+    "dataset":  {
+                    "linhas":  200140,
+                    "churns":  18964,
+                    "renovacoes":  181176,
+                    "taxa_churn":  0.0948
+                },
+    "notes":  [
+                  "ValidaÃ§Ã£o temporal: o modelo nunca Ã© testado em perÃ­odos anteriores ao treino.",
+                  "Dias vencidos nÃ£o Ã© usado como variÃ¡vel preditora.",
+                  "Ãltimo acesso atual nÃ£o entra no treino histÃ³rico para evitar vazamento temporal; ele entra como ajuste comportamental transparente no score final."
+              ]
+}

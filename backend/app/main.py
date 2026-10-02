@@ -11,6 +11,7 @@ from app.services.dashboard_cache_service import cache_status, reset_refresh_loc
 from app.routes.dashboard import router as dashboard_router
 from app.routes.faturamento import router as faturamento_router
 from app.routes.churn import router as churn_router
+from app.routes.churn_score import router as churn_score_router
 from app.routes.ativos_atrasados import router as ativos_atrasados_router
 from app.routes.perfil import router as perfil_router
 from app.routes.vencimentos_futuros import router as vencimentos_futuros_router
@@ -20,10 +21,10 @@ from app.routes.atendimentos import router as atendimentos_router
 
 app = FastAPI(
     title="Gestão Comercial API",
-    version="3.25.0",
+    version="3.26.0",
     description=(
         "API do dashboard comercial. Mantém os indicadores existentes "
-        "e adiciona as visões de faturamento, churn, ativos e atrasados, perfil, atendimentos, pagamentos e vencimentos futuros."
+        "e adiciona as visões de faturamento, churn, churn score, ativos e atrasados, perfil, atendimentos, pagamentos e vencimentos futuros."
     ),
 )
 
@@ -82,6 +83,7 @@ app.add_middleware(
 app.include_router(dashboard_router)
 app.include_router(faturamento_router)
 app.include_router(churn_router)
+app.include_router(churn_score_router)
 app.include_router(ativos_atrasados_router)
 app.include_router(perfil_router)
 app.include_router(atendimentos_router)
@@ -98,11 +100,12 @@ def clear_abandoned_refresh_locks():
 def root():
     return {
         "app": "Gestão Comercial API",
-        "version": "3.25.0",
+        "version": "3.26.0",
         "docs": "/docs",
         "health": "/health",
         "faturamento": "/api/faturamento",
         "churn": "/api/churn",
+        "churn_score": "/api/churn-score",
         "ativos_atrasados": "/api/ativos-atrasados",
         "perfil": "/api/perfil",
         "atendimentos": "/api/atendimentos",

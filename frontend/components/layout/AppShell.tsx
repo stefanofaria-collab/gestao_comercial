@@ -11,6 +11,7 @@ import {
   ChevronRight,
   CircleUserRound,
   CreditCard,
+  Gauge,
   Headset,
   RotateCcw,
   SlidersHorizontal,
@@ -29,6 +30,7 @@ import {
 const navigation = [
   { href: "/faturamento", label: "Faturamento", icon: BadgeDollarSign },
   { href: "/churn", label: "Churn", icon: TrendingDown },
+  { href: "/churn-score", label: "Churn Score", icon: Gauge },
   { href: "/ativos-atrasados", label: "Ativos e Atrasados", icon: UsersRound },
   { href: "/indicadores", label: "Indicadores", icon: BarChart3 },
   { href: "/perfil", label: "Perfil", icon: CircleUserRound },

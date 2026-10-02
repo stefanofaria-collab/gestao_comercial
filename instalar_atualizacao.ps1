@@ -9,7 +9,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan
-Write-Host " GESTAO COMERCIAL - ATUALIZACAO 3.25.0"
+Write-Host " GESTAO COMERCIAL - ATUALIZACAO 3.26.0"
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -25,28 +25,30 @@ if (-not (Test-Path $projeto)) {
     exit 1
 }
 
-Write-Host "[1/9] Encerrando frontend e backend..." -ForegroundColor Cyan
+Write-Host "[1/10] Encerrando frontend e backend..." -ForegroundColor Cyan
 Get-NetTCPConnection -LocalPort 3000,8000 -State Listen -ErrorAction SilentlyContinue |
     Select-Object -ExpandProperty OwningProcess -Unique |
     ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }
 Start-Sleep -Seconds 2
 
-Write-Host "[2/9] Preparando pasta temporaria..." -ForegroundColor Cyan
+Write-Host "[2/10] Preparando pasta temporaria..." -ForegroundColor Cyan
 if (Test-Path $temp) { Remove-Item $temp -Recurse -Force }
 New-Item -ItemType Directory -Path $temp -Force | Out-Null
 
-Write-Host "[3/9] Extraindo download.zip..." -ForegroundColor Cyan
+Write-Host "[3/10] Extraindo download.zip..." -ForegroundColor Cyan
 Expand-Archive -Path $zip -DestinationPath $temp -Force
 
 $obrigatorios = @(
-    "backend\app\services\atendimentos_service.py",
-    "backend\app\routes\atendimentos.py",
-    "backend\app\routes\ativos_atrasados.py",
+    "backend\app\services\churn_score_service.py",
+    "backend\app\routes\churn_score.py",
     "backend\app\main.py",
-    "frontend\components\atendimentos\AtendimentosDashboard.tsx",
-    "frontend\lib\atendimentos-api.ts",
-    "frontend\lib\ativos-atrasados-api.ts",
-    "frontend\types\atendimentos.ts",
+    "backend\requirements.txt",
+    "frontend\app\churn-score\page.tsx",
+    "frontend\components\churn-score\ChurnScoreDashboard.tsx",
+    "frontend\components\layout\AppShell.tsx",
+    "frontend\lib\churn-score-api.ts",
+    "frontend\types\churn-score.ts",
+    "README_ATUALIZACAO_3_26_0.md",
     "instalar_atualizacao.ps1"
 )
 
@@ -58,16 +60,16 @@ foreach ($arquivo in $obrigatorios) {
     }
 }
 
-Write-Host "[4/9] Atualizando projeto..." -ForegroundColor Cyan
+Write-Host "[4/10] Atualizando projeto..." -ForegroundColor Cyan
 Copy-Item -Path "$temp\*" -Destination $projeto -Recurse -Force
 Remove-Item $temp -Recurse -Force
 Write-Host "[OK] Arquivos atualizados." -ForegroundColor Green
 
-Write-Host "[5/9] Limpando build antigo do frontend..." -ForegroundColor Cyan
+Write-Host "[5/10] Limpando build antigo do frontend..." -ForegroundColor Cyan
 $next = Join-Path $projeto "frontend\.next"
 if (Test-Path $next) { Remove-Item $next -Recurse -Force }
 
-Write-Host "[6/9] Iniciando backend..." -ForegroundColor Cyan
+Write-Host "[6/10] Iniciando backend..." -ForegroundColor Cyan
 Start-Process powershell -ArgumentList @(
     "-NoExit",
     "-ExecutionPolicy", "Bypass",
@@ -75,7 +77,7 @@ Start-Process powershell -ArgumentList @(
 )
 
 $backendOnline = $false
-for ($i = 1; $i -le 30; $i++) {
+for ($i = 1; $i -le 90; $i++) {
     Start-Sleep -Seconds 2
     try {
         $api = Invoke-RestMethod -Uri "http://127.0.0.1:8000/" -TimeoutSec 5
@@ -84,12 +86,38 @@ for ($i = 1; $i -le 30; $i++) {
         break
     }
     catch {
-        Write-Host "Aguardando backend... $i/30"
+        Write-Host "Aguardando backend... $i/90"
     }
 }
 
 Write-Host ""
-Write-Host "[7/9] Atualizando atendimentos somente ate ontem..." -ForegroundColor Cyan
+Write-Host "[7/10] Treinando e validando Churn Score..." -ForegroundColor Cyan
+if ($backendOnline) {
+    try {
+        $treino = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/api/churn-score/treinar" -TimeoutSec 900
+        $modelDir = Join-Path $projeto "backend\modelos"
+        if (-not (Test-Path $modelDir)) { New-Item -ItemType Directory -Path $modelDir -Force | Out-Null }
+        $treino | ConvertTo-Json -Depth 12 | Set-Content -Path (Join-Path $modelDir "churn_score_resultados.json") -Encoding UTF8
+
+        Write-Host "[OK] Churn Score treinado." -ForegroundColor Green
+        Write-Host "Modelo: $($treino.model_name)" -ForegroundColor White
+        Write-Host "ROC-AUC teste: $($treino.test_metrics.roc_auc)" -ForegroundColor White
+        Write-Host "PR-AUC teste: $($treino.test_metrics.pr_auc)" -ForegroundColor White
+        Write-Host "Brier teste: $($treino.test_metrics.brier)" -ForegroundColor White
+        Write-Host "Precision teste: $($treino.test_metrics.precision)" -ForegroundColor White
+        Write-Host "Recall teste: $($treino.test_metrics.recall)" -ForegroundColor White
+        Write-Host "F1 teste: $($treino.test_metrics.f1)" -ForegroundColor White
+        Write-Host "Lift Top 10%: $($treino.test_metrics.lift_10)x" -ForegroundColor White
+    }
+    catch {
+        Write-Host "AVISO: o projeto foi atualizado, mas o Churn Score nao conseguiu treinar agora." -ForegroundColor Yellow
+        Write-Host $_.Exception.Message -ForegroundColor DarkYellow
+        Write-Host "Abra http://localhost:3000/churn-score e use 'Treinar modelo'." -ForegroundColor Yellow
+    }
+}
+
+Write-Host ""
+Write-Host "[8/10] Atualizando atendimentos somente ate ontem..." -ForegroundColor Cyan
 if ($backendOnline) {
     try {
         Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/api/atendimentos/sincronizar" -TimeoutSec 20 | Out-Null
@@ -121,7 +149,7 @@ if ($backendOnline) {
 }
 
 Write-Host ""
-Write-Host "[8/9] Criando caches separados por periodo..." -ForegroundColor Cyan
+Write-Host "[9/10] Criando caches separados por periodo..." -ForegroundColor Cyan
 if ($backendOnline) {
     try {
         $meta = Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/atendimentos/meta" -TimeoutSec 20
@@ -144,7 +172,7 @@ if ($backendOnline) {
 }
 
 Write-Host ""
-Write-Host "[9/9] Iniciando frontend..." -ForegroundColor Cyan
+Write-Host "[10/10] Iniciando frontend..." -ForegroundColor Cyan
 Start-Process powershell -ArgumentList @(
     "-NoExit",
     "-ExecutionPolicy", "Bypass",
@@ -153,9 +181,9 @@ Start-Process powershell -ArgumentList @(
 
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Green
-Write-Host " ATUALIZACAO CONCLUIDA - 3.25.0"
+Write-Host " ATUALIZACAO CONCLUIDA - 3.26.0"
 Write-Host "============================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "Atendimentos: http://localhost:3000/atendimentos" -ForegroundColor Cyan
-Write-Host "Ativos/Atrasados: http://localhost:3000/ativos-atrasados" -ForegroundColor Cyan
+Write-Host "Churn Score: http://localhost:3000/churn-score" -ForegroundColor Cyan
+Write-Host "Churn: http://localhost:3000/churn" -ForegroundColor Cyan
 Write-Host "Backend: http://127.0.0.1:8000" -ForegroundColor Cyan
