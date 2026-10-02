@@ -335,7 +335,6 @@ def _rows_to_payload(db_rows) -> list[dict]:
     return rows
 
 
-@lru_cache(maxsize=256)
 def get_churn_dashboard(
     year: int,
     month: int,
@@ -534,7 +533,6 @@ def _month_sequence(start: date, end: date) -> list[tuple[int, int]]:
     return values
 
 
-@lru_cache(maxsize=256)
 def get_churn_renewal_history(
     year: int,
     month: int,

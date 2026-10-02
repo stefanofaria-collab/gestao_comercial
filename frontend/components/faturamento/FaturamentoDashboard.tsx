@@ -107,12 +107,13 @@ function cacheNoticeFromResponse(value: unknown): CacheNotice | null {
   const info = (value as {
     _cache_info?: {
       fallback?: boolean;
+      refreshing?: boolean;
       source_date?: string | null;
       source_params?: { ano?: number; mes?: number };
     };
   })._cache_info;
 
-  if (!info?.fallback) return null;
+  if (!info || (!info.fallback && !info.refreshing)) return null;
   return {
     sourceDate: info.source_date ?? null,
     sourceYear: Number(info.source_params?.ano ?? 0) || null,
@@ -731,7 +732,7 @@ export default function FaturamentoDashboard() {
             <div>
               <p className="font-semibold">Os dados do período atual estão sendo atualizados.</p>
               <p className="mt-1 text-xs leading-5 text-amber-800">
-                Para não deixar o dashboard indisponível, estamos exibindo o último snapshot válido
+                Para não deixar o dashboard indisponível, estamos exibindo o último snapshot disponível
                 {cacheNotice.sourceMonth && cacheNotice.sourceYear
                   ? ` (${MONTHS[cacheNotice.sourceMonth - 1]}/${cacheNotice.sourceYear})`
                   : ""}

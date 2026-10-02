@@ -9,3 +9,4 @@ cachetools==5.5.2
 cryptography==44.0.2
 tzdata
 psycopg[binary]>=3.2,<4
+requests>=2.32,<3

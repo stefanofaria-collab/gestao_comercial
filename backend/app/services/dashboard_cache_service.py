@@ -90,6 +90,15 @@ RELEASE_REFRESH_ERROR_SQL = text(
     """
 )
 
+RESET_REFRESH_LOCKS_SQL = text(
+    """
+    UPDATE public.dashboard_daily_cache
+    SET refresh_started_at = NULL
+    WHERE refresh_started_at IS NOT NULL
+    """
+)
+
+
 CACHE_STATUS_SQL = text(
     """
     SELECT
@@ -270,6 +279,7 @@ def _with_cache_info(
     requested_params: dict[str, Any],
     snapshot: dict[str, Any],
     fallback: bool,
+    refreshing: bool = False,
 ) -> Any:
     # As APIs do dashboard retornam objetos. Copiamos para não alterar o JSON
     # original salvo no Supabase.
@@ -287,7 +297,7 @@ def _with_cache_info(
         "updated_at": jsonable_encoder(snapshot.get("updated_at")),
         "requested_params": _normalize_params(requested_params),
         "source_params": snapshot.get("params") or {},
-        "refreshing": fallback,
+        "refreshing": bool(refreshing or fallback),
     }
     return result
 
@@ -342,6 +352,7 @@ def cached_daily(
             requested_params=normalized,
             snapshot=snapshot,
             fallback=False,
+            refreshing=True,
         )
 
     # Virada de mês / primeiro acesso a um período novo. Em vez de bloquear a
@@ -395,6 +406,15 @@ def cached_daily(
         return payload
     finally:
         _release_in_flight(cache_key)
+
+
+def reset_refresh_locks() -> None:
+    """Libera travas deixadas por um processo anterior que foi encerrado."""
+    try:
+        with supabase_engine.begin() as connection:
+            connection.execute(RESET_REFRESH_LOCKS_SQL)
+    except Exception:
+        pass
 
 
 def cache_status() -> dict[str, Any]:

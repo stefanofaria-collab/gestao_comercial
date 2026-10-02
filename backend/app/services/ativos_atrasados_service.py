@@ -36,6 +36,38 @@ DIMENSION_FILTER_SQL = """
 MONTHS = ("Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez")
 DURATION_LABELS = {"M": "Mensal", "T": "Trimestral", "S": "Semestral", "A": "Anual"}
 
+
+CURRENT_MONTH_ACTIVE_SQL = text(
+    f"""
+    SELECT COUNT(DISTINCT e.id) AS clientes_ativos
+    FROM empresas_planos ep
+    JOIN empresas e ON e.id = ep.empresa_id
+    WHERE
+        ep.plano_id <> 1
+        AND ep.status_pagamento = 1
+        AND ep.pago_em IS NOT NULL
+        AND ep.pago_em < :ref_date
+        AND ep.data_vencimento >= :ref_date
+        AND ep.nota_fiscal_servico_id IS NOT NULL
+        AND e.ativou_em IS NOT NULL
+        AND e.ativou_em < :ref_date
+        AND e.id NOT IN :excluidos
+        {DIMENSION_FILTER_SQL}
+    """
+).bindparams(bindparam("excluidos", expanding=True))
+
+PREVIOUS_ATIVOS_CACHE_SQL = text(
+    """
+    SELECT payload
+    FROM public.dashboard_daily_cache
+    WHERE page = 'ativos_atrasados.dashboard'
+      AND params @> CAST(:stable_params AS jsonb)
+      AND payload IS NOT NULL
+    ORDER BY source_date DESC, updated_at DESC
+    LIMIT 1
+    """
+)
+
 CURRENT_OVERDUE_SQL = text(
     f"""
     WITH loja_contato AS (
@@ -339,17 +371,117 @@ def _payment_events(company_ids: set[int]) -> dict[int, list[tuple[date, float]]
 
 def _full_history_from_source(empresa: str, origem: str, pagador: str) -> list[dict]:
     all_points = _month_points()
+
+    # Para o recorte padrão, a série histórica de ativos já está no Supabase.
+    # Só calculamos no backup os meses que ainda não existem — normalmente o
+    # primeiro dia do mês atual — e reaproveitamos do snapshot anterior as
+    # linhas históricas de atraso. Isso evita refazer 2024-2026 todos os dias.
+    use_supabase_active_history = pagador == "todos"
+
+    if use_supabase_active_history:
+        active_history = _active_history_from_supabase(empresa, origem)
+        current_ref = date.today().replace(day=1)
+        current_key = (current_ref.year, current_ref.month)
+        existing_keys = {(int(row["ano"]), int(row["mes"])) for row in active_history}
+
+        if current_key not in existing_keys:
+            current_active = _current_month_active_from_source(
+                current_ref,
+                empresa,
+                origem,
+                pagador,
+            )
+            active_history.append(
+                {
+                    "ano": current_ref.year,
+                    "mes": current_ref.month,
+                    "label": f"{MONTHS[current_ref.month - 1]}/{str(current_ref.year)[-2:]}",
+                    "clientes_ativos": current_active,
+                    "saldo_clientes": None,
+                }
+            )
+            active_history.sort(key=lambda item: (int(item["ano"]), int(item["mes"])))
+
+        cached_history = _previous_history_from_cache(empresa, origem, pagador)
+        missing_points = [
+            date(int(row["ano"]), int(row["mes"]), 1)
+            for row in active_history
+            if (int(row["ano"]), int(row["mes"])) not in cached_history
+        ]
+
+        overdue_30_by_ref: dict[str, int] = defaultdict(int)
+        within_average: dict[str, int] = defaultdict(int)
+
+        if missing_points:
+            points_sql, point_params = _monthly_points_sql(missing_points)
+            params = {
+                **point_params,
+                "excluidos": EXCLUDED_IDS,
+                "empresa": empresa,
+                "origem": origem,
+                "pagador": pagador,
+            }
+            with source_engine.connect() as connection:
+                overdue_rows = [
+                    dict(row)
+                    for row in connection.execute(_history_overdue_sql(points_sql), params).mappings().all()
+                ]
+
+            company_ids = {int(row["empresa_id"]) for row in overdue_rows}
+            events = _payment_events(company_ids)
+
+            for row in overdue_rows:
+                ref = row["ref_date"]
+                if isinstance(ref, datetime):
+                    ref = ref.date()
+                ref_key = ref.isoformat()
+                overdue_30_by_ref[ref_key] += 1
+
+                delay = int(row.get("dias_vencido") or 0)
+                history = events.get(int(row["empresa_id"]), [])
+                valid = [value for paid_at, value in history if paid_at < ref]
+                average = max((sum(valid) / len(valid)) if valid else 0.0, 0.0)
+                if delay <= average:
+                    within_average[ref_key] += 1
+
+        result: list[dict] = []
+        previous_active: int | None = None
+        for row in active_history:
+            year = int(row["ano"])
+            month = int(row["mes"])
+            key = (year, month)
+            ref = date(year, month, 1)
+            active = int(row.get("clientes_ativos") or 0)
+            cached = cached_history.get(key)
+
+            if cached:
+                overdue_30 = int(cached.get("atrasados_1_30") or 0)
+                average_count = int(cached.get("dentro_media") or 0)
+            else:
+                overdue_30 = int(overdue_30_by_ref.get(ref.isoformat(), 0))
+                average_count = int(within_average.get(ref.isoformat(), 0))
+
+            result.append(
+                {
+                    "ano": year,
+                    "mes": month,
+                    "label": f"{MONTHS[month - 1]}/{str(year)[-2:]}",
+                    "clientes_ativos": active,
+                    "saldo_clientes": None if previous_active is None else active - previous_active,
+                    "ativos_mais_30": active + overdue_30,
+                    "ativos_mais_media": active + average_count,
+                    "atrasados_1_30": overdue_30,
+                    "dentro_media": average_count,
+                }
+            )
+            previous_active = active
+
+        return result
+
+    # Filtros de pagador específicos ainda precisam da série diretamente da
+    # origem, porque indicadores_mensais não possui a dimensão de pagador.
     summary_rows: list[dict] = []
     overdue_rows: list[dict] = []
-
-    # Quando o pagador está em "todos", a contagem de clientes ativos já existe
-    # no Supabase em indicadores_mensais. Assim evitamos repetir no backup a
-    # consulta mais pesada de histórico de ativos e consultamos a origem somente
-    # para os clientes vencidos necessários às linhas de atraso.
-    use_supabase_active_history = pagador == "todos"
-    active_history = _active_history_from_supabase(empresa, origem) if use_supabase_active_history else []
-
-    # Dividimos por ano para manter cada consulta ao backup pequena.
     years = sorted({point.year for point in all_points})
     for year in years:
         year_points = [point for point in all_points if point.year == year]
@@ -362,11 +494,10 @@ def _full_history_from_source(empresa: str, origem: str, pagador: str) -> list[d
             "pagador": pagador,
         }
         with source_engine.connect() as connection:
-            if not use_supabase_active_history:
-                summary_rows.extend(
-                    dict(row)
-                    for row in connection.execute(_history_summary_sql(points_sql), params).mappings().all()
-                )
+            summary_rows.extend(
+                dict(row)
+                for row in connection.execute(_history_summary_sql(points_sql), params).mappings().all()
+            )
             overdue_rows.extend(
                 dict(row)
                 for row in connection.execute(_history_overdue_sql(points_sql), params).mappings().all()
@@ -374,19 +505,15 @@ def _full_history_from_source(empresa: str, origem: str, pagador: str) -> list[d
 
     company_ids = {int(row["empresa_id"]) for row in overdue_rows}
     events = _payment_events(company_ids)
-
     overdue_30_by_ref: dict[str, int] = defaultdict(int)
     within_average: dict[str, int] = defaultdict(int)
 
-    # Prefixos acumulados por cliente permitem calcular a média conhecida em cada
-    # mês sem reconsultar o MySQL para cada ponto histórico.
     for row in overdue_rows:
         ref = row["ref_date"]
         if isinstance(ref, datetime):
             ref = ref.date()
         ref_key = ref.isoformat()
         overdue_30_by_ref[ref_key] += 1
-
         delay = int(row.get("dias_vencido") or 0)
         history = events.get(int(row["empresa_id"]), [])
         valid = [value for paid_at, value in history if paid_at < ref]
@@ -396,38 +523,13 @@ def _full_history_from_source(empresa: str, origem: str, pagador: str) -> list[d
 
     result: list[dict] = []
     previous: int | None = None
-
-    if use_supabase_active_history:
-        for row in active_history:
-            ref = date(int(row["ano"]), int(row["mes"]), 1)
-            key = ref.isoformat()
-            active = int(row.get("clientes_ativos") or 0)
-            overdue_30 = int(overdue_30_by_ref.get(key, 0))
-            average_count = int(within_average.get(key, 0))
-            result.append(
-                {
-                    "ano": ref.year,
-                    "mes": ref.month,
-                    "label": f"{MONTHS[ref.month - 1]}/{str(ref.year)[-2:]}",
-                    "clientes_ativos": active,
-                    "saldo_clientes": None if previous is None else active - previous,
-                    "ativos_mais_30": active + overdue_30,
-                    "ativos_mais_media": active + average_count,
-                    "atrasados_1_30": overdue_30,
-                    "dentro_media": average_count,
-                }
-            )
-            previous = active
-        return result
-
-    summary_rows.sort(key=lambda row: row["ref_date"])
     for row in summary_rows:
         ref = row["ref_date"]
         if isinstance(ref, datetime):
             ref = ref.date()
         key = ref.isoformat()
         active = int(row.get("clientes_ativos") or 0)
-        overdue_30 = int(row.get("atrasados_1_30") or 0)
+        overdue_30 = int(overdue_30_by_ref.get(key, 0))
         average_count = int(within_average.get(key, 0))
         result.append(
             {
@@ -444,7 +546,6 @@ def _full_history_from_source(empresa: str, origem: str, pagador: str) -> list[d
         )
         previous = active
     return result
-
 
 def _company_db_value(empresa: str) -> str | None:
     if empresa == "gestaoclick":
@@ -506,6 +607,76 @@ def _active_history_from_supabase(empresa: str, origem: str) -> list[dict]:
         previous = active
     return result
 
+
+
+
+def _current_month_active_from_source(
+    ref_date: date,
+    empresa: str,
+    origem: str,
+    pagador: str,
+) -> int:
+    params = {
+        "ref_date": ref_date,
+        "excluidos": EXCLUDED_IDS,
+        "empresa": empresa,
+        "origem": origem,
+        "pagador": pagador,
+    }
+    with source_engine.connect() as connection:
+        row = connection.execute(CURRENT_MONTH_ACTIVE_SQL, params).mappings().first()
+    return int((row or {}).get("clientes_ativos") or 0)
+
+
+
+def get_active_client_count_for_month(
+    year: int,
+    month: int,
+    empresa: str = "todos",
+    origem: str = "todos",
+    pagador: str = "todos",
+) -> int:
+    """Retorna a fotografia de clientes ativos no dia 1 do mês informado."""
+    _validate(empresa, origem, pagador)
+    if not 1 <= month <= 12:
+        raise ValueError("Mês inválido.")
+    return _current_month_active_from_source(
+        date(year, month, 1),
+        empresa,
+        origem,
+        pagador,
+    )
+
+def _previous_history_from_cache(
+    empresa: str,
+    origem: str,
+    pagador: str,
+) -> dict[tuple[int, int], dict]:
+    stable = {
+        "empresa": empresa,
+        "origem": origem,
+        "pagador": pagador,
+    }
+    import json
+
+    try:
+        with supabase_engine.connect() as connection:
+            row = connection.execute(
+                PREVIOUS_ATIVOS_CACHE_SQL,
+                {"stable_params": json.dumps(stable, ensure_ascii=False)},
+            ).mappings().first()
+    except Exception:
+        return {}
+
+    payload = (row or {}).get("payload") or {}
+    history = payload.get("historico_tres_linhas") or payload.get("historico_ativos") or []
+    result: dict[tuple[int, int], dict] = {}
+    for item in history:
+        try:
+            result[(int(item["ano"]), int(item["mes"]))] = dict(item)
+        except Exception:
+            continue
+    return result
 
 def _category_match(client: dict, category: str) -> bool:
     days = int(client["dias_vencido"])

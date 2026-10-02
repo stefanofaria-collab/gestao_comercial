@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import test_supabase_connection
-from app.services.dashboard_cache_service import cache_status
+from app.services.dashboard_cache_service import cache_status, reset_refresh_locks
 from app.routes.dashboard import router as dashboard_router
 from app.routes.faturamento import router as faturamento_router
 from app.routes.churn import router as churn_router
@@ -15,14 +15,15 @@ from app.routes.ativos_atrasados import router as ativos_atrasados_router
 from app.routes.perfil import router as perfil_router
 from app.routes.vencimentos_futuros import router as vencimentos_futuros_router
 from app.routes.pagamentos import router as pagamentos_router
+from app.routes.atendimentos import router as atendimentos_router
 
 
 app = FastAPI(
     title="Gestão Comercial API",
-    version="3.19.3",
+    version="3.20.2",
     description=(
         "API do dashboard comercial. Mantém os indicadores existentes "
-        "e adiciona as visões de faturamento, churn, ativos e atrasados, perfil, pagamentos e vencimentos futuros."
+        "e adiciona as visões de faturamento, churn, ativos e atrasados, perfil, atendimentos, pagamentos e vencimentos futuros."
     ),
 )
 
@@ -83,21 +84,31 @@ app.include_router(faturamento_router)
 app.include_router(churn_router)
 app.include_router(ativos_atrasados_router)
 app.include_router(perfil_router)
+app.include_router(atendimentos_router)
 app.include_router(pagamentos_router)
 app.include_router(vencimentos_futuros_router)
+
+
+@app.on_event("startup")
+def clear_abandoned_refresh_locks():
+    # Se o backend foi encerrado durante uma atualização diária, a tarefa não
+    # existe mais. Liberamos a trava persistida para o novo processo tentar de
+    # novo imediatamente, sem esperar 20 minutos.
+    reset_refresh_locks()
 
 
 @app.get("/")
 def root():
     return {
         "app": "Gestão Comercial API",
-        "version": "3.19.3",
+        "version": "3.20.2",
         "docs": "/docs",
         "health": "/health",
         "faturamento": "/api/faturamento",
         "churn": "/api/churn",
         "ativos_atrasados": "/api/ativos-atrasados",
         "perfil": "/api/perfil",
+        "atendimentos": "/api/atendimentos",
         "pagamentos": "/api/pagamentos",
         "vencimentos_futuros": "/api/vencimentos-futuros",
     }

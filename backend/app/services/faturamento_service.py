@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from functools import lru_cache
 from calendar import monthrange
 
 from sqlalchemy import bindparam, text
 
-from app.database import source_engine
+from app.database import source_engine, supabase_engine
 
 
 EMPRESAS_EXCLUIDAS = (
@@ -75,6 +75,48 @@ FILTERED_TOTAL_SQL = text(
         {DIMENSION_FILTER_SQL}
     """
 ).bindparams(bindparam("excluidos", expanding=True))
+
+
+RECENT_NFS_ROWS_SQL = text(
+    """
+    SELECT
+        nfs.id,
+        nfs.data_emissao,
+        nfs.valor_total,
+        nfs.plano_id,
+        nfs.loja_id,
+        nfs.situacao,
+        ep.empresa_id AS cliente_empresa_id,
+        ep.nome_plano,
+        ep.duracao,
+        e.modalidade,
+        e.empresa_indicacao_id,
+        e.tipo_cobranca,
+        e.ativou_em
+    FROM notas_fiscais_servicos nfs
+    LEFT JOIN empresas_planos ep ON ep.id = nfs.plano_id
+    LEFT JOIN empresas e ON e.id = ep.empresa_id
+    WHERE
+        nfs.empresa_id = 1
+        AND nfs.id < :cursor
+    ORDER BY nfs.id DESC
+    LIMIT 5000
+    """
+)
+
+CACHED_HISTORY_SQL = text(
+    """
+    SELECT payload
+    FROM public.dashboard_daily_cache
+    WHERE page = 'faturamento.historico'
+      AND params->>'empresa' = :empresa
+      AND params->>'origem' = :origem
+      AND params->>'pagador' = :pagador
+      AND payload IS NOT NULL
+    ORDER BY source_date DESC, updated_at DESC
+    LIMIT 1
+    """
+)
 
 PLAN_COMPARE_SQL = text(
     f"""
@@ -265,7 +307,10 @@ def _period_bounds(year: int, month: int) -> tuple[date, date]:
     end = _next_month(year, month)
 
     if year == today.year and (month == 0 or month == today.month):
-        end = min(end, today + timedelta(days=1))
+        # O banco corporativo é um backup diário. Portanto o período corrente
+        # deve considerar somente dias já encerrados: em 02/10, consultamos
+        # até 01/10, usando 02/10 como limite exclusivo.
+        end = min(end, today)
 
     return start, end
 
@@ -445,6 +490,248 @@ def _comparison_context(year: int, month: int, compare_mode: str) -> dict:
     }
 
 
+
+
+def _row_date(value) -> date | None:
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if value:
+        try:
+            return date.fromisoformat(str(value)[:10])
+        except ValueError:
+            return None
+    return None
+
+
+def _normalized_plan_name(value) -> str:
+    return str(value or "Não informado").replace(" (+) recursos", "").replace(" + recursos", "").strip()
+
+
+def _dimension_labels(row: dict) -> tuple[str, str, str]:
+    modalidade = str(row.get("modalidade") or "")
+    empresa = "GestãoClick" if modalidade == "ERP" else ("ClickNotas" if modalidade in {"NFE", "FIS"} else "Outros")
+    origem = "GestãoClick" if int(row.get("empresa_indicacao_id") or 0) == 1 else "Parceiro"
+    tipo = str(row.get("tipo_cobranca") or "")
+    pagador = "Cliente" if tipo == "E" else ("Parceiro" if tipo == "P" else "Não informado")
+    return empresa, origem, pagador
+
+
+def _row_matches_dimensions(row: dict, empresa: str, origem: str, pagador: str) -> bool:
+    company_id = row.get("cliente_empresa_id")
+    if company_id is None or int(company_id) in EMPRESAS_EXCLUIDAS:
+        return False
+    label_empresa, label_origem, label_pagador = _dimension_labels(row)
+    if empresa == "gestaoclick" and label_empresa != "GestãoClick":
+        return False
+    if empresa == "clicknotas" and label_empresa != "ClickNotas":
+        return False
+    if origem == "gestaoclick" and label_origem != "GestãoClick":
+        return False
+    if origem == "parceiro" and label_origem != "Parceiro":
+        return False
+    if pagador == "cliente" and label_pagador != "Cliente":
+        return False
+    if pagador == "parceiro" and label_pagador != "Parceiro":
+        return False
+    return True
+
+
+@lru_cache(maxsize=32)
+def _scan_recent_invoice_rows(start_iso: str, end_iso: str, day_key: str) -> tuple[dict, ...]:
+    """Lê o período recente pela chave primária, evitando varrer NFS por data."""
+    start = date.fromisoformat(start_iso)
+    end = date.fromisoformat(end_iso)
+    cursor = 9223372036854775807
+    collected: list[dict] = []
+    older_batches = 0
+
+    with source_engine.connect() as connection:
+        for _ in range(80):
+            rows = [
+                dict(row)
+                for row in connection.execute(RECENT_NFS_ROWS_SQL, {"cursor": cursor}).mappings().all()
+            ]
+            if not rows:
+                break
+            cursor = min(int(row["id"]) for row in rows)
+            dates = [_row_date(row.get("data_emissao")) for row in rows]
+            valid_dates = [value for value in dates if value is not None]
+
+            for row in rows:
+                emitted = _row_date(row.get("data_emissao"))
+                if emitted and start <= emitted < end:
+                    collected.append(row)
+
+            if valid_dates and max(valid_dates) < start:
+                older_batches += 1
+            else:
+                older_batches = 0
+
+            if older_batches >= 2:
+                break
+        else:
+            raise RuntimeError("Não foi possível delimitar o período recente de faturamento pelo identificador das notas.")
+
+    return tuple(collected)
+
+
+@lru_cache(maxsize=64)
+def _fast_current_month_pair(
+    year: int,
+    month: int,
+    empresa: str,
+    origem: str,
+    pagador: str,
+    day_key: str,
+) -> dict:
+    today = date.fromisoformat(day_key)
+    if year != today.year or month != today.month:
+        raise ValueError("A leitura rápida só é usada no mês corrente.")
+
+    params = _period_params(year, month, empresa, origem, pagador)
+    current_start = params["data_inicio"]
+    current_end = params["data_fim"]
+    previous_start = params["data_anterior_inicio"]
+    previous_end = params["data_anterior_fim"]
+    rows = _scan_recent_invoice_rows(previous_start.isoformat(), current_end.isoformat(), day_key)
+    filters_active = _filters_active(empresa, origem, pagador)
+
+    totals = {
+        "current": {"valor": 0.0, "quantidade_notas": 0},
+        "previous": {"valor": 0.0, "quantidade_notas": 0},
+    }
+    components = {
+        key: {
+            "current": {"valor": 0.0, "quantidade_notas": 0},
+            "previous": {"valor": 0.0, "quantidade_notas": 0},
+        }
+        for key in ["novos_clientes", "renovacoes", "recursos", "servicos", "certclick"]
+    }
+    plans: dict[tuple, dict] = {}
+
+    for row in rows:
+        situacao = row.get("situacao")
+        if situacao is None or int(situacao) >= 4:
+            continue
+        emitted = _row_date(row.get("data_emissao"))
+        if emitted is None:
+            continue
+        if current_start <= emitted < current_end:
+            bucket = "current"
+            period_start = current_start
+        elif previous_start <= emitted < previous_end:
+            bucket = "previous"
+            period_start = previous_start
+        else:
+            continue
+
+        business_match = _row_matches_dimensions(row, empresa, origem, pagador)
+        valid_total = business_match if filters_active else True
+        amount = _as_float(row.get("valor_total"))
+
+        if valid_total:
+            totals[bucket]["valor"] += amount
+            totals[bucket]["quantidade_notas"] += 1
+
+        if business_match:
+            label_empresa, label_origem, label_pagador = _dimension_labels(row)
+            plan_name = _normalized_plan_name(row.get("nome_plano"))
+            duration = str(row.get("duracao") or "")
+            plan_key = (label_empresa, label_origem, label_pagador, plan_name, duration)
+            item = plans.setdefault(
+                plan_key,
+                {
+                    "empresa": label_empresa,
+                    "origem": label_origem,
+                    "pagador": label_pagador,
+                    "nome_plano": plan_name,
+                    "duracao": duration,
+                    "atual": 0.0,
+                    "anterior": 0.0,
+                    "quantidade_atual": 0,
+                    "quantidade_anterior": 0,
+                },
+            )
+            if bucket == "current":
+                item["atual"] += amount
+                item["quantidade_atual"] += 1
+            else:
+                item["anterior"] += amount
+                item["quantidade_anterior"] += 1
+
+            raw_plan = str(row.get("nome_plano") or "")
+            is_resource = "recursos" in raw_plan.lower()
+            loja_id = int(row.get("loja_id") or 0)
+            activation = _row_date(row.get("ativou_em"))
+
+            if is_resource:
+                components["recursos"][bucket]["valor"] += amount
+                components["recursos"][bucket]["quantidade_notas"] += 1
+            elif loja_id == 114 and activation == emitted:
+                components["novos_clientes"][bucket]["valor"] += amount
+                components["novos_clientes"][bucket]["quantidade_notas"] += 1
+            elif loja_id == 114 and activation is not None and activation < period_start:
+                components["renovacoes"][bucket]["valor"] += amount
+                components["renovacoes"][bucket]["quantidade_notas"] += 1
+
+        if not filters_active:
+            loja_id = int(row.get("loja_id") or 0)
+            if row.get("plano_id") is None and loja_id == 114:
+                components["servicos"][bucket]["valor"] += amount
+                components["servicos"][bucket]["quantidade_notas"] += 1
+            if loja_id == 304927:
+                components["certclick"][bucket]["valor"] += amount
+                components["certclick"][bucket]["quantidade_notas"] += 1
+
+    for bucket in ("current", "previous"):
+        total = totals[bucket]
+        total["valor"] = round(float(total["valor"]), 2)
+        total["ticket_medio"] = total["valor"] / total["quantidade_notas"] if total["quantidade_notas"] else 0.0
+        for key in components:
+            metric = components[key][bucket]
+            metric["valor"] = round(float(metric["valor"]), 2)
+            metric["ticket_medio"] = metric["valor"] / metric["quantidade_notas"] if metric["quantidade_notas"] else 0.0
+
+    plan_rows = []
+    for item in plans.values():
+        item["atual"] = round(float(item["atual"]), 2)
+        item["anterior"] = round(float(item["anterior"]), 2)
+        if item["atual"] or item["anterior"]:
+            plan_rows.append(item)
+    plan_rows.sort(key=lambda row: float(row["atual"]), reverse=True)
+
+    return {
+        "totals": totals,
+        "components": components,
+        "plan_rows": plan_rows,
+        "periodo": {
+            "current_start": current_start.isoformat(),
+            "current_end": current_end.isoformat(),
+            "previous_start": previous_start.isoformat(),
+            "previous_end": previous_end.isoformat(),
+        },
+    }
+
+
+def _is_current_month(year: int, month: int) -> bool:
+    today = date.today()
+    return year == today.year and month == today.month
+
+
+def _cached_history_points(empresa: str, origem: str, pagador: str) -> list[dict]:
+    try:
+        with supabase_engine.connect() as connection:
+            row = connection.execute(
+                CACHED_HISTORY_SQL,
+                {"empresa": empresa, "origem": origem, "pagador": pagador},
+            ).mappings().first()
+    except Exception:
+        return []
+    payload = (row or {}).get("payload") or {}
+    return [dict(item) for item in (payload.get("pontos") or [])]
+
 def _total_sql(filters_active: bool):
     return FILTERED_TOTAL_SQL if filters_active else GENERAL_TOTAL_SQL
 
@@ -487,7 +774,6 @@ def _component_query(component: str, filters_active: bool):
             WHERE nfs.empresa_id = 1
               AND nfs.situacao < 4
               AND nfs.data_emissao_ano BETWEEN :ano_inicio AND :ano_fim
-        AND nfs.data_emissao_ano BETWEEN :ano_inicio AND :ano_fim
               AND nfs.data_emissao >= :data_inicio
               AND nfs.data_emissao < :data_fim
               AND e.id NOT IN :excluidos
@@ -505,7 +791,6 @@ def _component_query(component: str, filters_active: bool):
             WHERE nfs.empresa_id = 1
               AND nfs.situacao < 4
               AND nfs.data_emissao_ano BETWEEN :ano_inicio AND :ano_fim
-        AND nfs.data_emissao_ano BETWEEN :ano_inicio AND :ano_fim
               AND nfs.data_emissao >= :data_inicio
               AND nfs.data_emissao < :data_fim
               AND e.id NOT IN :excluidos
@@ -525,7 +810,6 @@ def _component_query(component: str, filters_active: bool):
             WHERE nfs.empresa_id = 1
               AND nfs.situacao < 4
               AND nfs.data_emissao_ano BETWEEN :ano_inicio AND :ano_fim
-        AND nfs.data_emissao_ano BETWEEN :ano_inicio AND :ano_fim
               AND nfs.data_emissao >= :data_inicio
               AND nfs.data_emissao < :data_fim
               AND e.id NOT IN :excluidos
@@ -545,7 +829,6 @@ def _component_query(component: str, filters_active: bool):
             WHERE nfs.empresa_id = 1
               AND nfs.situacao < 4
               AND nfs.data_emissao_ano BETWEEN :ano_inicio AND :ano_fim
-        AND nfs.data_emissao_ano BETWEEN :ano_inicio AND :ano_fim
               AND nfs.data_emissao >= :data_inicio
               AND nfs.data_emissao < :data_fim
               AND nfs.plano_id IS NULL
@@ -562,7 +845,6 @@ def _component_query(component: str, filters_active: bool):
             WHERE nfs.empresa_id = 1
               AND nfs.situacao < 4
               AND nfs.data_emissao_ano BETWEEN :ano_inicio AND :ano_fim
-        AND nfs.data_emissao_ano BETWEEN :ano_inicio AND :ano_fim
               AND nfs.data_emissao >= :data_inicio
               AND nfs.data_emissao < :data_fim
               AND nfs.loja_id = 304927
@@ -813,7 +1095,6 @@ def _build_plan_detail(connection, plan_name: str, year: int, month: int, empres
     }
 
 
-@lru_cache(maxsize=256)
 def get_faturamento_total(
     year: int,
     month: int,
@@ -827,9 +1108,14 @@ def get_faturamento_total(
     previous_month = params["mes_anterior"]
     today = date.today()
 
-    with source_engine.connect() as connection:
-        current_metrics = _fetch_total_metrics(connection, params["data_inicio"], params["data_fim"], empresa, origem, pagador)
-        previous_metrics = _fetch_total_metrics(connection, params["data_anterior_inicio"], params["data_anterior_fim"], empresa, origem, pagador)
+    if _is_current_month(year, month):
+        fast = _fast_current_month_pair(year, month, empresa, origem, pagador, date.today().isoformat())
+        current_metrics = dict(fast["totals"]["current"])
+        previous_metrics = dict(fast["totals"]["previous"])
+    else:
+        with source_engine.connect() as connection:
+            current_metrics = _fetch_total_metrics(connection, params["data_inicio"], params["data_fim"], empresa, origem, pagador)
+            previous_metrics = _fetch_total_metrics(connection, params["data_anterior_inicio"], params["data_anterior_fim"], empresa, origem, pagador)
 
     current = current_metrics["valor"]
     previous = previous_metrics["valor"]
@@ -878,7 +1164,6 @@ def get_faturamento_total(
     }
 
 
-@lru_cache(maxsize=256)
 def get_faturamento_detalhes(
     year: int,
     month: int,
@@ -891,13 +1176,21 @@ def get_faturamento_detalhes(
     filters_active = _filters_active(empresa, origem, pagador)
     total_data = get_faturamento_total(year, month, empresa, origem, pagador)
 
-    with source_engine.connect() as connection:
-        plan_rows = [dict(row._mapping) for row in connection.execute(PLAN_COMPARE_SQL, params)]
-        component_metrics = {}
-        for key in ["novos_clientes", "renovacoes", "recursos", "servicos", "certclick"]:
-            current_metrics = _fetch_component_metrics(connection, key, params["data_inicio"], params["data_fim"], empresa, origem, pagador)
-            previous_metrics = _fetch_component_metrics(connection, key, params["data_anterior_inicio"], params["data_anterior_fim"], empresa, origem, pagador)
-            component_metrics[key] = (current_metrics, previous_metrics)
+    if _is_current_month(year, month):
+        fast = _fast_current_month_pair(year, month, empresa, origem, pagador, date.today().isoformat())
+        plan_rows = [dict(row) for row in fast["plan_rows"]]
+        component_metrics = {
+            key: (dict(value["current"]), dict(value["previous"]))
+            for key, value in fast["components"].items()
+        }
+    else:
+        with source_engine.connect() as connection:
+            plan_rows = [dict(row._mapping) for row in connection.execute(PLAN_COMPARE_SQL, params)]
+            component_metrics = {}
+            for key in ["novos_clientes", "renovacoes", "recursos", "servicos", "certclick"]:
+                current_metrics = _fetch_component_metrics(connection, key, params["data_inicio"], params["data_fim"], empresa, origem, pagador)
+                previous_metrics = _fetch_component_metrics(connection, key, params["data_anterior_inicio"], params["data_anterior_fim"], empresa, origem, pagador)
+                component_metrics[key] = (current_metrics, previous_metrics)
 
     current_total = total_data["faturamento_geral"]
     previous_total = total_data["mes_anterior"]["faturamento_geral"] if total_data["mes_anterior"] else 0.0
@@ -1046,7 +1339,6 @@ def get_faturamento_detalhes(
     }
 
 
-@lru_cache(maxsize=128)
 def get_faturamento_historico(
     year: int,
     month: int,
@@ -1055,9 +1347,40 @@ def get_faturamento_historico(
     pagador: str = "todos",
 ) -> dict:
     _validate(year, month, empresa, origem, pagador)
+    filters_active = _filters_active(empresa, origem, pagador)
+
+    if _is_current_month(year, month):
+        points = _cached_history_points(empresa, origem, pagador)
+        fast = _fast_current_month_pair(year, month, empresa, origem, pagador, date.today().isoformat())
+        current = fast["totals"]["current"]
+        points = [
+            item for item in points
+            if not (int(item.get("ano") or 0) == year and int(item.get("mes") or 0) == month)
+        ]
+        points.append(
+            {
+                "ano": year,
+                "mes": month,
+                "label": f"{month:02d}/{year}",
+                "faturamento_geral": float(current["valor"]),
+                "quantidade_notas": int(current["quantidade_notas"]),
+            }
+        )
+        points.sort(key=lambda item: (int(item.get("ano") or 0), int(item.get("mes") or 0)))
+        return {
+            "ano_inicio": 2024,
+            "ano_fim": year,
+            "filtros": {
+                "empresa": empresa,
+                "origem": origem,
+                "pagador": pagador,
+                "ativos": filters_active,
+            },
+            "pontos": points,
+        }
+
     history_start = date(2024, 1, 1)
     history_end = _period_bounds(year, month)[1]
-    filters_active = _filters_active(empresa, origem, pagador)
     params = {
         "data_inicio": history_start,
         "data_fim": history_end,
@@ -1159,7 +1482,6 @@ def get_faturamento_componente(
         return _build_component_comparison(connection, componente, year, month, empresa, origem, pagador, compare_mode)
 
 
-@lru_cache(maxsize=128)
 def get_faturamento_plano_detalhe(
     year: int,
     month: int,

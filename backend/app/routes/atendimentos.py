@@ -1,0 +1,90 @@
+from typing import Literal
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
+
+from app.services.atendimentos_service import get_atendimentos_dashboard, get_atendimentos_meta
+from app.services.dashboard_cache_service import cached_daily
+from app.services.zendesk_sync_service import get_sync_status, run_incremental_sync, trigger_incremental_sync
+
+router = APIRouter(prefix="/api/atendimentos", tags=["Atendimentos"])
+
+CompanyFilter = Literal["todos", "gestaoclick", "clicknotas"]
+OriginFilter = Literal["todos", "gestaoclick", "parceiro"]
+PayerFilter = Literal["todos", "cliente", "parceiro"]
+
+
+def _build_dashboard(*, ano: int, mes: int, empresa: str, origem: str, pagador: str):
+    # A atualização do Zendesk é executada antes de criar o snapshot diário.
+    # Assim um snapshot de hoje nunca é salvo usando dados incompletos de ontem.
+    run_incremental_sync()
+    return get_atendimentos_dashboard(
+        year=ano,
+        month=mes,
+        empresa=empresa,
+        origem=origem,
+        pagador=pagador,
+    )
+
+
+@router.get("")
+def atendimentos_dashboard(
+    background_tasks: BackgroundTasks,
+    ano: int = Query(..., ge=2024),
+    mes: int = Query(..., ge=1, le=12),
+    empresa: CompanyFilter = Query("todos"),
+    origem: OriginFilter = Query("todos"),
+    pagador: PayerFilter = Query("todos"),
+):
+    params = {
+        "ano": ano,
+        "mes": mes,
+        "empresa": empresa,
+        "origem": origem,
+        "pagador": pagador,
+    }
+    try:
+        result = cached_daily(
+            page="atendimentos.dashboard",
+            params=params,
+            builder=lambda: _build_dashboard(
+                ano=ano,
+                mes=mes,
+                empresa=empresa,
+                origem=origem,
+                pagador=pagador,
+            ),
+            background_tasks=background_tasks,
+        )
+        # O status é sempre atual, mesmo quando o corpo principal veio do cache.
+        # Isso permite que o frontend perceba quando a carga diária terminou.
+        if isinstance(result, dict):
+            result["sincronizacao"] = get_sync_status()
+        return result
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Os dados de atendimentos ainda estão sendo preparados no banco do dashboard. "
+                "Tente novamente em alguns instantes."
+            ),
+        ) from exc
+
+
+@router.get("/meta")
+def atendimentos_meta():
+    # Dispara a carga incremental, mas nunca bloqueia a abertura da tela.
+    trigger_incremental_sync()
+    return get_atendimentos_meta()
+
+
+@router.get("/status")
+def atendimentos_status():
+    return get_sync_status()
+
+
+@router.post("/sincronizar")
+def atendimentos_sincronizar():
+    started = trigger_incremental_sync()
+    return {"iniciado": started, **get_sync_status()}

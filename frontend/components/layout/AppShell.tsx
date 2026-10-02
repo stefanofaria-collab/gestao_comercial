@@ -11,6 +11,7 @@ import {
   ChevronRight,
   CircleUserRound,
   CreditCard,
+  Headset,
   RotateCcw,
   SlidersHorizontal,
   TrendingDown,
@@ -31,6 +32,7 @@ const navigation = [
   { href: "/ativos-atrasados", label: "Ativos e Atrasados", icon: UsersRound },
   { href: "/indicadores", label: "Indicadores", icon: BarChart3 },
   { href: "/perfil", label: "Perfil", icon: CircleUserRound },
+  { href: "/atendimentos", label: "Atendimentos", icon: Headset },
   // Página de análise do comportamento de pagamento das renovações.
   { href: "/pagamentos", label: "Pagamentos", icon: CreditCard },
   { href: "/vencimentos-futuros", label: "Vencimentos Futuros", icon: CalendarClock },

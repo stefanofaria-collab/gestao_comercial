@@ -13,10 +13,20 @@ type StoredValue<T> = {
   value: T;
 };
 
-function isFallbackValue(value: unknown) {
+function isTemporaryValue(value: unknown, today: string) {
   if (!value || typeof value !== "object") return false;
-  const info = (value as { _cache_info?: { fallback?: boolean } })._cache_info;
-  return Boolean(info?.fallback);
+  const info = (value as {
+    _cache_info?: {
+      fallback?: boolean;
+      refreshing?: boolean;
+      source_date?: string | null;
+    };
+  })._cache_info;
+
+  if (!info) return false;
+  if (info.fallback || info.refreshing) return true;
+  if (info.source_date && info.source_date !== today) return true;
+  return false;
 }
 
 export async function browserDailyCache<T>(key: string, loader: () => Promise<T>): Promise<T> {
@@ -31,14 +41,14 @@ export async function browserDailyCache<T>(key: string, loader: () => Promise<T>
     const raw = window.sessionStorage.getItem(storageKey);
     if (raw) {
       const parsed = JSON.parse(raw) as StoredValue<T>;
-      if (parsed?.date === today && !isFallbackValue(parsed.value)) {
+      if (parsed?.date === today && !isTemporaryValue(parsed.value, today)) {
         // Responde imediatamente com o que a tela já carregou hoje e atualiza
         // silenciosamente para a próxima visita. Snapshots temporários de um
         // período anterior nunca são fixados como o cache definitivo do dia.
         void loader()
           .then((fresh) => {
             try {
-              if (!isFallbackValue(fresh)) {
+              if (!isTemporaryValue(fresh, today)) {
                 window.sessionStorage.setItem(storageKey, JSON.stringify({ date: today, value: fresh }));
               }
             } catch {
@@ -55,7 +65,7 @@ export async function browserDailyCache<T>(key: string, loader: () => Promise<T>
 
   const fresh = await loader();
   try {
-    if (!isFallbackValue(fresh)) {
+    if (!isTemporaryValue(fresh, today)) {
       window.sessionStorage.setItem(storageKey, JSON.stringify({ date: today, value: fresh }));
     }
   } catch {

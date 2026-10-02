@@ -399,7 +399,6 @@ def _document_quality(rows: list[dict]) -> dict:
     return {"total": total, **counters}
 
 
-@lru_cache(maxsize=128)
 def get_perfil_dashboard(
     year: int,
     month: int,

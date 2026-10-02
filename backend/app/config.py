@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     supabase_db_password: str = ""
     supabase_db_sslmode: str = "require"
 
+    # ZENDESK
+    subdomain: str = ""
+    client_id: str = ""
+    client_secret: str = ""
+
     # API
     api_host: str = "127.0.0.1"
     api_port: int = 8000
@@ -32,7 +37,7 @@ class Settings(BaseSettings):
     cache_ttl_seconds: int = 300
 
     model_config = SettingsConfigDict(
-        env_file=BASE_DIR / ".env",
+        env_file=(BASE_DIR / ".env", BASE_DIR.parent / ".env"),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
