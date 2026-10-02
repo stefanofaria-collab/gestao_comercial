@@ -20,7 +20,7 @@ from app.routes.atendimentos import router as atendimentos_router
 
 app = FastAPI(
     title="Gestão Comercial API",
-    version="3.20.2",
+    version="3.25.0",
     description=(
         "API do dashboard comercial. Mantém os indicadores existentes "
         "e adiciona as visões de faturamento, churn, ativos e atrasados, perfil, atendimentos, pagamentos e vencimentos futuros."
@@ -91,9 +91,6 @@ app.include_router(vencimentos_futuros_router)
 
 @app.on_event("startup")
 def clear_abandoned_refresh_locks():
-    # Se o backend foi encerrado durante uma atualização diária, a tarefa não
-    # existe mais. Liberamos a trava persistida para o novo processo tentar de
-    # novo imediatamente, sem esperar 20 minutos.
     reset_refresh_locks()
 
 
@@ -101,7 +98,7 @@ def clear_abandoned_refresh_locks():
 def root():
     return {
         "app": "Gestão Comercial API",
-        "version": "3.20.2",
+        "version": "3.25.0",
         "docs": "/docs",
         "health": "/health",
         "faturamento": "/api/faturamento",
@@ -118,12 +115,10 @@ def root():
 def health():
     try:
         test_supabase_connection()
-
         return {
             "status": "ok",
             "supabase": "connected",
         }
-
     except Exception as exc:
         return {
             "status": "error",

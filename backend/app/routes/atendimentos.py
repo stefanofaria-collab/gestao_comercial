@@ -11,11 +11,12 @@ router = APIRouter(prefix="/api/atendimentos", tags=["Atendimentos"])
 CompanyFilter = Literal["todos", "gestaoclick", "clicknotas"]
 OriginFilter = Literal["todos", "gestaoclick", "parceiro"]
 PayerFilter = Literal["todos", "cliente", "parceiro"]
+CACHE_VERSION = "3.25.0"
 
 
 def _build_dashboard(*, ano: int, mes: int, empresa: str, origem: str, pagador: str):
     # A atualização do Zendesk é executada antes de criar o snapshot diário.
-    # Assim um snapshot de hoje nunca é salvo usando dados incompletos de ontem.
+    # Assim o snapshot nunca usa o dia atual nem dados incompletos de ontem.
     run_incremental_sync()
     return get_atendimentos_dashboard(
         year=ano,
@@ -35,16 +36,21 @@ def atendimentos_dashboard(
     origem: OriginFilter = Query("todos"),
     pagador: PayerFilter = Query("todos"),
 ):
+    # A versão entra na chave do cache para invalidar snapshots antigos desta
+    # atualização sem precisar apagar manualmente a tabela do Supabase.
     params = {
         "ano": ano,
         "mes": mes,
         "empresa": empresa,
         "origem": origem,
         "pagador": pagador,
+        "versao": CACHE_VERSION,
     }
     try:
+        # O período faz parte do nome da página do snapshot. Assim o fallback
+        # nunca consegue devolver setembro quando outubro foi solicitado.
         result = cached_daily(
-            page="atendimentos.dashboard",
+            page=f"atendimentos.dashboard.{ano:04d}-{mes:02d}",
             params=params,
             builder=lambda: _build_dashboard(
                 ano=ano,
@@ -55,8 +61,6 @@ def atendimentos_dashboard(
             ),
             background_tasks=background_tasks,
         )
-        # O status é sempre atual, mesmo quando o corpo principal veio do cache.
-        # Isso permite que o frontend perceba quando a carga diária terminou.
         if isinstance(result, dict):
             result["sincronizacao"] = get_sync_status()
         return result
@@ -74,7 +78,6 @@ def atendimentos_dashboard(
 
 @router.get("/meta")
 def atendimentos_meta():
-    # Dispara a carga incremental, mas nunca bloqueia a abertura da tela.
     trigger_incremental_sync()
     return get_atendimentos_meta()
 

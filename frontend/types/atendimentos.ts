@@ -58,6 +58,88 @@ export type AtendimentoMotivoHistorico = {
   idade_media: number | null;
 };
 
+export type AtendimentoClienteMotivo = {
+  motivo: string;
+  atendimentos: number;
+  duracao_total_segundos: number;
+};
+
+export type AtendimentoClienteRanking = {
+  empresa_id: number;
+  cliente: string;
+  intranet_url: string;
+  atendimentos: number;
+  positivas: number;
+  negativas: number;
+  avaliacoes: number;
+  duracao_total_segundos: number;
+  duracao_media_segundos: number | null;
+  motivos: AtendimentoClienteMotivo[];
+};
+
+export type AtendimentoTempoSexo = {
+  sexo: string;
+  atendimentos: number;
+  atendimentos_com_duracao: number;
+  duracao_media_segundos: number | null;
+};
+
+export type AtendimentoTempoFaixaEtaria = {
+  faixa_etaria: string;
+  atendimentos: number;
+  atendimentos_com_duracao: number;
+  duracao_media_segundos: number | null;
+};
+
+export type AtendimentoTempoAtendente = {
+  email_atendente: string;
+  atendente: string;
+  atendimentos: number;
+  atendimentos_com_duracao: number;
+  duracao_media_segundos: number | null;
+  duracao_total_segundos: number;
+};
+
+export type AtendimentoChurnResumo = {
+  clientes_churn_periodo: number;
+  clientes_churnados_com_atendimento: number;
+  atendimentos: number;
+  atendimentos_medios_por_cliente: number | null;
+  duracao_media_segundos: number | null;
+  motivos_medios_por_cliente: number | null;
+  atendentes_medios_por_cliente: number | null;
+  corr_atendimentos_duracao_total: number | null;
+  corr_atendimentos_duracao_media: number | null;
+  corr_atendimentos_duracao_media_atendente: number | null;
+  associacao_churn_motivo: number | null;
+};
+
+export type AtendimentoChurnMotivo = {
+  motivo: string;
+  atendimentos: number;
+  clientes: number;
+  duracao_media_segundos: number | null;
+};
+
+export type AtendimentoChurnAtendente = {
+  email_atendente: string;
+  atendente: string;
+  atendimentos: number;
+  clientes: number;
+  duracao_media_segundos: number | null;
+};
+
+export type AtendimentoChurnCliente = {
+  empresa_id: number;
+  cliente: string;
+  intranet_url: string;
+  atendimentos: number;
+  motivos_distintos: number;
+  atendentes_distintos: number;
+  duracao_media_segundos: number | null;
+  duracao_total_segundos: number;
+};
+
 export type AtendimentoSyncStatus = {
   executando: boolean;
   ultima_data: string | null;
@@ -101,6 +183,28 @@ export type AtendimentosDashboardResponse = {
   };
   motivos_geral: AtendimentoMotivoTotal[];
   motivos_historico: AtendimentoMotivoHistorico[];
+  clientes_rankings: {
+    mais_atendimentos: AtendimentoClienteRanking[];
+    maior_tempo_total: AtendimentoClienteRanking[];
+    mais_avaliaram: AtendimentoClienteRanking[];
+    mais_positivas: AtendimentoClienteRanking[];
+    mais_negativas: AtendimentoClienteRanking[];
+  };
+  tempo_atendimento: {
+    por_sexo: AtendimentoTempoSexo[];
+    por_faixa_etaria: AtendimentoTempoFaixaEtaria[];
+    por_atendente: AtendimentoTempoAtendente[];
+  };
+  churn_atendimentos: {
+    periodo_atendimentos: {
+      inicio: string;
+      fim: string;
+    };
+    resumo: AtendimentoChurnResumo;
+    motivos: AtendimentoChurnMotivo[];
+    atendentes: AtendimentoChurnAtendente[];
+    clientes: AtendimentoChurnCliente[];
+  };
   dados: {
     primeira_data: string | null;
     ultima_data: string | null;

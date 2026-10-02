@@ -1,5 +1,4 @@
 import type { GlobalFilters } from "@/contexts/GlobalFiltersContext";
-import { browserDailyCache } from "@/lib/browser-daily-cache";
 import type { AtendimentosDashboardResponse, AtendimentosMetaResponse, AtendimentoSyncStatus } from "@/types/atendimentos";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
@@ -42,7 +41,7 @@ export function fetchAtendimentosDashboard(
   ano: number,
   mes: number,
   filters: GlobalFilters,
-  force = false,
+  _force = false,
 ): Promise<AtendimentosDashboardResponse> {
   const params = new URLSearchParams({
     ano: String(ano),
@@ -51,15 +50,11 @@ export function fetchAtendimentosDashboard(
     origem: filters.origem,
     pagador: filters.pagador,
   });
-  const url = `${API_URL}/api/atendimentos?${params.toString()}`;
-  const loader = () => getJson<AtendimentosDashboardResponse>(url, 45000);
 
-  if (force) return loader();
-
-  return browserDailyCache(
-    `atendimentos:${ano}:${mes}:${filters.empresa}:${filters.origem}:${filters.pagador}`,
-    loader,
-  );
+  // O backend já possui snapshot diário no Supabase. Não mantemos uma segunda
+  // cópia diária no navegador para não prender a tela a um valor antigo depois
+  // de uma correção/sincronização executada no mesmo dia.
+  return getJson<AtendimentosDashboardResponse>(`${API_URL}/api/atendimentos?${params.toString()}`, 90000);
 }
 
 export function fetchAtendimentosStatus(): Promise<AtendimentoSyncStatus> {

@@ -9,7 +9,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan
-Write-Host " GESTAO COMERCIAL - ATUALIZACAO 3.20.2"
+Write-Host " GESTAO COMERCIAL - ATUALIZACAO 3.25.0"
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -40,13 +40,14 @@ Expand-Archive -Path $zip -DestinationPath $temp -Force
 
 $obrigatorios = @(
     "backend\app\services\atendimentos_service.py",
-    "backend\app\services\zendesk_sync_service.py",
     "backend\app\routes\atendimentos.py",
-    "backend\app\services\ativos_atrasados_service.py",
+    "backend\app\routes\ativos_atrasados.py",
     "backend\app\main.py",
     "frontend\components\atendimentos\AtendimentosDashboard.tsx",
     "frontend\lib\atendimentos-api.ts",
-    "frontend\types\atendimentos.ts"
+    "frontend\lib\ativos-atrasados-api.ts",
+    "frontend\types\atendimentos.ts",
+    "instalar_atualizacao.ps1"
 )
 
 foreach ($arquivo in $obrigatorios) {
@@ -116,22 +117,29 @@ if ($backendOnline) {
     }
     catch {
         Write-Host "AVISO: nao foi possivel iniciar a sincronizacao agora." -ForegroundColor Yellow
-        Write-Host "Ela sera tentada automaticamente no primeiro acesso a pagina." -ForegroundColor Yellow
     }
 }
 
 Write-Host ""
-Write-Host "[8/9] Criando o cache diario da pagina Atendimentos..." -ForegroundColor Cyan
+Write-Host "[8/9] Criando caches separados por periodo..." -ForegroundColor Cyan
 if ($backendOnline) {
     try {
         $meta = Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/atendimentos/meta" -TimeoutSec 20
         $ano = $meta.ano_padrao
         $mes = $meta.mes_padrao
         Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/atendimentos?ano=$ano&mes=$mes&empresa=todos&origem=todos&pagador=todos" -TimeoutSec 300 | Out-Null
-        Write-Host "[OK] Cache diario de Atendimentos preparado." -ForegroundColor Green
+        Write-Host "[OK] Cache de Atendimentos criado." -ForegroundColor Green
     }
     catch {
-        Write-Host "AVISO: o cache sera concluido automaticamente no primeiro acesso." -ForegroundColor Yellow
+        Write-Host "AVISO: cache de Atendimentos sera criado no primeiro acesso." -ForegroundColor Yellow
+    }
+
+    try {
+        Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/ativos-atrasados?empresa=todos&origem=todos&pagador=todos" -TimeoutSec 300 | Out-Null
+        Write-Host "[OK] Cache de Ativos e Atrasados criado." -ForegroundColor Green
+    }
+    catch {
+        Write-Host "AVISO: cache de Ativos e Atrasados sera criado no primeiro acesso." -ForegroundColor Yellow
     }
 }
 
@@ -145,9 +153,9 @@ Start-Process powershell -ArgumentList @(
 
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Green
-Write-Host " ATUALIZACAO CONCLUIDA"
+Write-Host " ATUALIZACAO CONCLUIDA - 3.25.0"
 Write-Host "============================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "Atendimentos: http://localhost:3000/atendimentos" -ForegroundColor Cyan
+Write-Host "Ativos/Atrasados: http://localhost:3000/ativos-atrasados" -ForegroundColor Cyan
 Write-Host "Backend: http://127.0.0.1:8000" -ForegroundColor Cyan
-Write-Host "Status: http://127.0.0.1:8000/api/atendimentos/status" -ForegroundColor Cyan
