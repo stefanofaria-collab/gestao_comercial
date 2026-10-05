@@ -17,14 +17,15 @@ from app.routes.perfil import router as perfil_router
 from app.routes.vencimentos_futuros import router as vencimentos_futuros_router
 from app.routes.pagamentos import router as pagamentos_router
 from app.routes.atendimentos import router as atendimentos_router
+from app.routes.intranet2 import router as intranet2_router
 
 
 app = FastAPI(
     title="Gestão Comercial API",
-    version="3.26.0",
+    version="3.27.3",
     description=(
         "API do dashboard comercial. Mantém os indicadores existentes "
-        "e adiciona as visões de faturamento, churn, churn score, ativos e atrasados, perfil, atendimentos, pagamentos e vencimentos futuros."
+        "e adiciona as visões de faturamento, churn, churn score, ativos e atrasados, perfil, atendimentos, pagamentos, vencimentos futuros e Intranet 2.0."
     ),
 )
 
@@ -89,6 +90,7 @@ app.include_router(perfil_router)
 app.include_router(atendimentos_router)
 app.include_router(pagamentos_router)
 app.include_router(vencimentos_futuros_router)
+app.include_router(intranet2_router)
 
 
 @app.on_event("startup")
@@ -100,7 +102,7 @@ def clear_abandoned_refresh_locks():
 def root():
     return {
         "app": "Gestão Comercial API",
-        "version": "3.26.0",
+        "version": "3.27.3",
         "docs": "/docs",
         "health": "/health",
         "faturamento": "/api/faturamento",
@@ -111,6 +113,7 @@ def root():
         "atendimentos": "/api/atendimentos",
         "pagamentos": "/api/pagamentos",
         "vencimentos_futuros": "/api/vencimentos-futuros",
+        "intranet_2": "/api/intranet-2",
     }
 
 

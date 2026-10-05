@@ -32,9 +32,10 @@ from sqlalchemy import bindparam, text
 
 from app.constants import EXCLUDED_COMPANY_IDS
 from app.database import source_engine
+from app.services.payment_metrics_service import get_payment_metrics
 
 
-MODEL_VERSION = "3.26.0"
+MODEL_VERSION = "3.27.3"
 TRAINING_START_DATE = date(2024, 1, 1)
 CHURN_DAYS = 60
 MIN_TRAINING_ROWS = 300
@@ -88,6 +89,11 @@ TRAINING_SQL = text(
                 WHEN e.tipo_cobranca = 'P' THEN 'Parceiro'
                 ELSE 'Não informado'
             END AS pagador,
+            e.utm_source,
+            e.utm_medium,
+            e.utm_campaign,
+            e.utm_term,
+            e.utm_content,
             {PLAN_EXPR} AS nome_plano,
             ep.duracao,
             ep.pago_em,
@@ -128,6 +134,11 @@ TRAINING_SQL = text(
         modalidade,
         origem,
         pagador,
+        utm_source,
+        utm_medium,
+        utm_campaign,
+        utm_term,
+        utm_content,
         nome_plano,
         duracao,
         data_vencimento,
@@ -169,7 +180,14 @@ TRAINING_SQL = text(
 
 LIVE_SQL = text(
     f"""
-    WITH planos AS (
+    WITH loja_contato AS (
+        SELECT
+            empresa_id,
+            MAX(celular) AS celular
+        FROM lojas
+        GROUP BY empresa_id
+    ),
+    planos AS (
         SELECT
             ep.id AS plano_registro_id,
             ep.empresa_id,
@@ -185,6 +203,11 @@ LIVE_SQL = text(
                 WHEN e.tipo_cobranca = 'P' THEN 'Parceiro'
                 ELSE 'Não informado'
             END AS pagador,
+            e.utm_source,
+            e.utm_medium,
+            e.utm_campaign,
+            e.utm_term,
+            e.utm_content,
             {PLAN_EXPR} AS nome_plano,
             ep.duracao,
             ep.pago_em,
@@ -192,6 +215,7 @@ LIVE_SQL = text(
             {VALUE_EXPR} AS valor,
             ep.nome_usuario,
             ep.telefone,
+            lc.celular,
             ep.email,
             ROW_NUMBER() OVER (
                 PARTITION BY ep.empresa_id
@@ -215,6 +239,7 @@ LIVE_SQL = text(
             ) AS duracao_anterior
         FROM empresas_planos ep
         JOIN empresas e ON ep.empresa_id = e.id
+        LEFT JOIN loja_contato lc ON e.id = lc.empresa_id
         WHERE
             {BASE_PLAN_FILTER}
     ),
@@ -238,6 +263,11 @@ LIVE_SQL = text(
         a.tipo_cobranca,
         a.origem,
         a.pagador,
+        a.utm_source,
+        a.utm_medium,
+        a.utm_campaign,
+        a.utm_term,
+        a.utm_content,
         a.nome_plano,
         a.duracao,
         a.data_vencimento,
@@ -276,6 +306,7 @@ LIVE_SQL = text(
         GREATEST(TIMESTAMPDIFF(DAY, CURDATE(), a.data_vencimento), 0) AS dias_ate_vencimento,
         a.nome_usuario,
         a.telefone,
+        a.celular,
         a.email
     FROM atuais a
     WHERE
@@ -299,7 +330,7 @@ LIVE_SQL = text(
     """
 ).bindparams(bindparam("excluidos", expanding=True))
 
-CATEGORICAL_FEATURES = [
+BASE_CATEGORICAL_FEATURES = [
     "modalidade",
     "origem",
     "pagador",
@@ -307,6 +338,14 @@ CATEGORICAL_FEATURES = [
     "duracao",
     "plano_anterior",
     "duracao_anterior",
+]
+
+UTM_FEATURES = [
+    "utm_source",
+    "utm_medium",
+    "utm_campaign",
+    "utm_term",
+    "utm_content",
 ]
 
 NUMERIC_FEATURES = [
@@ -321,7 +360,10 @@ NUMERIC_FEATURES = [
     "mudou_duracao",
 ]
 
-MODEL_FEATURES = CATEGORICAL_FEATURES + NUMERIC_FEATURES
+FEATURE_SETS = {
+    "Base": BASE_CATEGORICAL_FEATURES,
+    "Base + UTMs": BASE_CATEGORICAL_FEATURES + UTM_FEATURES,
+}
 
 
 def _validate_filters(empresa: str, origem: str, pagador: str) -> None:
@@ -333,15 +375,22 @@ def _validate_filters(empresa: str, origem: str, pagador: str) -> None:
         raise ValueError("Filtro de responsável pelo pagamento inválido.")
 
 
-def _prepare_features(df: pd.DataFrame) -> pd.DataFrame:
+def _prepare_features(
+    df: pd.DataFrame,
+    categorical_features: list[str],
+    numeric_features: list[str] | None = None,
+) -> pd.DataFrame:
+    numeric_features = numeric_features or NUMERIC_FEATURES
+    model_features = categorical_features + numeric_features
     result = df.copy()
 
-    for column in CATEGORICAL_FEATURES:
+    for column in categorical_features:
         if column not in result.columns:
             result[column] = "Não informado"
-        result[column] = result[column].fillna("Não informado").astype(str)
+        result[column] = result[column].fillna("Não informado").astype(str).str.strip()
+        result.loc[result[column] == "", column] = "Não informado"
 
-    for column in NUMERIC_FEATURES:
+    for column in numeric_features:
         if column not in result.columns:
             result[column] = np.nan
         result[column] = pd.to_numeric(result[column], errors="coerce")
@@ -353,10 +402,10 @@ def _prepare_features(df: pd.DataFrame) -> pd.DataFrame:
     result["variacao_valor_pct"] = result["variacao_valor_pct"].clip(lower=-1, upper=10)
     result["dias_ciclo"] = result["dias_ciclo"].clip(lower=1, upper=730)
 
-    return result[MODEL_FEATURES]
+    return result[model_features]
 
 
-def _make_pipeline(estimator: Any) -> Pipeline:
+def _make_pipeline(estimator: Any, categorical_features: list[str]) -> Pipeline:
     numeric_pipeline = Pipeline(
         steps=[
             ("imputer", SimpleImputer(strategy="median", add_indicator=True)),
@@ -379,14 +428,14 @@ def _make_pipeline(estimator: Any) -> Pipeline:
     preprocessor = ColumnTransformer(
         transformers=[
             ("num", numeric_pipeline, NUMERIC_FEATURES),
-            ("cat", categorical_pipeline, CATEGORICAL_FEATURES),
+            ("cat", categorical_pipeline, categorical_features),
         ],
         sparse_threshold=1.0,
     )
     return Pipeline(steps=[("preprocessor", preprocessor), ("model", estimator)])
 
 
-def _candidate_models() -> dict[str, Pipeline]:
+def _candidate_models(categorical_features: list[str]) -> dict[str, Pipeline]:
     return {
         "Regressão Logística": _make_pipeline(
             LogisticRegression(
@@ -395,7 +444,8 @@ def _candidate_models() -> dict[str, Pipeline]:
                 C=0.7,
                 solver="liblinear",
                 random_state=42,
-            )
+            ),
+            categorical_features,
         ),
         "Random Forest": _make_pipeline(
             RandomForestClassifier(
@@ -405,7 +455,8 @@ def _candidate_models() -> dict[str, Pipeline]:
                 class_weight="balanced_subsample",
                 n_jobs=-1,
                 random_state=42,
-            )
+            ),
+            categorical_features,
         ),
         "Extra Trees": _make_pipeline(
             ExtraTreesClassifier(
@@ -415,7 +466,8 @@ def _candidate_models() -> dict[str, Pipeline]:
                 class_weight="balanced",
                 n_jobs=-1,
                 random_state=42,
-            )
+            ),
+            categorical_features,
         ),
     }
 
@@ -503,6 +555,73 @@ def _selection_key(metrics: dict[str, float | None]) -> tuple[float, float, floa
     )
 
 
+def _score_distribution(y_true: pd.Series, probabilities: np.ndarray) -> dict[str, Any]:
+    """Valida se scores maiores concentram uma taxa real de churn maior no conjunto de teste."""
+    y = np.asarray(y_true, dtype=int)
+    p = np.asarray(probabilities, dtype=float)
+    scores = np.clip(np.rint(p * 100.0), 1, 100).astype(int)
+
+    definitions = [
+        ("90–100", 90, 100),
+        ("80–89", 80, 89),
+        ("70–79", 70, 79),
+        ("60–69", 60, 69),
+        ("1–59", 1, 59),
+    ]
+
+    base_rate = float(y.mean()) if y.size else 0.0
+    total_churns = int(y.sum())
+    bands: list[dict[str, Any]] = []
+
+    for label, low, high in definitions:
+        mask = (scores >= low) & (scores <= high)
+        clients = int(mask.sum())
+        churns = int(y[mask].sum()) if clients else 0
+        renewals = clients - churns
+        churn_rate = float(churns / clients) if clients else None
+        lift = float(churn_rate / base_rate) if churn_rate is not None and base_rate > 0 else None
+        capture = float(churns / total_churns) if total_churns > 0 else 0.0
+        avg_score = float(scores[mask].mean()) if clients else None
+
+        bands.append(
+            {
+                "faixa": label,
+                "min": low,
+                "max": high,
+                "clientes": clients,
+                "churns": churns,
+                "renovacoes": renewals,
+                "taxa_churn": round(churn_rate, 4) if churn_rate is not None else None,
+                "lift_vs_base": round(lift, 4) if lift is not None else None,
+                "captura_churn": round(capture, 4),
+                "score_medio": round(avg_score, 1) if avg_score is not None else None,
+            }
+        )
+
+    non_empty_rates = [
+        float(item["taxa_churn"])
+        for item in bands
+        if item["clientes"] > 0 and item["taxa_churn"] is not None
+    ]
+    monotonic = all(
+        non_empty_rates[index] >= non_empty_rates[index + 1]
+        for index in range(len(non_empty_rates) - 1)
+    )
+
+    return {
+        "taxa_churn_teste": round(base_rate, 4),
+        "clientes_teste": int(y.size),
+        "churns_teste": total_churns,
+        "ordenacao_monotonica": monotonic,
+        "faixas": bands,
+        "observacao": (
+            "Distribuição calculada somente no conjunto de teste e usando o score base do modelo "
+            "(probabilidade ML × 100). O ajuste de último acesso não entra nesta validação porque não "
+            "existem snapshots históricos de acesso para os vencimentos antigos."
+        ),
+    }
+
+
 def _period_payload(frame: pd.DataFrame) -> dict[str, Any]:
     start = pd.to_datetime(frame["data_vencimento"]).min()
     end = pd.to_datetime(frame["data_vencimento"]).max()
@@ -515,7 +634,12 @@ def _period_payload(frame: pd.DataFrame) -> dict[str, Any]:
     }
 
 
-def _feature_importance(model: Pipeline, X_test: pd.DataFrame, y_test: pd.Series) -> list[dict[str, Any]]:
+def _feature_importance(
+    model: Pipeline,
+    X_test: pd.DataFrame,
+    y_test: pd.Series,
+    model_features: list[str],
+) -> list[dict[str, Any]]:
     if len(X_test) > 5000:
         sample = X_test.sample(5000, random_state=42)
         y_sample = y_test.loc[sample.index]
@@ -538,12 +662,12 @@ def _feature_importance(model: Pipeline, X_test: pd.DataFrame, y_test: pd.Series
 
     rows = [
         {"feature": feature, "importance": float(importance)}
-        for feature, importance in zip(MODEL_FEATURES, result.importances_mean)
+        for feature, importance in zip(model_features, result.importances_mean)
     ]
     rows.sort(key=lambda item: item["importance"], reverse=True)
     return [
         {"feature": row["feature"], "importance": round(row["importance"], 6)}
-        for row in rows[:10]
+        for row in rows[:15]
         if row["importance"] > 0
     ]
 
@@ -571,40 +695,71 @@ def train_churn_score_model() -> dict[str, Any]:
             raise ValueError("A base histórica precisa conter exemplos de churn e de renovação.")
 
         train_df, validation_df, test_df = _split_temporal(df)
-
-        X_train = _prepare_features(train_df)
         y_train = train_df["target_churn"]
-        X_validation = _prepare_features(validation_df)
         y_validation = validation_df["target_churn"]
-        X_test = _prepare_features(test_df)
         y_test = test_df["target_churn"]
 
-        candidates = _candidate_models()
+        # Compara a base atual contra a mesma estrutura acrescida dos UTMs.
+        # A escolha continua sendo feita apenas na validação temporal; o teste
+        # final permanece intocado até a configuração vencedora ser definida.
         validation_results: dict[str, dict[str, float | None]] = {}
-        fitted_models: dict[str, Pipeline] = {}
-        thresholds: dict[str, float] = {}
+        fitted_configs: dict[str, dict[str, Any]] = {}
+        feature_set_comparison: dict[str, dict[str, Any]] = {}
 
-        for model_name, candidate in candidates.items():
-            fitted = clone(candidate)
-            fitted.fit(X_train, y_train)
-            probabilities = fitted.predict_proba(X_validation)[:, 1]
-            threshold = _optimal_threshold(y_validation, probabilities)
-            validation_results[model_name] = _metrics(y_validation, probabilities, threshold)
-            fitted_models[model_name] = fitted
-            thresholds[model_name] = threshold
+        for feature_set_name, categorical_features in FEATURE_SETS.items():
+            X_train = _prepare_features(train_df, categorical_features)
+            X_validation = _prepare_features(validation_df, categorical_features)
+            candidates = _candidate_models(categorical_features)
+            set_keys: list[str] = []
 
-        selected_name = max(validation_results, key=lambda name: _selection_key(validation_results[name]))
-        selected_model = fitted_models[selected_name]
-        selected_threshold = thresholds[selected_name]
+            for model_name, candidate in candidates.items():
+                key = f"{model_name} · {feature_set_name}"
+                fitted = clone(candidate)
+                fitted.fit(X_train, y_train)
+                probabilities = fitted.predict_proba(X_validation)[:, 1]
+                threshold = _optimal_threshold(y_validation, probabilities)
+                metrics = _metrics(y_validation, probabilities, threshold)
 
+                validation_results[key] = metrics
+                fitted_configs[key] = {
+                    "model_name": model_name,
+                    "feature_set": feature_set_name,
+                    "categorical_features": list(categorical_features),
+                    "model": fitted,
+                    "threshold": threshold,
+                }
+                set_keys.append(key)
+
+            best_set_key = max(set_keys, key=lambda item: _selection_key(validation_results[item]))
+            best_set_config = fitted_configs[best_set_key]
+            feature_set_comparison[feature_set_name] = {
+                "modelo": best_set_config["model_name"],
+                **validation_results[best_set_key],
+            }
+
+        selected_key = max(
+            validation_results,
+            key=lambda item: _selection_key(validation_results[item]),
+        )
+        selected_config = fitted_configs[selected_key]
+        selected_name = str(selected_config["model_name"])
+        selected_feature_set = str(selected_config["feature_set"])
+        selected_categorical = list(selected_config["categorical_features"])
+        selected_model = selected_config["model"]
+        selected_threshold = float(selected_config["threshold"])
+        selected_features = selected_categorical + NUMERIC_FEATURES
+
+        X_test = _prepare_features(test_df, selected_categorical)
         test_probabilities = selected_model.predict_proba(X_test)[:, 1]
         test_metrics = _metrics(y_test, test_probabilities, selected_threshold)
-        importances = _feature_importance(selected_model, X_test, y_test)
+        score_distribution = _score_distribution(y_test, test_probabilities)
+        importances = _feature_importance(selected_model, X_test, y_test, selected_features)
 
         train_validation = pd.concat([train_df, validation_df], ignore_index=True)
-        X_train_validation = _prepare_features(train_validation)
+        X_train_validation = _prepare_features(train_validation, selected_categorical)
         y_train_validation = train_validation["target_churn"]
-        final_model = clone(candidates[selected_name])
+        final_candidates = _candidate_models(selected_categorical)
+        final_model = clone(final_candidates[selected_name])
         final_model.fit(X_train_validation, y_train_validation)
 
         trained_at = datetime.now().astimezone().isoformat(timespec="seconds")
@@ -612,13 +767,17 @@ def train_churn_score_model() -> dict[str, Any]:
             "version": MODEL_VERSION,
             "trained_at": trained_at,
             "model_name": selected_name,
+            "feature_set": selected_feature_set,
+            "utm_features_used": selected_feature_set == "Base + UTMs",
             "pipeline": final_model,
             "threshold": float(selected_threshold),
-            "features": MODEL_FEATURES,
-            "categorical_features": CATEGORICAL_FEATURES,
+            "features": selected_features,
+            "categorical_features": selected_categorical,
             "numeric_features": NUMERIC_FEATURES,
             "validation_results": validation_results,
+            "feature_set_comparison": feature_set_comparison,
             "test_metrics": test_metrics,
+            "score_distribution": score_distribution,
             "feature_importance": importances,
             "periods": {
                 "treino": _period_payload(train_df),
@@ -635,6 +794,8 @@ def train_churn_score_model() -> dict[str, Any]:
                 "Validação temporal: o modelo nunca é testado em períodos anteriores ao treino.",
                 "Dias vencidos não é usado como variável preditora.",
                 "Último acesso atual não entra no treino histórico para evitar vazamento temporal; ele entra como ajuste comportamental transparente no score final.",
+                "Os UTMs são comparados contra a configuração base e só entram no modelo final quando melhoram a validação temporal.",
+                "A distribuição real de churn por faixa de score é calculada exclusivamente no conjunto de teste.",
             ],
         }
 
@@ -659,9 +820,13 @@ def _metadata_from_artifact(artifact: dict[str, Any]) -> dict[str, Any]:
         "version": artifact.get("version"),
         "trained_at": artifact.get("trained_at"),
         "model_name": artifact.get("model_name"),
+        "feature_set": artifact.get("feature_set") or "Base",
+        "utm_features_used": bool(artifact.get("utm_features_used")),
         "threshold": round(float(artifact.get("threshold") or 0.5), 4),
         "validation_results": artifact.get("validation_results") or {},
+        "feature_set_comparison": artifact.get("feature_set_comparison") or {},
         "test_metrics": artifact.get("test_metrics") or {},
+        "score_distribution": artifact.get("score_distribution") or {},
         "feature_importance": artifact.get("feature_importance") or [],
         "periods": artifact.get("periods") or {},
         "dataset": artifact.get("dataset") or {},
@@ -786,11 +951,21 @@ def get_churn_score_dashboard(
                 "valor_ponderado_risco": 0.0,
             },
             "faixas": [],
+            "risco_por_plano": [],
+            "risco_por_duracao": [],
             "clientes": [],
+            "contatos": [],
+            "clientes_retornados": 0,
+            "regra_score": (
+                "Score final = risco previsto pelo modelo histórico + ajuste comportamental de acesso."
+            ),
         }
 
-    X_live = _prepare_features(df)
+    live_categorical = list(artifact.get("categorical_features") or BASE_CATEGORICAL_FEATURES)
+    live_numeric = list(artifact.get("numeric_features") or NUMERIC_FEATURES)
+    X_live = _prepare_features(df, live_categorical, live_numeric)
     probabilities = artifact["pipeline"].predict_proba(X_live)[:, 1]
+    payment_stats = get_payment_metrics(df["empresa_id"].tolist())
 
     clients: list[dict[str, Any]] = []
     for position, (_, row) in enumerate(df.iterrows()):
@@ -800,6 +975,14 @@ def get_churn_score_dashboard(
         company_id = int(row["empresa_id"])
         value = float(row.get("valor") or 0)
         due_date = row.get("data_vencimento")
+        payment = payment_stats.get(company_id, {})
+        average_payment_delay = payment.get("media_dias_pagamento_real")
+        last_renewal_delay = row.get("atraso_ultima_renovacao")
+        exceeded_average_delay = bool(
+            average_payment_delay is not None
+            and not pd.isna(last_renewal_delay)
+            and float(last_renewal_delay) > max(float(average_payment_delay), 0.0)
+        )
         if isinstance(due_date, pd.Timestamp):
             due_date = due_date.date()
 
@@ -811,6 +994,10 @@ def get_churn_score_dashboard(
                 "modalidade": str(row.get("modalidade") or ""),
                 "origem": str(row.get("origem") or "Não informado"),
                 "pagador": str(row.get("pagador") or "Não informado"),
+                "nome_usuario": str(row.get("nome_usuario") or "").strip() or None,
+                "telefone": str(row.get("telefone") or "").strip() or None,
+                "celular": str(row.get("celular") or "").strip() or None,
+                "email": str(row.get("email") or "").strip() or None,
                 "nome_plano": str(row.get("nome_plano") or "Não informado"),
                 "duracao": str(row.get("duracao") or ""),
                 "data_vencimento": due_date.isoformat() if due_date else None,
@@ -823,6 +1010,12 @@ def get_churn_score_dashboard(
                     if not pd.isna(row.get("atraso_ultima_renovacao"))
                     else None
                 ),
+                "media_dias_pagamento": (
+                    round(float(average_payment_delay), 2)
+                    if average_payment_delay is not None
+                    else None
+                ),
+                "ultrapassou_media_atraso": exceeded_average_delay,
                 "ultimo_acesso": _serialize_timestamp(row.get("ultimo_acesso")),
                 "ultimo_acesso_vencimento": (
                     int(row.get("ultimo_acesso_vencimento"))
@@ -863,6 +1056,51 @@ def get_churn_score_dashboard(
             }
         )
 
+    def aggregate_risk(field: str, *, duration: bool = False) -> list[dict[str, Any]]:
+        grouped: dict[str, dict[str, float | int]] = {}
+        for item in clients:
+            raw_label = str(item.get(field) or "Não informado")
+            if duration:
+                raw_label = {
+                    "M": "Mensal",
+                    "T": "Trimestral",
+                    "S": "Semestral",
+                    "A": "Anual",
+                }.get(raw_label, raw_label or "Não informado")
+
+            current = grouped.setdefault(
+                raw_label,
+                {"clientes": 0, "clientes_alto_risco": 0, "valor_total": 0.0, "valor_risco": 0.0, "score_total": 0.0},
+            )
+            current["clientes"] = int(current["clientes"]) + 1
+            if int(item["score"]) >= 60:
+                current["clientes_alto_risco"] = int(current["clientes_alto_risco"]) + 1
+            current["valor_total"] = float(current["valor_total"]) + float(item["valor"])
+            current["valor_risco"] = float(current["valor_risco"]) + float(item["valor"]) * float(item["score"]) / 100.0
+            current["score_total"] = float(current["score_total"]) + float(item["score"])
+
+        rows = [
+            {
+                "label": label,
+                "clientes": int(values["clientes"]),
+                "clientes_alto_risco": int(values["clientes_alto_risco"]),
+                "valor_total": round(float(values["valor_total"]), 2),
+                "valor_risco": round(float(values["valor_risco"]), 2),
+                "score_medio": round(float(values["score_total"]) / int(values["clientes"]), 1) if int(values["clientes"]) else 0.0,
+            }
+            for label, values in grouped.items()
+        ]
+
+        if duration:
+            order = {"Mensal": 1, "Trimestral": 2, "Semestral": 3, "Anual": 4}
+            rows.sort(key=lambda row: (order.get(str(row["label"]), 99), -float(row["valor_risco"])))
+        else:
+            rows.sort(key=lambda row: (-float(row["valor_risco"]), str(row["label"])))
+        return rows
+
+    risk_by_plan = aggregate_risk("nome_plano")
+    risk_by_duration = aggregate_risk("duracao", duration=True)
+
     total_value = sum(item["valor"] for item in clients)
     weighted_value = sum(item["valor"] * item["score"] / 100.0 for item in clients)
     score_average = float(np.mean([item["score"] for item in clients])) if clients else 0.0
@@ -879,7 +1117,10 @@ def get_churn_score_dashboard(
             "valor_ponderado_risco": round(weighted_value, 2),
         },
         "faixas": band_payload,
+        "risco_por_plano": risk_by_plan,
+        "risco_por_duracao": risk_by_duration,
         "clientes": clients[:MAX_RETURNED_CLIENTS],
+        "contatos": clients,
         "clientes_retornados": min(len(clients), MAX_RETURNED_CLIENTS),
         "regra_score": (
             "Score final = risco previsto pelo modelo histórico + ajuste comportamental de acesso. "

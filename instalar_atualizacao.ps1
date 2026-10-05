@@ -9,7 +9,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan
-Write-Host " GESTAO COMERCIAL - ATUALIZACAO 3.26.0"
+Write-Host " GESTAO COMERCIAL - ATUALIZACAO 3.27.3"
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -25,30 +25,31 @@ if (-not (Test-Path $projeto)) {
     exit 1
 }
 
-Write-Host "[1/10] Encerrando frontend e backend..." -ForegroundColor Cyan
+Write-Host "[1/8] Encerrando frontend e backend..." -ForegroundColor Cyan
 Get-NetTCPConnection -LocalPort 3000,8000 -State Listen -ErrorAction SilentlyContinue |
     Select-Object -ExpandProperty OwningProcess -Unique |
     ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }
 Start-Sleep -Seconds 2
 
-Write-Host "[2/10] Preparando pasta temporaria..." -ForegroundColor Cyan
+Write-Host "[2/8] Preparando pasta temporaria..." -ForegroundColor Cyan
 if (Test-Path $temp) { Remove-Item $temp -Recurse -Force }
 New-Item -ItemType Directory -Path $temp -Force | Out-Null
 
-Write-Host "[3/10] Extraindo download.zip..." -ForegroundColor Cyan
+Write-Host "[3/8] Extraindo download.zip..." -ForegroundColor Cyan
 Expand-Archive -Path $zip -DestinationPath $temp -Force
 
 $obrigatorios = @(
+    "backend\app\services\intranet2_service.py",
+    "backend\app\routes\intranet2.py",
     "backend\app\services\churn_score_service.py",
     "backend\app\routes\churn_score.py",
     "backend\app\main.py",
-    "backend\requirements.txt",
-    "frontend\app\churn-score\page.tsx",
-    "frontend\components\churn-score\ChurnScoreDashboard.tsx",
+    "frontend\app\intranet-2\page.tsx",
+    "frontend\components\intranet2\Intranet2Dashboard.tsx",
     "frontend\components\layout\AppShell.tsx",
-    "frontend\lib\churn-score-api.ts",
-    "frontend\types\churn-score.ts",
-    "README_ATUALIZACAO_3_26_0.md",
+    "frontend\lib\intranet2-api.ts",
+    "frontend\types\intranet2.ts",
+    "README_ATUALIZACAO_3_27_3.md",
     "instalar_atualizacao.ps1"
 )
 
@@ -60,16 +61,16 @@ foreach ($arquivo in $obrigatorios) {
     }
 }
 
-Write-Host "[4/10] Atualizando projeto..." -ForegroundColor Cyan
+Write-Host "[4/8] Atualizando projeto..." -ForegroundColor Cyan
 Copy-Item -Path "$temp\*" -Destination $projeto -Recurse -Force
 Remove-Item $temp -Recurse -Force
 Write-Host "[OK] Arquivos atualizados." -ForegroundColor Green
 
-Write-Host "[5/10] Limpando build antigo do frontend..." -ForegroundColor Cyan
+Write-Host "[5/8] Limpando build antigo do frontend..." -ForegroundColor Cyan
 $next = Join-Path $projeto "frontend\.next"
 if (Test-Path $next) { Remove-Item $next -Recurse -Force }
 
-Write-Host "[6/10] Iniciando backend..." -ForegroundColor Cyan
+Write-Host "[6/8] Iniciando backend..." -ForegroundColor Cyan
 Start-Process powershell -ArgumentList @(
     "-NoExit",
     "-ExecutionPolicy", "Bypass",
@@ -90,100 +91,43 @@ for ($i = 1; $i -le 90; $i++) {
     }
 }
 
-Write-Host ""
-Write-Host "[7/10] Treinando e validando Churn Score..." -ForegroundColor Cyan
-if ($backendOnline) {
-    try {
-        $treino = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/api/churn-score/treinar" -TimeoutSec 900
-        $modelDir = Join-Path $projeto "backend\modelos"
-        if (-not (Test-Path $modelDir)) { New-Item -ItemType Directory -Path $modelDir -Force | Out-Null }
-        $treino | ConvertTo-Json -Depth 12 | Set-Content -Path (Join-Path $modelDir "churn_score_resultados.json") -Encoding UTF8
-
-        Write-Host "[OK] Churn Score treinado." -ForegroundColor Green
-        Write-Host "Modelo: $($treino.model_name)" -ForegroundColor White
-        Write-Host "ROC-AUC teste: $($treino.test_metrics.roc_auc)" -ForegroundColor White
-        Write-Host "PR-AUC teste: $($treino.test_metrics.pr_auc)" -ForegroundColor White
-        Write-Host "Brier teste: $($treino.test_metrics.brier)" -ForegroundColor White
-        Write-Host "Precision teste: $($treino.test_metrics.precision)" -ForegroundColor White
-        Write-Host "Recall teste: $($treino.test_metrics.recall)" -ForegroundColor White
-        Write-Host "F1 teste: $($treino.test_metrics.f1)" -ForegroundColor White
-        Write-Host "Lift Top 10%: $($treino.test_metrics.lift_10)x" -ForegroundColor White
-    }
-    catch {
-        Write-Host "AVISO: o projeto foi atualizado, mas o Churn Score nao conseguiu treinar agora." -ForegroundColor Yellow
-        Write-Host $_.Exception.Message -ForegroundColor DarkYellow
-        Write-Host "Abra http://localhost:3000/churn-score e use 'Treinar modelo'." -ForegroundColor Yellow
-    }
-}
-
-Write-Host ""
-Write-Host "[8/10] Atualizando atendimentos somente ate ontem..." -ForegroundColor Cyan
-if ($backendOnline) {
-    try {
-        Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/api/atendimentos/sincronizar" -TimeoutSec 20 | Out-Null
-
-        $syncOk = $false
-        for ($i = 1; $i -le 60; $i++) {
-            Start-Sleep -Seconds 10
-            try {
-                $status = Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/atendimentos/status" -TimeoutSec 10
-                Write-Host "Zendesk: $($status.ultima_data) / esperado: $($status.data_alvo)" -ForegroundColor DarkGray
-                if ($status.atualizado -eq $true) {
-                    $syncOk = $true
-                    Write-Host "[OK] Atendimentos atualizados ate o dia anterior." -ForegroundColor Green
-                    break
-                }
-            }
-            catch {
-                Write-Host "Aguardando sincronizacao..." -ForegroundColor DarkGray
-            }
-        }
-
-        if (-not $syncOk) {
-            Write-Host "AVISO: a sincronizacao continuara em segundo plano." -ForegroundColor Yellow
-        }
-    }
-    catch {
-        Write-Host "AVISO: nao foi possivel iniciar a sincronizacao agora." -ForegroundColor Yellow
-    }
-}
-
-Write-Host ""
-Write-Host "[9/10] Criando caches separados por periodo..." -ForegroundColor Cyan
-if ($backendOnline) {
-    try {
-        $meta = Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/atendimentos/meta" -TimeoutSec 20
-        $ano = $meta.ano_padrao
-        $mes = $meta.mes_padrao
-        Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/atendimentos?ano=$ano&mes=$mes&empresa=todos&origem=todos&pagador=todos" -TimeoutSec 300 | Out-Null
-        Write-Host "[OK] Cache de Atendimentos criado." -ForegroundColor Green
-    }
-    catch {
-        Write-Host "AVISO: cache de Atendimentos sera criado no primeiro acesso." -ForegroundColor Yellow
-    }
-
-    try {
-        Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/ativos-atrasados?empresa=todos&origem=todos&pagador=todos" -TimeoutSec 300 | Out-Null
-        Write-Host "[OK] Cache de Ativos e Atrasados criado." -ForegroundColor Green
-    }
-    catch {
-        Write-Host "AVISO: cache de Ativos e Atrasados sera criado no primeiro acesso." -ForegroundColor Yellow
-    }
-}
-
-Write-Host ""
-Write-Host "[10/10] Iniciando frontend..." -ForegroundColor Cyan
+Write-Host "[7/8] Iniciando frontend..." -ForegroundColor Cyan
 Start-Process powershell -ArgumentList @(
     "-NoExit",
     "-ExecutionPolicy", "Bypass",
     "-Command", "cd '$projeto'; .\iniciar_frontend.ps1"
 )
 
+Write-Host "[8/8] Preparando dados em segundo plano..." -ForegroundColor Cyan
+if ($backendOnline) {
+    Start-Process powershell -WindowStyle Hidden -ArgumentList @(
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-Command",
+        "try { Invoke-RestMethod -Uri 'http://127.0.0.1:8000/api/intranet-2/opcoes' -TimeoutSec 300 | Out-Null } catch {}"
+    )
+
+    try {
+        Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/api/churn-score/atualizar?empresa=todos&origem=todos&pagador=todos" -TimeoutSec 15 | Out-Null
+        Write-Host "[OK] Atualizacao do Churn Score iniciada em segundo plano." -ForegroundColor Green
+    }
+    catch {
+        Write-Host "AVISO: o Churn Score sera atualizado no proximo acesso." -ForegroundColor Yellow
+    }
+
+    try {
+        Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/api/atendimentos/sincronizar" -TimeoutSec 15 | Out-Null
+        Write-Host "[OK] Atendimentos atualizando em segundo plano." -ForegroundColor Green
+    }
+    catch {
+        Write-Host "AVISO: atendimentos serao atualizados no proximo acesso." -ForegroundColor Yellow
+    }
+}
+
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Green
-Write-Host " ATUALIZACAO CONCLUIDA - 3.26.0"
+Write-Host " ATUALIZACAO CONCLUIDA - 3.27.3"
 Write-Host "============================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "Churn Score: http://localhost:3000/churn-score" -ForegroundColor Cyan
-Write-Host "Churn: http://localhost:3000/churn" -ForegroundColor Cyan
+Write-Host "Intranet 2.0: http://localhost:3000/intranet-2" -ForegroundColor Cyan
 Write-Host "Backend: http://127.0.0.1:8000" -ForegroundColor Cyan

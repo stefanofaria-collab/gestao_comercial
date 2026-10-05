@@ -1,133 +1,207 @@
 ﻿{
     "status":  "treinado",
-    "version":  "3.26.0",
-    "trained_at":  "2026-10-02T16:37:58-03:00",
+    "version":  "3.26.1",
+    "trained_at":  "2026-10-05T10:10:57-03:00",
     "model_name":  "Random Forest",
-    "threshold":  0.5932,
+    "threshold":  0.6222,
     "validation_results":  {
                                "RegressÃ£o LogÃ­stica":  {
-                                                             "roc_auc":  0.7953,
-                                                             "pr_auc":  0.3147,
-                                                             "brier":  0.1786,
-                                                             "log_loss":  0.5377,
-                                                             "accuracy":  0.857,
-                                                             "precision":  0.3335,
-                                                             "recall":  0.495,
-                                                             "f1":  0.3985,
-                                                             "lift_10":  3.7942,
-                                                             "captura_churn_10":  0.3795,
-                                                             "threshold":  0.6501
+                                                             "roc_auc":  0.795,
+                                                             "pr_auc":  0.3146,
+                                                             "brier":  0.1782,
+                                                             "log_loss":  0.5367,
+                                                             "accuracy":  0.8583,
+                                                             "precision":  0.3342,
+                                                             "recall":  0.4885,
+                                                             "f1":  0.3969,
+                                                             "lift_10":  3.8057,
+                                                             "captura_churn_10":  0.3806,
+                                                             "threshold":  0.6521
                                                          },
                                "Random Forest":  {
-                                                     "roc_auc":  0.818,
-                                                     "pr_auc":  0.3341,
-                                                     "brier":  0.1552,
-                                                     "log_loss":  0.4794,
-                                                     "accuracy":  0.8409,
-                                                     "precision":  0.319,
-                                                     "recall":  0.5842,
-                                                     "f1":  0.4127,
-                                                     "lift_10":  3.7809,
-                                                     "captura_churn_10":  0.3782,
-                                                     "threshold":  0.5932
+                                                     "roc_auc":  0.8165,
+                                                     "pr_auc":  0.3323,
+                                                     "brier":  0.1549,
+                                                     "log_loss":  0.4786,
+                                                     "accuracy":  0.8506,
+                                                     "precision":  0.329,
+                                                     "recall":  0.5439,
+                                                     "f1":  0.41,
+                                                     "lift_10":  3.7724,
+                                                     "captura_churn_10":  0.3773,
+                                                     "threshold":  0.6222
                                                  },
                                "Extra Trees":  {
-                                                   "roc_auc":  0.7968,
-                                                   "pr_auc":  0.3099,
-                                                   "brier":  0.1791,
-                                                   "log_loss":  0.5406,
-                                                   "accuracy":  0.8536,
-                                                   "precision":  0.3203,
-                                                   "recall":  0.4727,
-                                                   "f1":  0.3819,
-                                                   "lift_10":  3.6444,
-                                                   "captura_churn_10":  0.3645,
-                                                   "threshold":  0.6456
+                                                   "roc_auc":  0.7969,
+                                                   "pr_auc":  0.3106,
+                                                   "brier":  0.1786,
+                                                   "log_loss":  0.5393,
+                                                   "accuracy":  0.8494,
+                                                   "precision":  0.3135,
+                                                   "recall":  0.4865,
+                                                   "f1":  0.3813,
+                                                   "lift_10":  3.6488,
+                                                   "captura_churn_10":  0.3649,
+                                                   "threshold":  0.6346
                                                }
                            },
     "test_metrics":  {
-                         "roc_auc":  0.8153,
-                         "pr_auc":  0.3308,
-                         "brier":  0.1503,
-                         "log_loss":  0.4672,
-                         "accuracy":  0.8442,
-                         "precision":  0.3272,
-                         "recall":  0.5413,
-                         "f1":  0.4079,
-                         "lift_10":  3.8367,
-                         "captura_churn_10":  0.3837,
-                         "threshold":  0.5932
+                         "roc_auc":  0.8162,
+                         "pr_auc":  0.3306,
+                         "brier":  0.1497,
+                         "log_loss":  0.4657,
+                         "accuracy":  0.854,
+                         "precision":  0.3402,
+                         "recall":  0.5108,
+                         "f1":  0.4084,
+                         "lift_10":  3.809,
+                         "captura_churn_10":  0.381,
+                         "threshold":  0.6222
                      },
+    "score_distribution":  {
+                               "taxa_churn_teste":  0.0986,
+                               "clientes_teste":  32332,
+                               "churns_teste":  3189,
+                               "ordenacao_monotonica":  true,
+                               "faixas":  [
+                                              {
+                                                  "faixa":  "90â100",
+                                                  "min":  90,
+                                                  "max":  100,
+                                                  "clientes":  10,
+                                                  "churns":  10,
+                                                  "renovacoes":  0,
+                                                  "taxa_churn":  1.0,
+                                                  "lift_vs_base":  10.1386,
+                                                  "captura_churn":  0.0031,
+                                                  "score_medio":  92.2
+                                              },
+                                              {
+                                                  "faixa":  "80â89",
+                                                  "min":  80,
+                                                  "max":  89,
+                                                  "clientes":  1133,
+                                                  "churns":  524,
+                                                  "renovacoes":  609,
+                                                  "taxa_churn":  0.4625,
+                                                  "lift_vs_base":  4.689,
+                                                  "captura_churn":  0.1643,
+                                                  "score_medio":  83.1
+                                              },
+                                              {
+                                                  "faixa":  "70â79",
+                                                  "min":  70,
+                                                  "max":  79,
+                                                  "clientes":  2523,
+                                                  "churns":  813,
+                                                  "renovacoes":  1710,
+                                                  "taxa_churn":  0.3222,
+                                                  "lift_vs_base":  3.267,
+                                                  "captura_churn":  0.2549,
+                                                  "score_medio":  75.5
+                                              },
+                                              {
+                                                  "faixa":  "60â69",
+                                                  "min":  60,
+                                                  "max":  69,
+                                                  "clientes":  1569,
+                                                  "churns":  375,
+                                                  "renovacoes":  1194,
+                                                  "taxa_churn":  0.239,
+                                                  "lift_vs_base":  2.4232,
+                                                  "captura_churn":  0.1176,
+                                                  "score_medio":  64.3
+                                              },
+                                              {
+                                                  "faixa":  "1â59",
+                                                  "min":  1,
+                                                  "max":  59,
+                                                  "clientes":  27097,
+                                                  "churns":  1467,
+                                                  "renovacoes":  25630,
+                                                  "taxa_churn":  0.0541,
+                                                  "lift_vs_base":  0.5489,
+                                                  "captura_churn":  0.46,
+                                                  "score_medio":  27.0
+                                              }
+                                          ],
+                               "observacao":  "DistribuiÃ§Ã£o calculada somente no conjunto de teste e usando o score base do modelo (probabilidade ML Ã 100). O ajuste de Ãºltimo acesso nÃ£o entra nesta validaÃ§Ã£o porque nÃ£o existem snapshots histÃ³ricos de acesso para os vencimentos antigos."
+                           },
     "feature_importance":  [
                                {
                                    "feature":  "atraso_ultima_renovacao",
-                                   "importance":  0.040493
+                                   "importance":  0.060863
                                },
                                {
                                    "feature":  "pagamentos_anteriores",
-                                   "importance":  0.021169
+                                   "importance":  0.044749
                                },
                                {
                                    "feature":  "tempo_vida_meses",
-                                   "importance":  0.01045
-                               },
-                               {
-                                   "feature":  "nome_plano",
-                                   "importance":  0.010405
+                                   "importance":  0.016017
                                },
                                {
                                    "feature":  "dias_ciclo",
-                                   "importance":  0.007759
+                                   "importance":  0.012262
                                },
                                {
-                                   "feature":  "mudou_duracao",
-                                   "importance":  0.003783
-                               },
-                               {
-                                   "feature":  "valor",
-                                   "importance":  0.00285
-                               },
-                               {
-                                   "feature":  "variacao_valor_pct",
-                                   "importance":  0.00176
+                                   "feature":  "duracao",
+                                   "importance":  0.012058
                                },
                                {
                                    "feature":  "origem",
-                                   "importance":  0.001386
+                                   "importance":  0.00953
+                               },
+                               {
+                                   "feature":  "nome_plano",
+                                   "importance":  0.007157
+                               },
+                               {
+                                   "feature":  "modalidade",
+                                   "importance":  0.003803
+                               },
+                               {
+                                   "feature":  "variacao_valor_pct",
+                                   "importance":  0.003018
+                               },
+                               {
+                                   "feature":  "mudou_duracao",
+                                   "importance":  0.002772
                                }
                            ],
     "periods":  {
                     "treino":  {
                                    "inicio":  "2024-01-01",
-                                   "fim":  "2025-10-23",
-                                   "linhas":  136722,
-                                   "churns":  12786,
-                                   "taxa_churn":  0.0935
+                                   "fim":  "2025-10-25",
+                                   "linhas":  137165,
+                                   "churns":  12837,
+                                   "taxa_churn":  0.0936
                                },
                     "validacao":  {
-                                      "inicio":  "2025-10-24",
-                                      "fim":  "2026-03-14",
-                                      "linhas":  31394,
-                                      "churns":  3004,
-                                      "taxa_churn":  0.0957
+                                      "inicio":  "2025-10-26",
+                                      "fim":  "2026-03-16",
+                                      "linhas":  31385,
+                                      "churns":  2995,
+                                      "taxa_churn":  0.0954
                                   },
                     "teste":  {
-                                  "inicio":  "2026-03-15",
-                                  "fim":  "2026-08-03",
-                                  "linhas":  32024,
-                                  "churns":  3174,
-                                  "taxa_churn":  0.0991
+                                  "inicio":  "2026-03-17",
+                                  "fim":  "2026-08-06",
+                                  "linhas":  32332,
+                                  "churns":  3189,
+                                  "taxa_churn":  0.0986
                               }
                 },
     "dataset":  {
-                    "linhas":  200140,
-                    "churns":  18964,
-                    "renovacoes":  181176,
-                    "taxa_churn":  0.0948
+                    "linhas":  200882,
+                    "churns":  19021,
+                    "renovacoes":  181861,
+                    "taxa_churn":  0.0947
                 },
     "notes":  [
                   "ValidaÃ§Ã£o temporal: o modelo nunca Ã© testado em perÃ­odos anteriores ao treino.",
                   "Dias vencidos nÃ£o Ã© usado como variÃ¡vel preditora.",
-                  "Ãltimo acesso atual nÃ£o entra no treino histÃ³rico para evitar vazamento temporal; ele entra como ajuste comportamental transparente no score final."
+                  "Ãltimo acesso atual nÃ£o entra no treino histÃ³rico para evitar vazamento temporal; ele entra como ajuste comportamental transparente no score final.",
+                  "A distribuiÃ§Ã£o real de churn por faixa de score Ã© calculada exclusivamente no conjunto de teste."
               ]
 }
