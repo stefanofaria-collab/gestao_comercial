@@ -119,18 +119,36 @@ export default function LoginScreen() {
     <div className="min-h-screen bg-slate-100">
       <div className="grid min-h-screen lg:grid-cols-[1.1fr_0.9fr]">
         <div className="hidden bg-[#03114b] px-8 py-12 text-white lg:flex lg:flex-col lg:items-center lg:justify-center">
-          <span className="rounded-full border border-white/30 bg-white/15 px-5 py-2 text-xl">Assistente IA ✨</span>
-          <h1 className="mt-8 max-w-2xl text-center text-6xl font-light leading-tight">O ERP GestãoClick agora tem <span className="font-semibold text-blue-400">IA</span></h1>
-          <p className="mt-6 max-w-xl text-center text-2xl text-blue-50/90">Faça consultas, gere relatórios e tire dúvidas do sistema em segundos com o Assistente de IA.</p>
-          <div className="mt-8 w-full max-w-xl rounded-3xl bg-gradient-to-b from-sky-700 to-blue-500 p-5 shadow-2xl">
+          <span className="rounded-full border border-white/30 bg-white/15 px-5 py-2 text-xl">ClickDados</span>
+          <h1 className="mt-8 max-w-3xl text-center text-6xl font-light leading-tight">Sua <span className="font-semibold text-blue-400">inteligência comercial</span> em um único painel</h1>
+          <p className="mt-6 max-w-2xl text-center text-2xl text-blue-50/90">Visualize os principais indicadores da carteira, acompanhe riscos, vencimentos, pagamentos e tenha uma visão completa dos clientes.</p>
+          <div className="mt-8 w-full max-w-2xl rounded-3xl bg-gradient-to-b from-sky-700 to-blue-500 p-5 shadow-2xl">
             <div className="rounded-2xl bg-white p-6 text-slate-700">
-              <p className="text-2xl font-medium text-blue-700">Olá, Sou seu Assistente de IA.</p>
-              <p className="text-xl">Como posso te ajudar hoje?</p>
-              <div className="mt-6 ml-auto w-fit rounded-2xl bg-blue-100 px-5 py-3 text-lg">Me dê o resumo financeiro do dia.</div>
-              <div className="mt-4 w-fit rounded-2xl bg-slate-100 px-5 py-3 text-lg">Claro! Aqui está um resumo completo sobre seu financeiro do dia de hoje.</div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <p className="text-sm font-semibold uppercase tracking-wide text-slate-400">Indicadores</p>
+                  <p className="mt-2 text-2xl font-bold text-slate-900">Resumo geral</p>
+                  <p className="mt-1 text-sm text-slate-600">Visão rápida dos principais números do negócio.</p>
+                </div>
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <p className="text-sm font-semibold uppercase tracking-wide text-slate-400">Churn Score</p>
+                  <p className="mt-2 text-2xl font-bold text-slate-900">Risco da carteira</p>
+                  <p className="mt-1 text-sm text-slate-600">Priorização dos clientes com maior chance de cancelamento.</p>
+                </div>
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <p className="text-sm font-semibold uppercase tracking-wide text-slate-400">Vencimentos</p>
+                  <p className="mt-2 text-2xl font-bold text-slate-900">Ações do período</p>
+                  <p className="mt-1 text-sm text-slate-600">Carteira a vencer, atrasos e oportunidades de retenção.</p>
+                </div>
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <p className="text-sm font-semibold uppercase tracking-wide text-slate-400">Intranet 2.0</p>
+                  <p className="mt-2 text-2xl font-bold text-slate-900">Consulta completa</p>
+                  <p className="mt-1 text-sm text-slate-600">Busca avançada e visão detalhada de cada empresa.</p>
+                </div>
+              </div>
             </div>
           </div>
-          <button className="mt-8 rounded-xl bg-blue-500 px-8 py-3 text-xl font-semibold">Teste o Assistente IA</button>
+          <div className="mt-8 rounded-xl bg-white/10 px-8 py-3 text-xl font-semibold text-white">Plataforma interna ClickDados</div>
         </div>
 
         <div className="flex items-center justify-center px-6 py-10">
