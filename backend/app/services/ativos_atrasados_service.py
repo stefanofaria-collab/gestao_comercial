@@ -31,6 +31,15 @@ DIMENSION_FILTER_SQL = """
         OR (:pagador = 'cliente' AND e.tipo_cobranca = 'E')
         OR (:pagador = 'parceiro' AND e.tipo_cobranca = 'P')
     )
+
+    AND (
+        :filtro_plano_global = 'todos'
+        OR REPLACE(REPLACE(ep.nome_plano, ' (+) recursos', ''), ' + recursos', '') = :filtro_plano_global
+    )
+    AND (
+        :filtro_duracao_global = 'todos'
+        OR ep.duracao = :filtro_duracao_global
+    )
 """
 
 MONTHS = ("Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez")

@@ -300,7 +300,6 @@ export default function PagamentosDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [year, setYear] = useState<number>(new Date().getFullYear());
   const [month, setMonth] = useState<number>(new Date().getMonth() + 1);
-  const [periodInitialized, setPeriodInitialized] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
 
   useEffect(() => {
@@ -312,11 +311,8 @@ export default function PagamentosDashboard() {
       .then((response) => {
         if (!active) return;
         setData(response);
-        if (!periodInitialized) {
-          setYear(response.periodo_padrao.ano);
-          setMonth(response.periodo_padrao.mes);
-          setPeriodInitialized(true);
-        }
+        setYear(response.periodo_padrao.ano);
+        setMonth(response.periodo_padrao.mes);
       })
       .catch((err) => {
         if (!active) return;
@@ -329,7 +325,7 @@ export default function PagamentosDashboard() {
     return () => {
       active = false;
     };
-  }, [filters.empresa, filters.origem, filters.pagador]);
+  }, [filters.empresa, filters.origem, filters.pagador, filters.ano, filters.anoCompleto, filters.meses, filters.plano, filters.duracao]);
 
   const monthly = useMemo(() => {
     if (!data) return null;
@@ -343,10 +339,26 @@ export default function PagamentosDashboard() {
 
   const planRowsInMonth = useMemo(() => {
     if (!data) return [] as PaymentPlanMonthly[];
+
+    const selectedRows = data.planos_periodo_selecionado;
+    if (Array.isArray(selectedRows)) {
+      const selectedLabel = data.periodo_selecionado?.label ?? "Período";
+      const selectedMonth = filters.meses.length > 0 ? filters.meses[0] : month;
+
+      return selectedRows
+        .map((row) => ({
+          ...row,
+          ano: filters.ano,
+          mes: selectedMonth,
+          label: selectedLabel,
+        }))
+        .sort((a, b) => b.pagamentos_total - a.pagamentos_total || a.plano.localeCompare(b.plano, "pt-BR"));
+    }
+
     return data.historico_planos
       .filter((row) => row.ano === year && row.mes === month)
       .sort((a, b) => b.pagamentos_total - a.pagamentos_total || a.plano.localeCompare(b.plano, "pt-BR"));
-  }, [data, year, month]);
+  }, [data, filters.ano, filters.meses, month, year]);
 
   const selectedPlanRows = useMemo(() => {
     if (!data || !selectedPlan) return [] as PaymentPlanMonthly[];
@@ -354,6 +366,7 @@ export default function PagamentosDashboard() {
   }, [data, selectedPlan]);
 
   const monthLabel = data?.meses.find((item) => item.value === month)?.label ?? "Mês";
+  const selectedPeriodLabel = data?.periodo_selecionado?.label ?? `${monthLabel} de ${year}`;
 
   if (loading && !data) {
     return (
@@ -380,7 +393,7 @@ export default function PagamentosDashboard() {
     );
   }
 
-  const monthSummary = monthly ?? emptySummary();
+  const monthSummary = data?.periodo_selecionado ?? monthly ?? emptySummary();
   const yearSummary = yearly ?? emptySummary();
 
   return (
@@ -395,7 +408,7 @@ export default function PagamentosDashboard() {
             </p>
           </div>
 
-          <div className="flex items-end gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+          <div className="hidden items-end gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
             <div className="grid h-10 w-10 place-items-center rounded-xl bg-slate-50 text-slate-500">
               <CalendarDays size={18} />
             </div>
@@ -432,8 +445,8 @@ export default function PagamentosDashboard() {
 
         <CardGrid
           summary={monthSummary}
-          title={`Pagamentos de ${monthLabel} de ${year}`}
-          subtitle={`Base: ${count(monthSummary.pagamentos_total)} pagamentos de renovação no mês.`}
+          title={`Pagamentos de ${selectedPeriodLabel}`}
+          subtitle={`Base: ${count(monthSummary.pagamentos_total)} pagamentos de renovação no período.`}
         />
 
         <CardGrid

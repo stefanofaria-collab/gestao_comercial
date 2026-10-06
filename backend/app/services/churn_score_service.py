@@ -326,6 +326,14 @@ LIVE_SQL = text(
             OR (:pagador = 'cliente' AND a.tipo_cobranca = 'E')
             OR (:pagador = 'parceiro' AND a.tipo_cobranca = 'P')
         )
+        AND (
+            :filtro_plano_global = 'todos'
+            OR a.nome_plano = :filtro_plano_global
+        )
+        AND (
+            :filtro_duracao_global = 'todos'
+            OR a.duracao = :filtro_duracao_global
+        )
     ORDER BY a.data_vencimento, a.empresa_id
     """
 ).bindparams(bindparam("excluidos", expanding=True))
@@ -923,6 +931,8 @@ def get_churn_score_dashboard(
     empresa: str = "todos",
     origem: str = "todos",
     pagador: str = "todos",
+    plano_global: str = "todos",
+    duracao_global: str = "todos",
 ) -> dict[str, Any]:
     _validate_filters(empresa, origem, pagador)
     artifact = _load_artifact()
@@ -933,6 +943,8 @@ def get_churn_score_dashboard(
         "empresa": empresa,
         "origem": origem,
         "pagador": pagador,
+        "filtro_plano_global": plano_global,
+        "filtro_duracao_global": duracao_global,
         "excluidos": CHURN_SCORE_EXCLUDED_COMPANY_IDS,
     }
     with source_engine.connect() as connection:

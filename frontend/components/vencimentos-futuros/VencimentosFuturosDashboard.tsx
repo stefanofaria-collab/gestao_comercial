@@ -748,8 +748,8 @@ export default function VencimentosFuturosDashboard() {
         const response = await fetchFutureDueMeta();
         if (!active) return;
         setMeta(response);
-        setYear(response.ano_atual);
-        setMonth(response.mes_atual);
+        setYear(filters.ano);
+        setMonth(filters.anoCompleto ? 0 : (filters.meses[0] ?? response.mes_atual));
       } catch (err) {
         if (!active) return;
         setError(err instanceof Error ? err.message : "Erro ao carregar metadados.");
@@ -777,12 +777,15 @@ export default function VencimentosFuturosDashboard() {
       map.set(item.month, existing);
     });
 
-    if (data.periodo.ano_completo) {
-      return MONTHS.map((_, index) => ({ month: index + 1, year: data.periodo.ano, items: map.get(index + 1) ?? [] }));
-    }
-
-    return [{ month: data.periodo.mes, year: data.periodo.ano, items: map.get(data.periodo.mes) ?? [] }];
-  }, [data]);
+    const selectedMonths = filters.anoCompleto
+      ? Array.from({ length: 12 }, (_, index) => index + 1)
+      : (filters.meses.length ? filters.meses : [data.periodo.mes]);
+    return selectedMonths.map((selectedMonth) => ({
+      month: selectedMonth,
+      year: filters.ano,
+      items: map.get(selectedMonth) ?? [],
+    }));
+  }, [data, filters.ano, filters.anoCompleto, filters.meses]);
 
   function baseExportFilters(start: string, end: string): FutureDueExportFilters {
     return {
@@ -874,7 +877,7 @@ export default function VencimentosFuturosDashboard() {
               <Download size={17} />
               Exportar dados
             </button>
-            <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+            <div className="hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
               <div className="flex items-center gap-3">
               <div className="grid h-10 w-10 place-items-center rounded-xl bg-slate-50 text-slate-500">
                 <CalendarDays size={18} />
@@ -952,7 +955,7 @@ export default function VencimentosFuturosDashboard() {
             <div className="grid gap-6 xl:grid-cols-[1.4fr_0.9fr]">
               <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <SectionTitle
-                  title={data.periodo.ano_completo ? "Calendário de vencimentos do ano" : "Calendário de vencimentos do mês"}
+                  title={filters.anoCompleto ? "Calendário de vencimentos do ano" : filters.meses.length > 1 ? "Calendários de vencimentos do período" : "Calendário de vencimentos do mês"}
                   subtitle={data.periodo.ano_completo ? "Clique em um dia para ver os clientes. Com Shift, selecione a primeira e a última data de um intervalo." : "Clique em um dia para ver os clientes. Com Shift, selecione a primeira e a última data de um intervalo."}
                   helpText="Este calendário funciona como um mapa de calor. Quanto mais forte a cor, maior o valor que vence naquele dia. Um clique abre a lista daquele dia. Segurando Shift, clique em duas datas para selecionar todo o intervalo entre elas."
                   interactive

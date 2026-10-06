@@ -49,6 +49,22 @@ BASE_FILTER_SQL = """
     AND (:sem_acesso_max IS NULL OR (e.ultimo_acesso IS NOT NULL AND DATEDIFF(CURDATE(), e.ultimo_acesso) <= :sem_acesso_max))
     AND (:vencimento_de IS NULL OR ep.data_vencimento >= :vencimento_de)
     AND (:vencimento_ate IS NULL OR ep.data_vencimento < DATE_ADD(:vencimento_ate, INTERVAL 1 DAY))
+    AND (
+        :vencido_min IS NULL
+        OR (ep.data_vencimento < CURDATE() AND DATEDIFF(CURDATE(), ep.data_vencimento) >= :vencido_min)
+    )
+    AND (
+        :vencido_max IS NULL
+        OR (ep.data_vencimento < CURDATE() AND DATEDIFF(CURDATE(), ep.data_vencimento) <= :vencido_max)
+    )
+    AND (
+        :vencem_em_min IS NULL
+        OR (ep.data_vencimento >= CURDATE() AND DATEDIFF(ep.data_vencimento, CURDATE()) >= :vencem_em_min)
+    )
+    AND (
+        :vencem_em_max IS NULL
+        OR (ep.data_vencimento >= CURDATE() AND DATEDIFF(ep.data_vencimento, CURDATE()) <= :vencem_em_max)
+    )
     AND (:pagamento_de IS NULL OR ep.pago_em >= :pagamento_de)
     AND (:pagamento_ate IS NULL OR ep.pago_em < DATE_ADD(:pagamento_ate, INTERVAL 1 DAY))
     AND (:plano = '' OR REPLACE(REPLACE(ep.nome_plano, ' (+) recursos', ''), ' + recursos', '') = :plano)
@@ -255,6 +271,10 @@ def normalize_filters(**kwargs: Any) -> dict[str, Any]:
         "sem_acesso_max": kwargs.get("sem_acesso_max"),
         "vencimento_de": _date_or_none(kwargs.get("vencimento_de")),
         "vencimento_ate": _date_or_none(kwargs.get("vencimento_ate")),
+        "vencido_min": kwargs.get("vencido_min"),
+        "vencido_max": kwargs.get("vencido_max"),
+        "vencem_em_min": kwargs.get("vencem_em_min"),
+        "vencem_em_max": kwargs.get("vencem_em_max"),
         "pagamento_de": _date_or_none(kwargs.get("pagamento_de")),
         "pagamento_ate": _date_or_none(kwargs.get("pagamento_ate")),
         "plano": str(kwargs.get("plano") or "").strip(),
@@ -270,13 +290,21 @@ def normalize_filters(**kwargs: Any) -> dict[str, Any]:
         "somente_ultrapassou_media": bool(kwargs.get("somente_ultrapassou_media") or False),
     }
 
-    for key in ("sem_acesso_min", "sem_acesso_max"):
+    for key in ("sem_acesso_min", "sem_acesso_max", "vencido_min", "vencido_max", "vencem_em_min", "vencem_em_max"):
         if result[key] is not None:
             result[key] = max(int(result[key]), 0)
 
     for key in ("tempo_cliente_minimo", "tempo_cliente_maximo"):
         if result[key] is not None:
             result[key] = max(float(result[key]), 0.0)
+
+    for min_key, max_key, label in (
+        ("sem_acesso_min", "sem_acesso_max", "Sem acesso há"),
+        ("vencido_min", "vencido_max", "Vencido há"),
+        ("vencem_em_min", "vencem_em_max", "Vencem em"),
+    ):
+        if result[min_key] is not None and result[max_key] is not None and result[min_key] > result[max_key]:
+            raise ValueError(f"No filtro {label}, o valor mínimo não pode ser maior que o máximo.")
 
     _validate_filters(result)
     multiplier = 12.0 if result["tempo_cliente_unidade"] == "ano" else 1.0

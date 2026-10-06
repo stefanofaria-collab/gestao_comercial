@@ -9,6 +9,7 @@ from sqlalchemy import bindparam, text
 
 from app.constants import EXCLUDED_COMPANY_IDS
 from app.database import source_engine
+from app.services.global_filter_context import period_bounds as global_period_bounds
 
 
 VALID_COMPANY_FILTERS = {"todos", "gestaoclick", "clicknotas"}
@@ -33,6 +34,15 @@ DIMENSION_FILTER_SQL = """
         :pagador = 'todos'
         OR (:pagador = 'cliente' AND e.tipo_cobranca = 'E')
         OR (:pagador = 'parceiro' AND e.tipo_cobranca = 'P')
+    )
+
+    AND (
+        :filtro_plano_global = 'todos'
+        OR REPLACE(REPLACE(ep.nome_plano, ' (+) recursos', ''), ' + recursos', '') = :filtro_plano_global
+    )
+    AND (
+        :filtro_duracao_global = 'todos'
+        OR ep.duracao = :filtro_duracao_global
     )
 """
 
@@ -195,26 +205,7 @@ CHURN_CLIENTS_SQL = text(
 
 
 def _month_bounds(year: int, month: int) -> tuple[date, date]:
-    today = date.today()
-
-    if month == 0:
-        start = date(year, 1, 1)
-        end = date(year + 1, 1, 1)
-        if year == today.year:
-            end = min(end, today + timedelta(days=1))
-        return start, end
-
-    start = date(year, month, 1)
-    if month == 12:
-        end = date(year + 1, 1, 1)
-    else:
-        end = date(year, month + 1, 1)
-
-    if (year, month) == (today.year, today.month):
-        end = min(end, today + timedelta(days=1))
-
-    return start, end
-
+    return global_period_bounds(year, month, current_mode="today_inclusive")
 
 def _validate(year: int, month: int, empresa: str, origem: str, pagador: str) -> None:
     today = date.today()

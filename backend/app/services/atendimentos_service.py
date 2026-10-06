@@ -10,6 +10,7 @@ from sqlalchemy import bindparam, text
 
 from app.constants import EXCLUDED_COMPANY_IDS
 from app.database import source_engine, supabase_engine
+from app.services.global_filter_context import period_bounds as global_period_bounds
 from app.services.ativos_atrasados_service import get_active_client_count_for_month
 from app.services.zendesk_sync_service import get_sync_status
 
@@ -35,6 +36,15 @@ SOURCE_DIMENSION_FILTER = """
         :pagador = 'todos'
         OR (:pagador = 'cliente' AND e.tipo_cobranca = 'E')
         OR (:pagador = 'parceiro' AND e.tipo_cobranca = 'P')
+    )
+
+    AND (
+        :filtro_plano_global = 'todos'
+        OR REPLACE(REPLACE(ep.nome_plano, ' (+) recursos', ''), ' + recursos', '') = :filtro_plano_global
+    )
+    AND (
+        :filtro_duracao_global = 'todos'
+        OR ep.duracao = :filtro_duracao_global
     )
 """
 
@@ -562,12 +572,7 @@ def _validate(empresa: str, origem: str, pagador: str) -> None:
 
 
 def _month_bounds(year: int, month: int) -> tuple[date, date]:
-    if not 1 <= month <= 12:
-        raise ValueError("Mês inválido.")
-    start = date(year, month, 1)
-    end = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
-    return start, end
-
+    return global_period_bounds(year, month, current_mode="none")
 
 def _iso_month(value: Any) -> str:
     if isinstance(value, datetime):
@@ -818,12 +823,17 @@ def get_atendimentos_dashboard(
         "origem": origem,
         "pagador": pagador,
     }
-    with source_engine.connect() as connection:
-        churn_source_ids = {
-            int(row["empresa_id"])
-            for row in connection.execute(CURRENT_CHURN_COMPANIES_SQL, source_params).mappings().all()
-            if row.get("empresa_id") is not None
-        }
+    try:
+        with source_engine.connect() as connection:
+            churn_source_ids = {
+                int(row["empresa_id"])
+                for row in connection.execute(CURRENT_CHURN_COMPANIES_SQL, source_params).mappings().all()
+                if row.get("empresa_id") is not None
+            }
+    except Exception:
+        # O painel principal de Atendimentos é lido do Supabase. Uma falha no
+        # banco de origem afeta apenas esta análise complementar de churn.
+        churn_source_ids = set()
 
     # 2) Cruza essa lista com TODOS os empresa_id existentes no histórico de
     # atendimentos, e não apenas com os clientes do mês selecionado na tela.

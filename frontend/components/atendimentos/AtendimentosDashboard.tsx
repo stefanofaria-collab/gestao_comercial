@@ -292,8 +292,8 @@ export default function AtendimentosDashboard() {
         const response = await fetchAtendimentosMeta();
         if (!active) return;
         setMeta(response);
-        setYear(response.ano_padrao);
-        setMonth(response.mes_padrao);
+        setYear(filters.ano);
+        setMonth(filters.meses[0] ?? response.mes_padrao);
       } catch (err) {
         if (!active) return;
         setError(err instanceof Error ? err.message : "Erro inesperado.");
@@ -721,7 +721,7 @@ export default function AtendimentosDashboard() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+          <div className="hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="grid h-10 w-10 place-items-center rounded-xl bg-slate-50 text-slate-500"><CalendarDays size={18} /></div>
               <label className="grid gap-1 text-xs font-semibold text-slate-500">
@@ -756,7 +756,7 @@ export default function AtendimentosDashboard() {
         {loading ? <LoadingBlock /> : error ? <ErrorBlock message={error} retry={retry} /> : data ? (
           <div className="space-y-6">
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-              <MetricCard title="Atendimentos no mês" value={formatInteger(data.cards.atendimentos)} footer={`${MONTHS[data.periodo.mes - 1]} de ${data.periodo.ano}`} help="Conta cada atendimento registrado no período. O dia atual nunca entra no cálculo." icon={<MessageCircleMore size={20} />} />
+              <MetricCard title="Atendimentos no período" value={formatInteger(data.cards.atendimentos)} footer={filters.anoCompleto ? `Ano completo de ${filters.ano}` : filters.meses.length > 1 ? `${MONTHS[(filters.meses[0] ?? 1) - 1]} a ${MONTHS[(filters.meses[filters.meses.length - 1] ?? 1) - 1]} de ${filters.ano}` : `${MONTHS[(filters.meses[0] ?? data.periodo.mes) - 1]} de ${filters.ano}`} help="Conta cada atendimento registrado no período. O dia atual nunca entra no cálculo." icon={<MessageCircleMore size={20} />} />
               <MetricCard title="Clientes únicos que entraram em contato" value={formatInteger(data.cards.clientes_unicos)} footer="Cada empresa é contada apenas uma vez." help="Mostra quantas empresas diferentes procuraram o suporte." icon={<UsersRound size={20} />} />
               <MetricCard title="Percentual da base ativa que entrou em contato" value={formatPercent(data.cards.percentual_base)} footer={data.cards.clientes_ativos ? `Base ativa usada: ${formatInteger(data.cards.clientes_ativos)} clientes.` : "A base ativa ainda não está disponível para este filtro."} help="Compara os clientes ativos que procuraram suporte com a base ativa no primeiro dia do mês." icon={<UserRoundCheck size={20} />} />
               <MetricCard title="Avaliações positivas" value={formatInteger(data.cards.positivas)} footer="Atendimentos avaliados positivamente." help="Conta somente avaliações positivas." icon={<SmilePlus size={20} />} />
@@ -812,7 +812,7 @@ export default function AtendimentosDashboard() {
               <ChartCard title="10 clientes com mais avaliações negativas" subtitle="Ranking por quantidade de negativas." help="Em empate, usamos o total de avaliações e depois o nome do cliente." option={rankingOption(data.clientes_rankings.mais_negativas, "negativas")} height={420} interactive interactiveText="Clique no cliente para detalhar" onEvents={{ click: (params: any) => { const row = data.clientes_rankings.mais_negativas[Number(params?.dataIndex ?? -1)]; if (row) setSelectedClient(row); } }} />
             </div>
 
-            <ChartCard title="Tempo médio de atendimento por atendente" subtitle="Cada pessoa é diferenciada por email_atendente." help="Ranking decrescente do tempo médio usando duracao_humano. O tooltip também mostra e-mail e volume de atendimentos." option={agentTimeOption} height={Math.max(500, Math.min(900, (data.tempo_atendimento.por_atendente?.length ?? 0) * 30 + 140))} />
+            <ChartCard title="Tempo médio entre atribuição e encerramento por atendente" subtitle="Mostra quanto tempo transcorreu entre o atendimento ser atribuído e ser encerrado." help="Este tempo mede o intervalo entre atribuição e encerramento do atendimento. Ele não representa, necessariamente, o tempo em que o atendente ficou trabalhando ativamente no chamado." option={agentTimeOption} height={Math.max(500, Math.min(900, (data.tempo_atendimento.por_atendente?.length ?? 0) * 30 + 140))} />
 
             <div className="border-t border-slate-200 pt-6">
               <h2 className="text-xl font-bold text-slate-950">Atendimentos dos clientes que churnaram</h2>

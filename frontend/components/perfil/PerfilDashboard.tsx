@@ -676,8 +676,8 @@ export default function PerfilDashboard() {
   const { filters } = useGlobalFilters();
   const financial = filters.viewMode === "financeiro";
 
-  const [year, setYear] = useState(currentYear);
-  const [month, setMonth] = useState(currentMonth);
+  const [year, setYear] = useState(filters.ano);
+  const [month, setMonth] = useState(filters.anoCompleto ? 0 : (filters.meses[0] ?? currentMonth));
   const [data, setData] = useState<ProfileDashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -848,7 +848,7 @@ export default function PerfilDashboard() {
               Esta página compara quem continua ativo com quem entrou em churn e usa as informações empresariais disponíveis no banco do projeto.
             </p>
           </div>
-          <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+          <div className="hidden items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
             <CalendarDays size={18} className="text-slate-400" />
             <select value={month} onChange={(event) => setMonth(Number(event.target.value))} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold outline-none">
               {MONTHS.map((label, index) => (
@@ -872,7 +872,7 @@ export default function PerfilDashboard() {
           <>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
               <Kpi title="Clientes ativos hoje" value={formatInteger(data.resumo.clientes_ativos)} subtitle={`Base ativa em ${formatDate(data.data_base_ativa)}.`} helpText="Conta os clientes que estão ativos hoje, usando a regra da consulta de clientes ativos." />
-              <Kpi title="Clientes em churn no período" value={formatInteger(data.resumo.clientes_churn)} subtitle={month === 0 ? `Acumulado de ${year}.` : `${MONTHS[month]} de ${year}.`} helpText="Conta os clientes que completaram a regra de churn no período escolhido." />
+              <Kpi title="Clientes em churn no período" value={formatInteger(data.resumo.clientes_churn)} subtitle={filters.anoCompleto ? `Acumulado de ${filters.ano}.` : filters.meses.length > 1 ? `${MONTHS[filters.meses[0] ?? 1]} a ${MONTHS[filters.meses[filters.meses.length - 1] ?? 1]} de ${filters.ano}.` : `${MONTHS[filters.meses[0] ?? month]} de ${filters.ano}.`} helpText="Conta os clientes que completaram a regra de churn no período escolhido." />
               <Kpi title="Valor atual da base ativa" value={formatMoney(data.resumo.valor_base_ativa)} subtitle="Soma do valor dos planos atuais." helpText="Soma o valor dos planos dos clientes que continuam ativos. Não é LTV e não é faturamento mensal recebido." />
               <Kpi title="LTV total dos churns" value={formatMoney(data.resumo.ltv_total_churn)} subtitle="Tudo o que os clientes perdidos pagaram em planos." helpText="LTV é a soma dos pagamentos de planos feitos pelo cliente até sair. Este cartão soma o LTV de todos os churns do período." />
               <Kpi title="LTV médio dos churns" value={formatMoney(data.resumo.ltv_medio_churn)} subtitle="Média por cliente perdido." helpText="Pega o LTV total dos clientes perdidos e divide pela quantidade de clientes em churn." />

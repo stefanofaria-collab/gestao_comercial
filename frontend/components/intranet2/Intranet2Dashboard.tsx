@@ -50,6 +50,10 @@ const DEFAULT_FILTERS: Intranet2Filters = {
   sem_acesso_max: null,
   vencimento_de: "",
   vencimento_ate: "",
+  vencido_min: null,
+  vencido_max: null,
+  vencem_em_min: null,
+  vencem_em_max: null,
   pagamento_de: "",
   pagamento_ate: "",
   plano: "",
@@ -280,6 +284,20 @@ function FiltersGrid({
       <FilterField label="Data de vencimento — Até">
         <BaseInput type="date" value={filters.vencimento_ate} onChange={(event) => setFilters((current) => ({ ...current, vencimento_ate: event.target.value }))} />
       </FilterField>
+      <div className="grid min-w-0 gap-1 text-xs font-semibold text-slate-500">
+        Vencido há
+        <div className="grid min-w-0 grid-cols-2 gap-2">
+          <BaseInput type="number" min="0" value={filters.vencido_min ?? ""} onChange={(event) => setFilters((current) => ({ ...current, vencido_min: event.target.value === "" ? null : Number(event.target.value) }))} placeholder="Mínimo" />
+          <BaseInput type="number" min="0" value={filters.vencido_max ?? ""} onChange={(event) => setFilters((current) => ({ ...current, vencido_max: event.target.value === "" ? null : Number(event.target.value) }))} placeholder="Máximo" />
+        </div>
+      </div>
+      <div className="grid min-w-0 gap-1 text-xs font-semibold text-slate-500">
+        Vencem em
+        <div className="grid min-w-0 grid-cols-2 gap-2">
+          <BaseInput type="number" min="0" value={filters.vencem_em_min ?? ""} onChange={(event) => setFilters((current) => ({ ...current, vencem_em_min: event.target.value === "" ? null : Number(event.target.value) }))} placeholder="Mínimo" />
+          <BaseInput type="number" min="0" value={filters.vencem_em_max ?? ""} onChange={(event) => setFilters((current) => ({ ...current, vencem_em_max: event.target.value === "" ? null : Number(event.target.value) }))} placeholder="Máximo" />
+        </div>
+      </div>
       <FilterField label="Data de pagamento — De">
         <BaseInput type="date" value={filters.pagamento_de} onChange={(event) => setFilters((current) => ({ ...current, pagamento_de: event.target.value }))} />
       </FilterField>

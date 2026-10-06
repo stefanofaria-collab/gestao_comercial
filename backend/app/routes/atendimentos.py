@@ -4,20 +4,19 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 
 from app.services.atendimentos_service import get_atendimentos_dashboard, get_atendimentos_meta
 from app.services.dashboard_cache_service import cached_daily
-from app.services.zendesk_sync_service import get_sync_status, run_incremental_sync, trigger_incremental_sync
+from app.services.zendesk_sync_service import get_sync_status, trigger_incremental_sync
 
 router = APIRouter(prefix="/api/atendimentos", tags=["Atendimentos"])
 
 CompanyFilter = Literal["todos", "gestaoclick", "clicknotas"]
 OriginFilter = Literal["todos", "gestaoclick", "parceiro"]
 PayerFilter = Literal["todos", "cliente", "parceiro"]
-CACHE_VERSION = "3.25.0"
+CACHE_VERSION = "3.28.2"
 
 
 def _build_dashboard(*, ano: int, mes: int, empresa: str, origem: str, pagador: str):
-    # A atualização do Zendesk é executada antes de criar o snapshot diário.
-    # Assim o snapshot nunca usa o dia atual nem dados incompletos de ontem.
-    run_incremental_sync()
+    # O dashboard lê primeiro o histórico que já está salvo no Supabase.
+    # A sincronização do Zendesk é independente e nunca bloqueia a consulta.
     return get_atendimentos_dashboard(
         year=ano,
         month=mes,

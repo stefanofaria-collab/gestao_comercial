@@ -9,6 +9,7 @@ from calendar import monthrange
 from sqlalchemy import bindparam, text
 
 from app.database import source_engine, supabase_engine
+from app.services.global_filter_context import current_duration, current_plan, period_bounds as global_period_bounds, previous_period_bounds as global_previous_period_bounds
 
 
 EMPRESAS_EXCLUIDAS = (
@@ -39,6 +40,15 @@ DIMENSION_FILTER_SQL = """
         :pagador = 'todos'
         OR (:pagador = 'cliente' AND e.tipo_cobranca = 'E')
         OR (:pagador = 'parceiro' AND e.tipo_cobranca = 'P')
+    )
+
+    AND (
+        :filtro_plano_global = 'todos'
+        OR REPLACE(REPLACE(ep.nome_plano, ' (+) recursos', ''), ' + recursos', '') = :filtro_plano_global
+    )
+    AND (
+        :filtro_duracao_global = 'todos'
+        OR ep.duracao = :filtro_duracao_global
     )
 """
 
@@ -302,18 +312,7 @@ def _next_month(year: int, month: int) -> date:
 
 
 def _period_bounds(year: int, month: int) -> tuple[date, date]:
-    today = date.today()
-    start = _month_start(year, month)
-    end = _next_month(year, month)
-
-    if year == today.year and (month == 0 or month == today.month):
-        # O banco corporativo é um backup diário. Portanto o período corrente
-        # deve considerar somente dias já encerrados: em 02/10, consultamos
-        # até 01/10, usando 02/10 como limite exclusivo.
-        end = min(end, today)
-
-    return start, end
-
+    return global_period_bounds(year, month, current_mode="today_exclusive")
 
 def _previous_month(year: int, month: int) -> tuple[int, int]:
     if month == 0:
@@ -324,19 +323,7 @@ def _previous_month(year: int, month: int) -> tuple[int, int]:
 
 
 def _previous_period_bounds(year: int, month: int, current_end: date) -> tuple[int, int, date, date]:
-    previous_year, previous_month = _previous_month(year, month)
-    if month == 0:
-        previous_start = date(previous_year, 1, 1)
-        if year == date.today().year:
-            previous_end = _safe_replace_year(current_end, previous_year)
-        else:
-            previous_end = date(year, 1, 1)
-        return previous_year, previous_month, previous_start, previous_end
-
-    previous_start = _month_start(previous_year, previous_month)
-    previous_end = _month_start(year, month)
-    return previous_year, previous_month, previous_start, previous_end
-
+    return global_previous_period_bounds(year, month, current_end)
 
 def _variation(current: float, previous: float) -> tuple[float, float | None]:
     delta = current - previous
@@ -376,7 +363,13 @@ def _validate_compare_mode(mode: str) -> None:
 
 
 def _filters_active(empresa: str, origem: str, pagador: str) -> bool:
-    return empresa != "todos" or origem != "todos" or pagador != "todos"
+    return (
+        empresa != "todos"
+        or origem != "todos"
+        or pagador != "todos"
+        or current_plan() != "todos"
+        or current_duration() != "todos"
+    )
 
 
 def _period_params(year: int, month: int, empresa: str, origem: str, pagador: str) -> dict:
@@ -442,7 +435,7 @@ def _selected_period_end(year: int, month: int, compare_mode: str) -> date:
 
 def _comparison_context(year: int, month: int, compare_mode: str) -> dict:
     _validate_compare_mode(compare_mode)
-    start = _month_start(year, month)
+    start, _ = _period_bounds(year, month)
     end = _selected_period_end(year, month, compare_mode)
     previous_year, previous_month, previous_start, previous_end = _previous_period_bounds(year, month, end)
 
@@ -535,6 +528,12 @@ def _row_matches_dimensions(row: dict, empresa: str, origem: str, pagador: str) 
         return False
     if pagador == "parceiro" and label_pagador != "Parceiro":
         return False
+    selected_plan = current_plan()
+    selected_duration = current_duration()
+    if selected_plan != "todos" and _normalized_plan_name(row.get("nome_plano")) != selected_plan:
+        return False
+    if selected_duration != "todos" and str(row.get("duracao") or "") != selected_duration:
+        return False
     return True
 
 
@@ -577,7 +576,6 @@ def _scan_recent_invoice_rows(start_iso: str, end_iso: str, day_key: str) -> tup
     return tuple(collected)
 
 
-@lru_cache(maxsize=64)
 def _fast_current_month_pair(
     year: int,
     month: int,

@@ -13,6 +13,7 @@ from app.services.churn_score_service import (
     train_churn_score_model,
 )
 from app.services.dashboard_cache_service import get_snapshot, save_snapshot
+from app.services.global_filter_context import current_duration, current_plan
 
 router = APIRouter(prefix="/api/churn-score", tags=["Churn Score"])
 
@@ -35,6 +36,8 @@ def _params(empresa: str, origem: str, pagador: str) -> dict[str, str]:
         "empresa": empresa,
         "origem": origem,
         "pagador": pagador,
+        "plano_global": current_plan(),
+        "duracao_global": current_duration(),
     }
 
 
@@ -121,6 +124,8 @@ def _refresh_snapshot(params: dict[str, str]) -> None:
             empresa=params["empresa"],
             origem=params["origem"],
             pagador=params["pagador"],
+            plano_global=params.get("plano_global", "todos"),
+            duracao_global=params.get("duracao_global", "todos"),
         )
         contacts = payload.pop("contatos", []) if isinstance(payload, dict) else []
         save_snapshot(CACHE_PAGE, params, payload)

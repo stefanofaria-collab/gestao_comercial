@@ -1,0 +1,62 @@
+[
+  {
+    "email": "stefano.faria@clickdigital.com.br",
+    "name": "Stefano Faria",
+    "role": "gerencial",
+    "password_hash": "88427ab30c8ccf564db84253d88531e3$c9af04a038c7c3a73882d6217fefda525eb9d62cfd5958834a5f0f6347630d5a",
+    "must_define_password": false,
+    "active": true,
+    "created_at": "2026-10-06T19:24:38.550877+00:00",
+    "updated_at": "2026-10-06T19:27:18.775005+00:00"
+  },
+  {
+    "email": "jessica.neves@clickdigital.com.br",
+    "name": "Jessica Neves",
+    "role": "gerencial",
+    "password_hash": null,
+    "must_define_password": true,
+    "active": true,
+    "created_at": "2026-10-06T19:24:38.550941+00:00",
+    "updated_at": "2026-10-06T19:24:38.550944+00:00"
+  },
+  {
+    "email": "lucas.sousa@gestaoclick.com.br",
+    "name": "Lucas Sousa",
+    "role": "gerencial",
+    "password_hash": null,
+    "must_define_password": true,
+    "active": true,
+    "created_at": "2026-10-06T19:24:38.550955+00:00",
+    "updated_at": "2026-10-06T19:24:38.550958+00:00"
+  },
+  {
+    "email": "caio.lopes@clickdigital.com.br",
+    "name": "Caio Lopes",
+    "role": "gerencial",
+    "password_hash": null,
+    "must_define_password": true,
+    "active": true,
+    "created_at": "2026-10-06T19:24:38.550965+00:00",
+    "updated_at": "2026-10-06T19:24:38.550967+00:00"
+  },
+  {
+    "email": "gleiberson@clickdigital.com.br",
+    "name": "Gleiberson",
+    "role": "gerencial",
+    "password_hash": null,
+    "must_define_password": true,
+    "active": true,
+    "created_at": "2026-10-06T19:24:38.550973+00:00",
+    "updated_at": "2026-10-06T19:24:38.550976+00:00"
+  },
+  {
+    "email": "julliano.belisario@clickdigital.com.br",
+    "name": "Julliano Belisario",
+    "role": "analista",
+    "password_hash": null,
+    "must_define_password": true,
+    "active": true,
+    "created_at": "2026-10-06T19:24:38.550984+00:00",
+    "updated_at": "2026-10-06T19:24:38.550987+00:00"
+  }
+]

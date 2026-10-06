@@ -7,6 +7,7 @@ from typing import Any
 from sqlalchemy import bindparam, text
 
 from app.database import source_engine
+from app.services.global_filter_context import current_months, current_year, selected_period_label
 
 try:
     from app.constants import EXCLUDED_COMPANY_IDS
@@ -79,6 +80,10 @@ WITH planos AS (
             PARTITION BY ep.empresa_id
             ORDER BY ep.pago_em, ep.id
         ) AS plano_renovacao,
+        LEAD(ep.duracao) OVER (
+            PARTITION BY ep.empresa_id
+            ORDER BY ep.pago_em, ep.id
+        ) AS duracao_renovacao,
         COUNT(*) OVER (
             PARTITION BY ep.empresa_id
         ) AS qtd_pagamentos
@@ -132,6 +137,15 @@ SELECT
     faixa_pagamento,
     dias_pgto_real
 FROM resultado
+WHERE
+    (
+        :filtro_plano_global = 'todos'
+        OR COALESCE(NULLIF(plano_renovacao, ''), nome_plano, 'Não informado') = :filtro_plano_global
+    )
+    AND (
+        :filtro_duracao_global = 'todos'
+        OR COALESCE(NULLIF(duracao_renovacao, ''), duracao, '') = :filtro_duracao_global
+    )
 ORDER BY pgto_renovacao, empresa_id
 """
 ).bindparams(bindparam("excluidos", expanding=True))
@@ -288,6 +302,10 @@ def get_pagamentos_dashboard(
     monthly: dict[tuple[int, int], dict[str, Any]] = defaultdict(_new_bucket)
     yearly: dict[int, dict[str, Any]] = defaultdict(_new_bucket)
     plan_monthly: dict[tuple[int, int, str], dict[str, Any]] = defaultdict(_new_bucket)
+    selected_bucket = _new_bucket()
+    selected_plan_buckets: dict[str, dict[str, Any]] = defaultdict(_new_bucket)
+    selected_year = current_year() or date.today().year
+    selected_months = set(current_months() or (date.today().month,))
 
     for event in events:
         paid_at = _payment_date(event["pgto_renovacao"])
@@ -295,6 +313,9 @@ def get_pagamentos_dashboard(
         _add_event(monthly[(paid_at.year, paid_at.month)], event)
         _add_event(yearly[paid_at.year], event)
         _add_event(plan_monthly[(paid_at.year, paid_at.month, plan)], event)
+        if paid_at.year == selected_year and paid_at.month in selected_months:
+            _add_event(selected_bucket, event)
+            _add_event(selected_plan_buckets[plan], event)
 
     monthly_rows = []
     for (year, month), bucket in sorted(monthly.items()):
@@ -335,8 +356,8 @@ def get_pagamentos_dashboard(
             "pagador": pagador,
         },
         "periodo_padrao": {
-            "ano": today.year,
-            "mes": today.month,
+            "ano": selected_year,
+            "mes": min(selected_months) if selected_months else today.month,
         },
         "anos": available_years,
         "meses": [
@@ -349,6 +370,16 @@ def get_pagamentos_dashboard(
             )
         ],
         "planos": plans,
+        "periodo_selecionado": {
+            "ano": selected_year,
+            "meses": sorted(selected_months),
+            "label": selected_period_label(selected_year),
+            **_serialize_bucket(selected_bucket),
+        },
+        "planos_periodo_selecionado": [
+            {"plano": plan, **_serialize_bucket(bucket)}
+            for plan, bucket in sorted(selected_plan_buckets.items(), key=lambda item: item[0].casefold())
+        ],
         "historico_mensal": monthly_rows,
         "historico_anual": yearly_rows,
         "historico_planos": plan_rows,

@@ -53,6 +53,8 @@ export type PaymentsDashboardResponse = {
   anos: number[];
   meses: { value: number; label: string }[];
   planos: string[];
+  periodo_selecionado?: PaymentSummary & { ano: number; meses: number[]; label: string };
+  planos_periodo_selecionado?: Array<PaymentSummary & { plano: string }>;
   historico_mensal: PaymentMonthly[];
   historico_anual: PaymentYearly[];
   historico_planos: PaymentPlanMonthly[];

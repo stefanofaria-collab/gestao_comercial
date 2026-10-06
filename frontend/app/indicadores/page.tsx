@@ -1,5 +1,10 @@
 import AppShell from "@/components/layout/AppShell";
-import PlaceholderPage from "@/components/layout/PlaceholderPage";
+import IndicadoresDashboard from "@/components/indicadores/IndicadoresDashboard";
+
 export default function IndicadoresPage() {
-  return <AppShell><PlaceholderPage title="Indicadores" description="Indicadores executivos e acompanhamento de metas." /></AppShell>;
+  return (
+    <AppShell>
+      <IndicadoresDashboard />
+    </AppShell>
+  );
 }

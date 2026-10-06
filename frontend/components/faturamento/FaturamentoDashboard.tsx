@@ -401,8 +401,8 @@ export default function FaturamentoDashboard() {
   const { filters } = useGlobalFilters();
   const quantitative = filters.viewMode === "quantitativo";
 
-  const [year, setYear] = useState(currentYear);
-  const [month, setMonth] = useState(currentMonth);
+  const [year, setYear] = useState(filters.ano);
+  const [month, setMonth] = useState(filters.anoCompleto ? 0 : (filters.meses[0] ?? currentMonth));
   const [compareMode, setCompareMode] = useState<CompareMode>("mes_completo");
 
   const [total, setTotal] = useState<RevenueTotalResponse | null>(null);
@@ -442,9 +442,9 @@ export default function FaturamentoDashboard() {
     return isCurrent ? currentDay : new Date(year, month, 0).getDate();
   }, [year, month, currentYear, currentMonth, currentDay]);
 
-  const periodLabel = month === 0 ? `Ano completo/${year}` : `${MONTHS[month - 1]}/${year}`;
-  const periodWord = month === 0 ? "ano" : "mês";
-  const previousPeriodWord = month === 0 ? "ano anterior" : "mês passado";
+  const periodLabel = filters.anoCompleto ? `Ano completo/${filters.ano}` : filters.meses.length > 1 ? `${MONTHS[(filters.meses[0] ?? 1) - 1]} a ${MONTHS[(filters.meses[filters.meses.length - 1] ?? 1) - 1]}/${filters.ano}` : `${MONTHS[(filters.meses[0] ?? month) - 1]}/${filters.ano}`;
+  const periodWord = filters.anoCompleto ? "ano" : filters.meses.length > 1 ? "período" : "mês";
+  const previousPeriodWord = filters.anoCompleto ? "ano anterior" : filters.meses.length > 1 ? "período anterior" : "mês passado";
 
   const previousMonthInfo = useMemo(() => {
     const prevDate = new Date(year, month - 2, 1);
@@ -699,7 +699,7 @@ export default function FaturamentoDashboard() {
           </div>
 
           <div className="flex flex-col items-end gap-3">
-            <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+            <div className="hidden items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
               <CalendarDays size={18} className="text-slate-400" />
               <select value={month} onChange={(event) => setMonth(Number(event.target.value))} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold outline-none">
                 <option value={0}>Ano completo</option>

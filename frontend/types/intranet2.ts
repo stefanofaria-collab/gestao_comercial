@@ -10,6 +10,10 @@ export type Intranet2Filters = {
   sem_acesso_max: number | null;
   vencimento_de: string;
   vencimento_ate: string;
+  vencido_min: number | null;
+  vencido_max: number | null;
+  vencem_em_min: number | null;
+  vencem_em_max: number | null;
   pagamento_de: string;
   pagamento_ate: string;
   plano: string;

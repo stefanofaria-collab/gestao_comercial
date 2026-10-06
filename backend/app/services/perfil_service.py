@@ -14,6 +14,7 @@ from sqlalchemy import bindparam, text
 
 from app.constants import EXCLUDED_COMPANY_IDS
 from app.database import source_engine
+from app.services.global_filter_context import current_duration, current_plan
 from app.repositories.perfil_supabase_repository import (
     get_business_analytics_snapshot,
     get_business_filter_options,
@@ -52,6 +53,15 @@ DIMENSION_FILTER_SQL = """
         :pagador = 'todos'
         OR (:pagador = 'cliente' AND e.tipo_cobranca = 'E')
         OR (:pagador = 'parceiro' AND e.tipo_cobranca = 'P')
+    )
+
+    AND (
+        :filtro_plano_global = 'todos'
+        OR REPLACE(REPLACE(ep.nome_plano, ' (+) recursos', ''), ' + recursos', '') = :filtro_plano_global
+    )
+    AND (
+        :filtro_duracao_global = 'todos'
+        OR ep.duracao = :filtro_duracao_global
     )
 """
 
@@ -280,7 +290,7 @@ def _serialize_churn_client(row: dict) -> dict:
 
 
 @lru_cache(maxsize=64)
-def _get_active_clients_cached(empresa: str, origem: str, pagador: str, reference_iso: str) -> tuple[dict, ...]:
+def _get_active_clients_cached(empresa: str, origem: str, pagador: str, reference_iso: str, plan_key: str, duration_key: str) -> tuple[dict, ...]:
     params = {
         "data_referencia": date.fromisoformat(reference_iso),
         "empresa": empresa,
@@ -294,7 +304,7 @@ def _get_active_clients_cached(empresa: str, origem: str, pagador: str, referenc
 
 
 def _get_active_clients(empresa: str, origem: str, pagador: str) -> list[dict]:
-    return [dict(row) for row in _get_active_clients_cached(empresa, origem, pagador, date.today().isoformat())]
+    return [dict(row) for row in _get_active_clients_cached(empresa, origem, pagador, date.today().isoformat(), current_plan(), current_duration())]
 
 
 def _summary_by_person(active_rows: list[dict], churn_rows: list[dict]) -> list[dict]:

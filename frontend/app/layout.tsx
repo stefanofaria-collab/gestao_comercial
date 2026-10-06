@@ -1,15 +1,18 @@
 import type { Metadata } from "next";
+import { RouteGuard } from "@/components/auth/RouteGuard";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Gestão Comercial",
-  description: "Dashboard executivo da ClickDigital",
+  title: "ClickDados",
+  description: "Painel executivo de dados da ClickDigital",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="pt-BR">
-      <body>{children}</body>
+      <body>
+        <RouteGuard>{children}</RouteGuard>
+      </body>
     </html>
   );
 }

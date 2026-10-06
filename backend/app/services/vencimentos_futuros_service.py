@@ -21,6 +21,7 @@ except Exception:  # pragma: no cover - fallback para bases antigas
     )
 
 from app.database import source_engine
+from app.services.global_filter_context import period_bounds as global_period_bounds
 from app.services.payment_metrics_service import get_payment_metrics
 
 VALID_COMPANY_FILTERS = {"todos", "gestaoclick", "clicknotas"}
@@ -44,6 +45,15 @@ DIMENSION_FILTER_SQL = """
         :pagador = 'todos'
         OR (:pagador = 'cliente' AND e.tipo_cobranca = 'E')
         OR (:pagador = 'parceiro' AND e.tipo_cobranca = 'P')
+    )
+
+    AND (
+        :filtro_plano_global = 'todos'
+        OR REPLACE(REPLACE(ep.nome_plano, ' (+) recursos', ''), ' + recursos', '') = :filtro_plano_global
+    )
+    AND (
+        :filtro_duracao_global = 'todos'
+        OR ep.duracao = :filtro_duracao_global
     )
 """
 
@@ -162,12 +172,7 @@ def _validate(year: int, month: int, empresa: str, origem: str, pagador: str) ->
 
 
 def _period_bounds(year: int, month: int) -> tuple[date, date]:
-    if month == 0:
-        return date(year, 1, 1), date(year + 1, 1, 1)
-    if month == 12:
-        return date(year, 12, 1), date(year + 1, 1, 1)
-    return date(year, month, 1), date(year, month + 1, 1)
-
+    return global_period_bounds(year, month, current_mode="none")
 
 def _month_label(month: int) -> str:
     return "Ano completo" if month == 0 else MONTHS[month - 1]

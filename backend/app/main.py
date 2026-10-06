@@ -8,11 +8,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import test_supabase_connection
 from app.services.dashboard_cache_service import cache_status, reset_refresh_locks
+from app.services.global_filter_context import pop_request_filters, push_request_filters
 from app.routes.dashboard import router as dashboard_router
+from app.routes.auth import router as auth_router
+from app.routes.indicadores import router as indicadores_router
 from app.routes.faturamento import router as faturamento_router
 from app.routes.churn import router as churn_router
 from app.routes.churn_score import router as churn_score_router
 from app.routes.ativos_atrasados import router as ativos_atrasados_router
+from app.routes.upgrade_downgrade import router as upgrade_downgrade_router
 from app.routes.perfil import router as perfil_router
 from app.routes.vencimentos_futuros import router as vencimentos_futuros_router
 from app.routes.pagamentos import router as pagamentos_router
@@ -22,7 +26,7 @@ from app.routes.intranet2 import router as intranet2_router
 
 app = FastAPI(
     title="Gestão Comercial API",
-    version="3.27.3",
+    version="3.31.2",
     description=(
         "API do dashboard comercial. Mantém os indicadores existentes "
         "e adiciona as visões de faturamento, churn, churn score, ativos e atrasados, perfil, atendimentos, pagamentos, vencimentos futuros e Intranet 2.0."
@@ -58,6 +62,20 @@ if configured_frontend_origin:
     allowed_origins.add(configured_frontend_origin)
 
 
+@app.middleware("http")
+async def apply_global_filter_context(request, call_next):
+    tokens = push_request_filters(
+        raw_months=request.query_params.get("meses"),
+        raw_year=request.query_params.get("ano_global"),
+        plan=request.query_params.get("plano_global"),
+        duration=request.query_params.get("duracao_global"),
+    )
+    try:
+        return await call_next(request)
+    finally:
+        pop_request_filters(tokens)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=sorted(allowed_origins),
@@ -82,10 +100,13 @@ app.add_middleware(
 
 
 app.include_router(dashboard_router)
+app.include_router(auth_router)
+app.include_router(indicadores_router)
 app.include_router(faturamento_router)
 app.include_router(churn_router)
 app.include_router(churn_score_router)
 app.include_router(ativos_atrasados_router)
+app.include_router(upgrade_downgrade_router)
 app.include_router(perfil_router)
 app.include_router(atendimentos_router)
 app.include_router(pagamentos_router)
@@ -102,13 +123,15 @@ def clear_abandoned_refresh_locks():
 def root():
     return {
         "app": "Gestão Comercial API",
-        "version": "3.27.3",
+        "version": "3.31.2",
         "docs": "/docs",
         "health": "/health",
+        "indicadores": "/api/indicadores",
         "faturamento": "/api/faturamento",
         "churn": "/api/churn",
         "churn_score": "/api/churn-score",
         "ativos_atrasados": "/api/ativos-atrasados",
+        "upgrade_downgrade": "/api/upgrade-downgrade",
         "perfil": "/api/perfil",
         "atendimentos": "/api/atendimentos",
         "pagamentos": "/api/pagamentos",

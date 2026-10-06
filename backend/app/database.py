@@ -1,14 +1,14 @@
-from sqlalchemy import URL, create_engine, text
+from sqlalchemy import URL, create_engine, event, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.pool import NullPool
 
 from app.config import settings
+from app.services.global_filter_context import current_duration, current_plan
 
 
 def _build_source_connect_args() -> dict:
     connect_args: dict = {
         "password": settings.db_password.encode("utf-8"),
-        # Evita que o dashboard fique indefinidamente aguardando uma conexão MySQL.
         "connect_timeout": 8,
         "read_timeout": 300,
         "write_timeout": 300,
@@ -46,11 +46,6 @@ def _create_source_engine() -> Engine:
 
 
 def _create_supabase_engine() -> Engine:
-    # O Supabase usa Supavisor. O site trabalha em Transaction Mode (6543)
-    # e NÃO mantém um QueuePool local. Cada consulta abre uma conexão curta,
-    # usa o pooler do Supabase e libera imediatamente. Isso evita o erro
-    # "QueuePool limit reached" quando o sincronizador e o dashboard rodam
-    # ao mesmo tempo.
     host = settings.supabase_db_host or None
     configured_port = settings.supabase_db_port
     use_transaction_pooler = bool(
@@ -69,7 +64,6 @@ def _create_supabase_engine() -> Engine:
 
     connect_args = {
         "sslmode": settings.supabase_db_sslmode,
-        # O Supavisor em transaction mode não deve usar prepared statements.
         "prepare_threshold": None,
         "connect_timeout": 10,
     }
@@ -81,8 +75,30 @@ def _create_supabase_engine() -> Engine:
     )
 
 
+def _inject_global_filter_params(conn, clauseelement, multiparams, params, execution_options):
+    plan = current_plan()
+    duration = current_duration()
+
+    def enrich(values):
+        if not isinstance(values, dict):
+            return values
+        result = dict(values)
+        result.setdefault("filtro_plano_global", plan)
+        result.setdefault("filtro_duracao_global", duration)
+        return result
+
+    if multiparams:
+        multiparams = tuple(enrich(item) for item in multiparams)
+    if isinstance(params, dict):
+        params = enrich(params)
+    return clauseelement, multiparams, params
+
+
 source_engine = _create_source_engine()
 supabase_engine = _create_supabase_engine()
+
+event.listen(source_engine, "before_execute", _inject_global_filter_params, retval=True)
+event.listen(supabase_engine, "before_execute", _inject_global_filter_params, retval=True)
 
 
 def test_source_connection() -> bool:

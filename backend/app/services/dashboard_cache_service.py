@@ -13,6 +13,7 @@ from fastapi.encoders import jsonable_encoder
 from sqlalchemy import text
 
 from app.database import supabase_engine
+from app.services.global_filter_context import cache_context, pop_request_filters, push_request_filters
 
 TZ = ZoneInfo("America/Sao_Paulo")
 REFRESH_LOCK_MINUTES = 20
@@ -123,6 +124,8 @@ _TEMPORAL_KEYS = {
     "end_date",
     "periodo_inicio",
     "periodo_fim",
+    "ano_global",
+    "meses_global",
 }
 
 
@@ -247,8 +250,18 @@ def _refresh_snapshot(
         # Uma única leitura pesada do backup por vez. Isso evita que Total,
         # Composição e Histórico concorram entre si e derrubem a conexão.
         with _SOURCE_REFRESH_LOCK:
-            payload = builder()
-            save_snapshot(page, params, payload)
+            month_values = params.get("meses_global") or []
+            tokens = push_request_filters(
+                raw_months=",".join(str(value) for value in month_values),
+                raw_year=str(params.get("ano_global") or "") or None,
+                plan=str(params.get("plano_global") or "todos"),
+                duration=str(params.get("duracao_global") or "todos"),
+            )
+            try:
+                payload = builder()
+                save_snapshot(page, params, payload)
+            finally:
+                pop_request_filters(tokens)
     except Exception as exc:  # mantém o snapshot antigo se a origem falhar
         _release_with_error(cache_key, exc)
     finally:
@@ -322,6 +335,7 @@ def cached_daily(
     Assim uma virada de mês não deixa a página indisponível enquanto o backup
     diário está sendo atualizado.
     """
+    params = {**params, **cache_context(), "_cache_schema": "3.28.2"}
     normalized = _normalize_params(params)
     snapshot = get_snapshot(page, normalized)
     today = _today()
@@ -355,23 +369,9 @@ def cached_daily(
             refreshing=True,
         )
 
-    # Virada de mês / primeiro acesso a um período novo. Em vez de bloquear a
-    # tela, procuramos o último snapshot com os mesmos filtros de negócio.
-    fallback = get_latest_compatible_snapshot(page, normalized)
-    if fallback:
-        _schedule_refresh(
-            page=page,
-            params=normalized,
-            builder=builder,
-            background_tasks=background_tasks,
-        )
-        return _with_cache_info(
-            fallback.get("payload"),
-            requested_params=normalized,
-            snapshot=fallback,
-            fallback=True,
-        )
-
+    # Não existe fallback entre períodos. Se a fotografia exata ainda não
+    # existe, ela é construída para o recorte solicitado. Isso impede que
+    # mês, intervalo e ano completo exibam números de outro período.
     # Primeiro uso absoluto deste recorte/filtro. Neste caso ainda precisamos
     # criar a primeira fotografia. A trava evita múltiplas consultas simultâneas.
     cache_key = build_cache_key(page, normalized)

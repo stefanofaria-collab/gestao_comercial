@@ -9,7 +9,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan
-Write-Host " GESTAO COMERCIAL - ATUALIZACAO 3.27.3"
+Write-Host " GESTAO COMERCIAL - ATUALIZACAO 3.28.0"
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -31,40 +31,47 @@ Get-NetTCPConnection -LocalPort 3000,8000 -State Listen -ErrorAction SilentlyCon
     ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }
 Start-Sleep -Seconds 2
 
-Write-Host "[2/8] Preparando pasta temporaria..." -ForegroundColor Cyan
+Write-Host "[2/8] Preparando arquivos..." -ForegroundColor Cyan
 if (Test-Path $temp) { Remove-Item $temp -Recurse -Force }
 New-Item -ItemType Directory -Path $temp -Force | Out-Null
-
-Write-Host "[3/8] Extraindo download.zip..." -ForegroundColor Cyan
 Expand-Archive -Path $zip -DestinationPath $temp -Force
 
 $obrigatorios = @(
-    "backend\app\services\intranet2_service.py",
-    "backend\app\routes\intranet2.py",
+    "backend\app\main.py",
+    "backend\app\database.py",
+    "backend\app\services\global_filter_context.py",
     "backend\app\services\churn_score_service.py",
     "backend\app\routes\churn_score.py",
-    "backend\app\main.py",
-    "frontend\app\intranet-2\page.tsx",
-    "frontend\components\intranet2\Intranet2Dashboard.tsx",
     "frontend\components\layout\AppShell.tsx",
-    "frontend\lib\intranet2-api.ts",
-    "frontend\types\intranet2.ts",
-    "README_ATUALIZACAO_3_27_3.md",
+    "frontend\contexts\GlobalFiltersContext.tsx",
+    "frontend\lib\browser-daily-cache.ts",
+    "aplicar_padronizacao_filtros.py",
+    "README_ATUALIZACAO_3_28_0.md",
     "instalar_atualizacao.ps1"
 )
-
 foreach ($arquivo in $obrigatorios) {
     if (-not (Test-Path (Join-Path $temp $arquivo))) {
-        Write-Host "ERRO: arquivo ausente no ZIP:" -ForegroundColor Red
-        Write-Host $arquivo -ForegroundColor Yellow
+        Write-Host "ERRO: arquivo ausente no ZIP: $arquivo" -ForegroundColor Red
         exit 1
     }
 }
 
-Write-Host "[4/8] Atualizando projeto..." -ForegroundColor Cyan
+Write-Host "[3/8] Atualizando arquivos principais..." -ForegroundColor Cyan
 Copy-Item -Path "$temp\*" -Destination $projeto -Recurse -Force
+
+Write-Host "[4/8] Padronizando filtros em todas as paginas..." -ForegroundColor Cyan
+$pythonVenv = Join-Path $projeto "backend\.venv\Scripts\python.exe"
+if (Test-Path $pythonVenv) {
+    & $pythonVenv (Join-Path $projeto "aplicar_padronizacao_filtros.py")
+} else {
+    python (Join-Path $projeto "aplicar_padronizacao_filtros.py")
+}
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "ERRO: falha ao aplicar a padronizacao dos filtros." -ForegroundColor Red
+    exit 1
+}
 Remove-Item $temp -Recurse -Force
-Write-Host "[OK] Arquivos atualizados." -ForegroundColor Green
+Write-Host "[OK] Filtros atualizados." -ForegroundColor Green
 
 Write-Host "[5/8] Limpando build antigo do frontend..." -ForegroundColor Cyan
 $next = Join-Path $projeto "frontend\.next"
@@ -91,6 +98,10 @@ for ($i = 1; $i -le 90; $i++) {
     }
 }
 
+if (-not $backendOnline) {
+    Write-Host "AVISO: backend ainda nao respondeu. Verifique a janela do backend." -ForegroundColor Yellow
+}
+
 Write-Host "[7/8] Iniciando frontend..." -ForegroundColor Cyan
 Start-Process powershell -ArgumentList @(
     "-NoExit",
@@ -98,36 +109,13 @@ Start-Process powershell -ArgumentList @(
     "-Command", "cd '$projeto'; .\iniciar_frontend.ps1"
 )
 
-Write-Host "[8/8] Preparando dados em segundo plano..." -ForegroundColor Cyan
-if ($backendOnline) {
-    Start-Process powershell -WindowStyle Hidden -ArgumentList @(
-        "-NoProfile",
-        "-ExecutionPolicy", "Bypass",
-        "-Command",
-        "try { Invoke-RestMethod -Uri 'http://127.0.0.1:8000/api/intranet-2/opcoes' -TimeoutSec 300 | Out-Null } catch {}"
-    )
-
-    try {
-        Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/api/churn-score/atualizar?empresa=todos&origem=todos&pagador=todos" -TimeoutSec 15 | Out-Null
-        Write-Host "[OK] Atualizacao do Churn Score iniciada em segundo plano." -ForegroundColor Green
-    }
-    catch {
-        Write-Host "AVISO: o Churn Score sera atualizado no proximo acesso." -ForegroundColor Yellow
-    }
-
-    try {
-        Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/api/atendimentos/sincronizar" -TimeoutSec 15 | Out-Null
-        Write-Host "[OK] Atendimentos atualizando em segundo plano." -ForegroundColor Green
-    }
-    catch {
-        Write-Host "AVISO: atendimentos serao atualizados no proximo acesso." -ForegroundColor Yellow
-    }
-}
+Write-Host "[8/8] Finalizando..." -ForegroundColor Cyan
+Start-Sleep -Seconds 2
 
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Green
-Write-Host " ATUALIZACAO CONCLUIDA - 3.27.3"
+Write-Host " ATUALIZACAO CONCLUIDA - 3.28.0"
 Write-Host "============================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "Intranet 2.0: http://localhost:3000/intranet-2" -ForegroundColor Cyan
-Write-Host "Backend: http://127.0.0.1:8000" -ForegroundColor Cyan
+Write-Host "Filtros globais: periodo, empresa, origem, pagador, plano e duracao." -ForegroundColor Cyan
+Write-Host "Para varios meses: abra Mes e use Shift para selecionar o intervalo." -ForegroundColor Cyan

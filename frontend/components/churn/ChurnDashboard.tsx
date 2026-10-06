@@ -392,8 +392,8 @@ export default function ChurnDashboard() {
   const origemFilter = filters.origem;
   const pagadorFilter = filters.pagador;
 
-  const [year, setYear] = useState(currentYear);
-  const [month, setMonth] = useState(currentMonth);
+  const [year, setYear] = useState(filters.ano);
+  const [month, setMonth] = useState(filters.anoCompleto ? 0 : (filters.meses[0] ?? currentMonth));
   const [data, setData] = useState<ChurnDashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -413,7 +413,7 @@ export default function ChurnDashboard() {
   const [renewalHistoryError, setRenewalHistoryError] = useState<string | null>(null);
 
   const years = useMemo(() => Array.from({ length: currentYear - 2024 + 1 }, (_, index) => 2024 + index), [currentYear]);
-  const periodLabel = month === 0 ? `Ano completo de ${year}` : `${MONTHS[month - 1]} de ${year}`;
+  const periodLabel = filters.anoCompleto ? `Ano completo de ${filters.ano}` : filters.meses.length > 1 ? `${MONTHS[(filters.meses[0] ?? 1) - 1]} a ${MONTHS[(filters.meses[filters.meses.length - 1] ?? 1) - 1]} de ${filters.ano}` : `${MONTHS[(filters.meses[0] ?? month) - 1]} de ${filters.ano}`;
 
   function handleSort(column: SortKey) {
     setPage(1);
@@ -611,7 +611,7 @@ export default function ChurnDashboard() {
             <p className="mt-1 text-xs font-semibold text-slate-400">Período selecionado: {periodLabel}</p>
           </div>
 
-          <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+          <div className="hidden items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
             <CalendarDays size={18} className="text-slate-400" />
             <select value={month} onChange={(event) => setMonth(Number(event.target.value))} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold outline-none">
               <option value={0}>Ano completo</option>

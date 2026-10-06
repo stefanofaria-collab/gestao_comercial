@@ -71,6 +71,10 @@ function buildParams(filters: Intranet2Filters) {
   const optionalNumbers: Array<[string, number | null]> = [
     ["sem_acesso_min", filters.sem_acesso_min],
     ["sem_acesso_max", filters.sem_acesso_max],
+    ["vencido_min", filters.vencido_min],
+    ["vencido_max", filters.vencido_max],
+    ["vencem_em_min", filters.vencem_em_min],
+    ["vencem_em_max", filters.vencem_em_max],
     ["tempo_cliente_minimo", filters.tempo_cliente_minimo],
     ["tempo_cliente_maximo", filters.tempo_cliente_maximo],
   ];
