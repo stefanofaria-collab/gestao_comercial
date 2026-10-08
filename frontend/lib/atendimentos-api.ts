@@ -1,5 +1,5 @@
 import type { GlobalFilters } from "@/contexts/GlobalFiltersContext";
-import type { AtendimentosDashboardResponse, AtendimentosMetaResponse, AtendimentoSyncStatus } from "@/types/atendimentos";
+import type { AtendimentosDashboardResponse, AtendimentosMetaResponse, AtendimentoSyncStatus, AtendimentoChurnExportResponse } from "@/types/atendimentos";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 
@@ -59,4 +59,13 @@ export function fetchAtendimentosDashboard(
 
 export function fetchAtendimentosStatus(): Promise<AtendimentoSyncStatus> {
   return getJson<AtendimentoSyncStatus>(`${API_URL}/api/atendimentos/status`, 15000);
+}
+
+export function fetchAtendimentosChurnExport(filters: GlobalFilters): Promise<AtendimentoChurnExportResponse> {
+  const params = new URLSearchParams({
+    empresa: filters.empresa,
+    origem: filters.origem,
+    pagador: filters.pagador,
+  });
+  return getJson<AtendimentoChurnExportResponse>(`${API_URL}/api/atendimentos/churn/exportar?${params.toString()}`, 180000);
 }

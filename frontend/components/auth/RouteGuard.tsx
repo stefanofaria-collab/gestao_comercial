@@ -1,58 +1,66 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
-import { clearStoredSession, getDefaultPath, getStoredSession, isAllowedPath } from "@/lib/auth-storage";
+import { meRequest } from "@/lib/auth-api";
+import { clearStoredSession, getDefaultPath, getStoredSession, isAllowedPath, saveStoredSession } from "@/lib/auth-storage";
 
 export function RouteGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [ready, setReady] = useState(false);
-  const session = useMemo(() => getStoredSession(), [pathname]);
 
   useEffect(() => {
+    let active = true;
+    setReady(false);
+    const stored = getStoredSession();
+
     if (pathname === "/login") {
-      if (session?.user?.role) {
-        router.replace(getDefaultPath(session.user.role));
+      if (stored?.user?.role) {
+        router.replace(getDefaultPath(stored.user.role, stored.user.pages));
       } else {
         setReady(true);
       }
-      return;
+      return () => { active = false; };
     }
 
-    if (!session?.token || !session?.user?.role) {
+    if (!stored?.token || !stored?.user?.role) {
       clearStoredSession();
       router.replace("/login");
-      return;
+      return () => { active = false; };
     }
 
-    if (!isAllowedPath(session.user.role, pathname)) {
-      router.replace(getDefaultPath(session.user.role));
-      return;
-    }
+    void meRequest(stored.token)
+      .then((freshUser) => {
+        if (!active) return;
+        const freshSession = { token: stored.token, user: freshUser };
+        saveStoredSession(freshSession);
 
-    const disallowed = session.user.role === "analista"
-      ? ["/faturamento", "/churn", "/ativos-atrasados", "/indicadores", "/atendimentos", "/pagamentos", "/upgrade-downgrade"]
-      : [];
+        if (!isAllowedPath(freshUser.role, pathname, freshUser.pages)) {
+          router.replace(getDefaultPath(freshUser.role, freshUser.pages));
+          return;
+        }
 
-    window.setTimeout(() => {
-      const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href]'));
-      links.forEach((link) => {
-        const href = link.getAttribute("href") || "";
-        const wrapper = link.closest("li, a, div");
-        if (!wrapper) return;
-        if (disallowed.includes(href)) {
-          (wrapper as HTMLElement).style.display = "none";
-        }
-        if (href === "/configuracoes") {
-          (wrapper as HTMLElement).style.display = "";
-        }
+        window.setTimeout(() => {
+          const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href^="/"]'));
+          links.forEach((link) => {
+            const href = link.getAttribute("href") || "";
+            const allowed = isAllowedPath(freshUser.role, href, freshUser.pages);
+            link.style.display = allowed ? "" : "none";
+          });
+        }, 100);
+
+        setReady(true);
+      })
+      .catch(() => {
+        if (!active) return;
+        clearStoredSession();
+        router.replace("/login");
       });
-    }, 300);
 
-    setReady(true);
-  }, [pathname, router, session]);
+    return () => { active = false; };
+  }, [pathname, router]);
 
   if (!ready) {
     return <div className="flex min-h-screen items-center justify-center text-slate-500">Carregando...</div>;

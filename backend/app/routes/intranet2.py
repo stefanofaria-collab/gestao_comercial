@@ -19,6 +19,7 @@ CompanyFilter = Literal["todos", "gestaoclick", "clicknotas"]
 OriginFilter = Literal["todos", "gestaoclick", "parceiro"]
 PayerFilter = Literal["todos", "cliente", "parceiro"]
 ActiveFilter = Literal["todos", "sim", "nao"]
+SupportFilter = Literal["todos", "sim", "nao"]
 TenureUnit = Literal["mes", "ano"]
 
 
@@ -46,6 +47,7 @@ def _common_filters(
     origem: str,
     pagador: str,
     somente_ativos: str,
+    cliente_com_atendimento: str,
     valor_minimo: float,
     tempo_cliente_minimo: float | None,
     tempo_cliente_maximo: float | None,
@@ -76,6 +78,7 @@ def _common_filters(
         "origem": origem,
         "pagador": pagador,
         "somente_ativos": somente_ativos,
+        "cliente_com_atendimento": cliente_com_atendimento,
         "valor_minimo": valor_minimo,
         "tempo_cliente_minimo": tempo_cliente_minimo,
         "tempo_cliente_maximo": tempo_cliente_maximo,
@@ -135,6 +138,7 @@ def intranet2_search(
     origem: OriginFilter = Query("todos"),
     pagador: PayerFilter = Query("todos"),
     somente_ativos: ActiveFilter = Query("todos"),
+    cliente_com_atendimento: SupportFilter = Query("todos"),
     valor_minimo: float = Query(0, ge=0),
     tempo_cliente_minimo: float | None = Query(None, ge=0),
     tempo_cliente_maximo: float | None = Query(None, ge=0),
@@ -146,7 +150,7 @@ def intranet2_search(
         ultimo_acesso_de, ultimo_acesso_ate, sem_acesso_min, sem_acesso_max,
         vencimento_de, vencimento_ate, vencido_min, vencido_max, vencem_em_min, vencem_em_max,
         pagamento_de, pagamento_ate,
-        plano, duracao, empresa, origem, pagador, somente_ativos,
+        plano, duracao, empresa, origem, pagador, somente_ativos, cliente_com_atendimento,
         valor_minimo, tempo_cliente_minimo, tempo_cliente_maximo,
         tempo_cliente_unidade, somente_ultrapassou_media,
     )
@@ -178,6 +182,7 @@ def intranet2_export(
     origem: OriginFilter = Query("todos"),
     pagador: PayerFilter = Query("todos"),
     somente_ativos: ActiveFilter = Query("todos"),
+    cliente_com_atendimento: SupportFilter = Query("todos"),
     valor_minimo: float = Query(0, ge=0),
     tempo_cliente_minimo: float | None = Query(None, ge=0),
     tempo_cliente_maximo: float | None = Query(None, ge=0),
@@ -189,7 +194,7 @@ def intranet2_export(
         ultimo_acesso_de, ultimo_acesso_ate, sem_acesso_min, sem_acesso_max,
         vencimento_de, vencimento_ate, vencido_min, vencido_max, vencem_em_min, vencem_em_max,
         pagamento_de, pagamento_ate,
-        plano, duracao, empresa, origem, pagador, somente_ativos,
+        plano, duracao, empresa, origem, pagador, somente_ativos, cliente_com_atendimento,
         valor_minimo, tempo_cliente_minimo, tempo_cliente_maximo,
         tempo_cliente_unidade, somente_ultrapassou_media,
     )

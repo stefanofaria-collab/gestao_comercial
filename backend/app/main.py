@@ -26,7 +26,7 @@ from app.routes.intranet2 import router as intranet2_router
 
 app = FastAPI(
     title="Gestão Comercial API",
-    version="3.31.2",
+    version="3.32.0",
     description=(
         "API do dashboard comercial. Mantém os indicadores existentes "
         "e adiciona as visões de faturamento, churn, churn score, ativos e atrasados, perfil, atendimentos, pagamentos, vencimentos futuros e Intranet 2.0."
@@ -123,7 +123,7 @@ def clear_abandoned_refresh_locks():
 def root():
     return {
         "app": "Gestão Comercial API",
-        "version": "3.31.2",
+        "version": "3.32.0",
         "docs": "/docs",
         "health": "/health",
         "indicadores": "/api/indicadores",

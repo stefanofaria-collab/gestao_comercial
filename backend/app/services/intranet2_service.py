@@ -23,6 +23,7 @@ VALID_COMPANY_FILTERS = {"todos", "gestaoclick", "clicknotas"}
 VALID_ORIGIN_FILTERS = {"todos", "gestaoclick", "parceiro"}
 VALID_PAYER_FILTERS = {"todos", "cliente", "parceiro"}
 VALID_ACTIVE_FILTERS = {"todos", "sim", "nao"}
+VALID_SUPPORT_FILTERS = {"todos", "sim", "nao"}
 VALID_TENURE_UNITS = {"mes", "ano"}
 
 
@@ -244,6 +245,8 @@ def _validate_filters(filters: dict[str, Any]) -> None:
         raise ValueError("Filtro de responsável pelo pagamento inválido.")
     if filters["somente_ativos"] not in VALID_ACTIVE_FILTERS:
         raise ValueError("Filtro de clientes ativos inválido.")
+    if filters["cliente_com_atendimento"] not in VALID_SUPPORT_FILTERS:
+        raise ValueError("Filtro de cliente com atendimento inválido.")
     if filters["tempo_cliente_unidade"] not in VALID_TENURE_UNITS:
         raise ValueError("Unidade de tempo como cliente inválida.")
 
@@ -283,6 +286,7 @@ def normalize_filters(**kwargs: Any) -> dict[str, Any]:
         "origem": str(kwargs.get("origem") or "todos").strip(),
         "pagador": str(kwargs.get("pagador") or "todos").strip(),
         "somente_ativos": str(kwargs.get("somente_ativos") or "todos").strip(),
+        "cliente_com_atendimento": str(kwargs.get("cliente_com_atendimento") or "todos").strip(),
         "valor_minimo": max(float(kwargs.get("valor_minimo") or 0), 0.0),
         "tempo_cliente_minimo": kwargs.get("tempo_cliente_minimo"),
         "tempo_cliente_maximo": kwargs.get("tempo_cliente_maximo"),
@@ -397,6 +401,43 @@ def _serialize_search_row(row: dict[str, Any], scores: dict[int, dict[str, Any]]
     }
 
 
+def _company_ids_with_support(rows: list[dict[str, Any]]) -> set[int]:
+    company_ids = sorted({int(row["empresa_id"]) for row in rows if row.get("empresa_id") is not None})
+    if not company_ids:
+        return set()
+
+    sql = text(
+        """
+        SELECT DISTINCT empresa_id
+        FROM public.atendimentos_zendesk
+        WHERE empresa_id IS NOT NULL
+          AND empresa_id IN :empresa_ids
+        """
+    ).bindparams(bindparam("empresa_ids", expanding=True))
+
+    found: set[int] = set()
+    with supabase_engine.connect() as connection:
+        for offset in range(0, len(company_ids), 1000):
+            chunk = company_ids[offset : offset + 1000]
+            result = connection.execute(sql, {"empresa_ids": chunk}).mappings().all()
+            for item in result:
+                value = item.get("empresa_id")
+                if value is not None:
+                    found.add(int(value))
+    return found
+
+
+def _apply_support_filter(rows: list[dict[str, Any]], filters: dict[str, Any]) -> list[dict[str, Any]]:
+    mode = filters["cliente_com_atendimento"]
+    if mode == "todos" or not rows:
+        return rows
+
+    companies_with_support = _company_ids_with_support(rows)
+    if mode == "sim":
+        return [row for row in rows if int(row["empresa_id"]) in companies_with_support]
+    return [row for row in rows if int(row["empresa_id"]) not in companies_with_support]
+
+
 def _apply_payment_average_filter(rows: list[dict[str, Any]], filters: dict[str, Any]) -> list[dict[str, Any]]:
     if not filters["somente_ultrapassou_media"]:
         return rows
@@ -423,6 +464,8 @@ def search_clients(*, page: int = 1, limit: int = 20, **filter_kwargs: Any) -> d
     with source_engine.connect() as connection:
         raw_rows = [dict(row) for row in connection.execute(SEARCH_SQL, _query_params(filters)).mappings().all()]
 
+    raw_rows = _apply_support_filter(raw_rows, filters)
+    raw_rows = _apply_support_filter(raw_rows, filters)
     raw_rows = _apply_payment_average_filter(raw_rows, filters)
     scores = _score_map()
     rows = [_serialize_search_row(row, scores) for row in raw_rows]
@@ -448,6 +491,7 @@ def export_clients(**filter_kwargs: Any) -> dict[str, Any]:
     raw_rows = _apply_payment_average_filter(raw_rows, filters)
     scores = _score_map()
     rows = [_serialize_search_row(row, scores) for row in raw_rows]
+
     return {
         "filtros": _json_safe({key: value for key, value in filters.items() if not key.endswith("_meses")}),
         "total": len(rows),

@@ -537,9 +537,58 @@ CHURN_CLIENTS_SQL = text(
         AND z.empresa_id IN :churn_empresa_ids
     GROUP BY z.empresa_id
     ORDER BY atendimentos DESC, duracao_total_segundos DESC
-    LIMIT 20
+    LIMIT 10
     """
 ).bindparams(bindparam("churn_empresa_ids", expanding=True))
+
+CHURN_ATTENDANCES_EXPORT_SQL = text(
+    f"""
+    SELECT
+        z.id AS atendimento_id,
+        z.data AS data_atendimento,
+        z.empresa_id,
+        COALESCE(NULLIF(TRIM(c.plano), ''), 'Não identificado') AS plano,
+        COALESCE(NULLIF(TRIM(c.duracao), ''), '') AS duracao,
+        c.data_vencimento,
+        COALESCE(NULLIF(TRIM(z.motivo), ''), 'Não identificado') AS motivo,
+        LOWER(NULLIF(TRIM(z.email_cliente), '')) AS email_cliente,
+        LOWER(NULLIF(TRIM(z.email_atendente), '')) AS email_atendente,
+        COALESCE(NULLIF(TRIM(z.avaliacao), ''), 'Não avaliado') AS avaliacao,
+        ROUND(EXTRACT(EPOCH FROM z.duracao_humano)::numeric, 1) AS duracao_humano_segundos
+    FROM public.atendimentos_zendesk z
+    LEFT JOIN public.atendimentos_zendesk_contexto c ON c.atendimento_id = z.id
+    WHERE
+        z.data >= DATE '2024-01-01'
+        AND z.data < CURRENT_DATE
+        AND z.empresa_id IN :churn_empresa_ids
+        {DIMENSION_FILTER}
+    ORDER BY z.data DESC, z.id DESC
+    """
+).bindparams(bindparam("churn_empresa_ids", expanding=True))
+
+CHURN_PLAN_VALUES_SQL = text(
+    """
+    SELECT
+        ep.empresa_id,
+        REPLACE(REPLACE(ep.nome_plano, ' (+) recursos', ''), ' + recursos', '') AS plano,
+        COALESCE(ep.duracao, '') AS duracao,
+        ep.data_vencimento,
+        ROUND(
+            CASE
+                WHEN ep.plano_agregado > ep.valor THEN ep.plano_agregado
+                ELSE ep.valor
+            END,
+            2
+        ) AS valor
+    FROM empresas_planos ep
+    WHERE
+        ep.empresa_id IN :empresa_ids
+        AND ep.plano_id <> 1
+        AND ep.pago_em IS NOT NULL
+        AND ep.nota_fiscal_servico_id IS NOT NULL
+    ORDER BY ep.empresa_id, ep.data_vencimento, ep.id
+    """
+).bindparams(bindparam("empresa_ids", expanding=True))
 
 ACTIVE_SNAPSHOT_SQL = text(
     """
@@ -1093,6 +1142,100 @@ def get_atendimentos_dashboard(
         "sincronizacao": sync_status,
     }
 
+
+
+def get_churn_attendances_export(
+    *,
+    empresa: str = "todos",
+    origem: str = "todos",
+    pagador: str = "todos",
+) -> dict:
+    """Exporta todos os atendimentos, desde 2024, dos clientes atualmente em churn (60+ dias)."""
+    _validate(empresa, origem, pagador)
+
+    source_params = {
+        "excluidos": CHURN_EXCLUDED_IDS,
+        "empresa": empresa,
+        "origem": origem,
+        "pagador": pagador,
+        "filtro_plano_global": "todos",
+        "filtro_duracao_global": "todos",
+    }
+    with source_engine.connect() as connection:
+        churn_ids = sorted({
+            int(row["empresa_id"])
+            for row in connection.execute(CURRENT_CHURN_COMPANIES_SQL, source_params).mappings().all()
+            if row.get("empresa_id") is not None
+        })
+
+    if not churn_ids:
+        return {"total": 0, "rows": []}
+
+    params = {
+        "inicio": date(2024, 1, 1),
+        "fim": date.today(),
+        "churn_empresa_ids": churn_ids,
+        "empresa": empresa,
+        "origem": origem,
+        "pagador": pagador,
+    }
+    with supabase_engine.connect() as connection:
+        attendance_rows = [
+            dict(row)
+            for row in connection.execute(CHURN_ATTENDANCES_EXPORT_SQL, params).mappings().all()
+        ]
+
+    value_by_exact: dict[tuple[int, str, str, str], float] = {}
+    value_by_due: dict[tuple[int, str], float] = {}
+    for offset in range(0, len(churn_ids), 800):
+        chunk = churn_ids[offset : offset + 800]
+        with source_engine.connect() as connection:
+            plan_rows = connection.execute(CHURN_PLAN_VALUES_SQL, {"empresa_ids": chunk}).mappings().all()
+        for item in plan_rows:
+            company_id = int(item["empresa_id"])
+            due = item.get("data_vencimento")
+            if isinstance(due, datetime):
+                due = due.date()
+            due_key = due.isoformat() if isinstance(due, date) else str(due or "")[:10]
+            plan = str(item.get("plano") or "").strip()
+            duration = str(item.get("duracao") or "").strip()
+            value = float(item.get("valor") or 0)
+            value_by_exact[(company_id, due_key, plan, duration)] = value
+            value_by_due[(company_id, due_key)] = value
+
+    rows = []
+    for row in attendance_rows:
+        company_id = int(row["empresa_id"])
+        due = row.get("data_vencimento")
+        if isinstance(due, datetime):
+            due = due.date()
+        due_key = due.isoformat() if isinstance(due, date) else str(due or "")[:10]
+        plan = str(row.get("plano") or "Não identificado").strip()
+        duration = str(row.get("duracao") or "").strip()
+        value = value_by_exact.get((company_id, due_key, plan, duration))
+        if value is None:
+            value = value_by_due.get((company_id, due_key))
+
+        attendance_date = row.get("data_atendimento")
+        if isinstance(attendance_date, datetime):
+            attendance_date = attendance_date.date()
+        rows.append({
+            "data_atendimento": attendance_date.isoformat() if isinstance(attendance_date, date) else str(attendance_date or "")[:10],
+            "plano": plan,
+            "duracao": duration,
+            "valor": round(float(value or 0), 2),
+            "motivo": str(row.get("motivo") or "Não identificado"),
+            "email_cliente": str(row.get("email_cliente") or ""),
+            "email_atendente": str(row.get("email_atendente") or ""),
+            "avaliacao": str(row.get("avaliacao") or "Não avaliado"),
+            "duracao_humano_segundos": _float_or_none(row.get("duracao_humano_segundos")),
+        })
+
+    return {
+        "total": len(rows),
+        "periodo": {"inicio": "2024-01-01", "fim": (date.today() - timedelta(days=1)).isoformat()},
+        "rows": rows,
+    }
 
 def get_atendimentos_meta() -> dict:
     with supabase_engine.connect() as connection:

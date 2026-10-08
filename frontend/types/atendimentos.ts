@@ -140,6 +140,24 @@ export type AtendimentoChurnCliente = {
   duracao_total_segundos: number;
 };
 
+export type AtendimentoChurnExportRow = {
+  data_atendimento: string;
+  plano: string;
+  duracao: string;
+  valor: number;
+  motivo: string;
+  email_cliente: string;
+  email_atendente: string;
+  avaliacao: string;
+  duracao_humano_segundos: number | null;
+};
+
+export type AtendimentoChurnExportResponse = {
+  total: number;
+  periodo?: { inicio: string; fim: string };
+  rows: AtendimentoChurnExportRow[];
+};
+
 export type AtendimentoSyncStatus = {
   executando: boolean;
   ultima_data: string | null;

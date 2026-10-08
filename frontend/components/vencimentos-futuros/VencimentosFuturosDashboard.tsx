@@ -12,10 +12,12 @@ import {
   FileSpreadsheet,
   MousePointerClick,
   RefreshCw,
+  UsersRound,
   X,
 } from "lucide-react";
 import { useGlobalFilters } from "@/contexts/GlobalFiltersContext";
 import { fetchFutureDueDashboard, fetchFutureDueExport, fetchFutureDueExportOptions, fetchFutureDueMeta } from "@/lib/vencimentos-futuros-api";
+import { getStoredSession } from "@/lib/auth-storage";
 import type {
   FutureDueCalendarItem,
   FutureDueClient,
@@ -425,6 +427,169 @@ const EXPORT_COLUMNS: Array<{ key: keyof FutureDueExportRow; label: string }> = 
   { key: "intranet_url", label: "Intranet" },
 ];
 
+
+type CampaignAnalyst = {
+  name: string;
+  email: string;
+  role: "analista";
+};
+
+type DistributedContact = FutureDueExportRow & {
+  campaign_owner_name: string;
+  campaign_owner_email: string;
+};
+
+type DistributionSummary = {
+  name: string;
+  email: string;
+  contatos: number;
+  valor: number;
+  planos: Record<string, number>;
+};
+
+function shuffleItems<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const selected = Math.floor(Math.random() * (index + 1));
+    [copy[index], copy[selected]] = [copy[selected], copy[index]];
+  }
+  return copy;
+}
+
+function distributeCampaignContacts(rows: FutureDueExportRow[], analysts: CampaignAnalyst[]): DistributedContact[] {
+  if (analysts.length === 0) return [];
+
+  const stats = analysts.map((analyst) => ({
+    analyst,
+    totalValue: 0,
+    totalCount: 0,
+    planCounts: new Map<string, number>(),
+  }));
+
+  // Regra de carteira: um empresa_id pertence a um único analista dentro da campanha.
+  // Todas as linhas/contatos da mesma empresa são agrupadas antes da distribuição.
+  const companyGroups = new Map<string, FutureDueExportRow[]>();
+  rows.forEach((row) => {
+    const companyId = String(row.id);
+    const current = companyGroups.get(companyId) ?? [];
+    current.push(row);
+    companyGroups.set(companyId, current);
+  });
+
+  const companies = shuffleItems(Array.from(companyGroups.entries())).map(([companyId, companyRows]) => {
+    const representative = companyRows[0];
+    const plan = String(representative?.nome_plano || "Não informado");
+    // O valor da carteira é contado uma única vez por empresa_id.
+    // Se houver linhas duplicadas da empresa, usamos o maior valor do plano atual.
+    const value = Math.max(...companyRows.map((row) => Number(row.valor || 0)), 0);
+    return { companyId, companyRows, plan, value };
+  });
+
+  // Empresas de maior valor entram primeiro para melhorar o equilíbrio financeiro.
+  companies.sort((a, b) => b.value - a.value);
+
+  const distributed: DistributedContact[] = [];
+
+  companies.forEach(({ companyRows, plan, value }) => {
+    const minimumPlanCount = Math.min(...stats.map((stat) => stat.planCounts.get(plan) ?? 0));
+    const candidates = shuffleItems(stats.filter((stat) => (stat.planCounts.get(plan) ?? 0) === minimumPlanCount));
+
+    candidates.sort((a, b) => {
+      if (a.totalValue !== b.totalValue) return a.totalValue - b.totalValue;
+      if (a.totalCount !== b.totalCount) return a.totalCount - b.totalCount;
+      return a.analyst.email.localeCompare(b.analyst.email);
+    });
+
+    const selected = candidates[0];
+
+    // Estatísticas de balanceamento também contam a empresa uma única vez.
+    selected.totalValue += value;
+    selected.totalCount += 1;
+    selected.planCounts.set(plan, (selected.planCounts.get(plan) ?? 0) + 1);
+
+    // Todas as linhas do mesmo empresa_id recebem exatamente o mesmo analista.
+    companyRows.forEach((row) => {
+      distributed.push({
+        ...row,
+        campaign_owner_name: selected.analyst.name,
+        campaign_owner_email: selected.analyst.email,
+      });
+    });
+  });
+
+  // Validação defensiva: nunca permitir que o mesmo empresa_id fique com mais de um analista.
+  const ownerByCompany = new Map<string, string>();
+  distributed.forEach((row) => {
+    const companyId = String(row.id);
+    const previousOwner = ownerByCompany.get(companyId);
+    if (previousOwner && previousOwner !== row.campaign_owner_email) {
+      throw new Error(`Falha na distribuição: a empresa ${companyId} foi atribuída a mais de um analista.`);
+    }
+    ownerByCompany.set(companyId, row.campaign_owner_email);
+  });
+
+  return distributed;
+}
+
+function summarizeDistribution(rows: DistributedContact[]): DistributionSummary[] {
+  const byOwner = new Map<string, DistributionSummary>();
+  rows.forEach((row) => {
+    const current = byOwner.get(row.campaign_owner_email) ?? {
+      name: row.campaign_owner_name,
+      email: row.campaign_owner_email,
+      contatos: 0,
+      valor: 0,
+      planos: {},
+    };
+    current.contatos += 1;
+    current.valor += Number(row.valor || 0);
+    const plan = String(row.nome_plano || "Não informado");
+    current.planos[plan] = (current.planos[plan] ?? 0) + 1;
+    byOwner.set(row.campaign_owner_email, current);
+  });
+  return Array.from(byOwner.values()).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+}
+
+function splitContactName(value: string | null | undefined) {
+  const parts = String(value || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { firstName: "", lastName: "" };
+  return {
+    firstName: parts[0],
+    lastName: parts.slice(1).join(" "),
+  };
+}
+
+function validContactEmail(value: string | null | undefined) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
+}
+
+function hubspotRow(row: DistributedContact) {
+  const { firstName, lastName } = splitContactName(row.nome_usuario);
+  return {
+    "Email": row.email ?? "",
+    "First name": firstName,
+    "Last name": lastName,
+    "Phone number": row.telefone ?? "",
+    "Mobile phone number": row.celular ?? "",
+    "Contact owner": row.campaign_owner_email,
+    "ClickDados ID": row.id,
+    "Plano": row.nome_plano,
+    "Duração": row.duracao,
+    "Data de vencimento": row.data_vencimento ?? "",
+    "Valor do plano": Number(row.valor || 0),
+    "Tipo de produto": row.modalidade,
+    "Origem": row.origem,
+    "Responsável pelo pagamento": row.pagador,
+    "Data da contratação": row.ativou_em ?? "",
+    "Tempo como cliente (meses)": row.tempo_cliente_meses,
+    "Renovações": row.renovacoes,
+    "Reativações": row.reativacoes,
+    "LTV": Number(row.ltv || 0),
+    "Ticket médio histórico": Number(row.ticket_medio_historico || 0),
+    "Intranet": row.intranet_url,
+  };
+}
+
 function dayBefore(value: string) {
   const date = new Date(`${value}T12:00:00`);
   date.setDate(date.getDate() - 1);
@@ -473,6 +638,13 @@ function ExportModal({
   const [error, setError] = useState<string | null>(null);
   const [tablePage, setTablePage] = useState(1);
   const [copyMessage, setCopyMessage] = useState("");
+  const [showDistribution, setShowDistribution] = useState(false);
+  const [analysts, setAnalysts] = useState<CampaignAnalyst[]>([]);
+  const [selectedAnalysts, setSelectedAnalysts] = useState<string[]>([]);
+  const [analystsLoading, setAnalystsLoading] = useState(false);
+  const [distributionError, setDistributionError] = useState<string | null>(null);
+  const [distributionMessage, setDistributionMessage] = useState("");
+  const [distributedRows, setDistributedRows] = useState<DistributedContact[]>([]);
 
   useEffect(() => {
     fetchFutureDueExportOptions().then(setOptions).catch(() => setOptions(null));
@@ -504,11 +676,108 @@ function ExportModal({
       const response = await fetchFutureDueExport(filters);
       setResult(response);
       setTablePage(1);
+      setDistributedRows([]);
+      setShowDistribution(false);
+      setDistributedRows([]);
+      setShowDistribution(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao gerar a tabela.");
     } finally {
       setLoading(false);
     }
+  }
+
+
+  async function fetchAnalystsForCampaign() {
+    const token = getStoredSession()?.token;
+    if (!token) throw new Error("Sessão inválida. Faça login novamente.");
+
+    const candidates = Array.from(new Set([
+      process.env.NEXT_PUBLIC_API_URL || "",
+      typeof window !== "undefined" ? `${window.location.protocol}//${window.location.hostname}:8000` : "",
+      "http://127.0.0.1:8000",
+      "http://localhost:8000",
+    ].filter(Boolean)));
+
+    let lastError: Error | null = null;
+    for (const base of candidates) {
+      try {
+        const response = await fetch(`${base}/api/auth/analysts`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          throw new Error(payload?.detail || `Erro ${response.status} ao carregar analistas.`);
+        }
+        const payload = await response.json();
+        return (Array.isArray(payload) ? payload : payload.users ?? []) as CampaignAnalyst[];
+      } catch (reason) {
+        lastError = reason instanceof Error ? reason : new Error("Erro ao carregar analistas.");
+      }
+    }
+    throw lastError ?? new Error("Não foi possível carregar os analistas.");
+  }
+
+  async function openDistribution() {
+    if (!result) return;
+    setShowDistribution(true);
+    setDistributionError(null);
+    setDistributionMessage("");
+    setDistributedRows([]);
+    if (analysts.length > 0) return;
+
+    setAnalystsLoading(true);
+    try {
+      const users = await fetchAnalystsForCampaign();
+      setAnalysts(users);
+      setSelectedAnalysts(users.map((user) => user.email));
+      if (users.length === 0) {
+        setDistributionError("Nenhum usuário Analista ativo foi encontrado no sistema.");
+      }
+    } catch (reason) {
+      setDistributionError(reason instanceof Error ? reason.message : "Não foi possível carregar os analistas.");
+    } finally {
+      setAnalystsLoading(false);
+    }
+  }
+
+  function runDistribution() {
+    if (!result) return;
+    const selected = analysts.filter((analyst) => selectedAnalysts.includes(analyst.email));
+    if (selected.length === 0) {
+      setDistributionError("Selecione pelo menos um analista para a campanha.");
+      return;
+    }
+    const rows = distributeCampaignContacts(result.rows, selected);
+    setDistributedRows(rows);
+    setDistributionError(null);
+    setDistributionMessage(`${formatInteger(rows.length)} contatos distribuídos entre ${formatInteger(selected.length)} analista(s).`);
+  }
+
+  async function exportHubSpotXlsx() {
+    if (distributedRows.length === 0) return;
+    const eligible = distributedRows.filter((row) => validContactEmail(row.email));
+    const excluded = distributedRows.length - eligible.length;
+    if (eligible.length === 0) {
+      setDistributionError("Nenhum contato distribuído possui e-mail válido para a importação de contatos no HubSpot.");
+      return;
+    }
+
+    const XLSX = await import("xlsx");
+    const payload = eligible.map(hubspotRow);
+    const worksheet = XLSX.utils.json_to_sheet(payload);
+    worksheet["!cols"] = Object.keys(payload[0]).map((column) => ({ wch: Math.max(14, Math.min(34, column.length + 6)) }));
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Contacts");
+    XLSX.writeFile(workbook, `hubspot_vencimentos_${filters.data_inicio}_${filters.data_fim}.xlsx`);
+
+    setDistributionMessage(
+      excluded > 0
+        ? `${formatInteger(eligible.length)} contatos exportados para o HubSpot. ${formatInteger(excluded)} contato(s) sem e-mail válido ficaram fora do arquivo.`
+        : `${formatInteger(eligible.length)} contatos exportados no formato HubSpot.`,
+    );
+    setDistributionError(null);
   }
 
   function downloadCsv() {
@@ -548,6 +817,11 @@ function ExportModal({
   const pageSize = 100;
   const totalPages = Math.max(1, Math.ceil((result?.rows.length ?? 0) / pageSize));
   const visibleRows = result?.rows.slice((tablePage - 1) * pageSize, tablePage * pageSize) ?? [];
+  const distributionSummary = useMemo(() => summarizeDistribution(distributedRows), [distributedRows]);
+  const contactsWithoutEmail = useMemo(
+    () => distributedRows.filter((row) => !validContactEmail(row.email)).length,
+    [distributedRows],
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
@@ -626,8 +900,98 @@ function ExportModal({
                 <button type="button" onClick={downloadCsv} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Download size={16} />CSV</button>
                 <button type="button" onClick={downloadXlsx} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><FileSpreadsheet size={16} />XLSX</button>
                 <button type="button" onClick={copyToGoogleSheets} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"><ClipboardCopy size={16} />Copiar tudo para Google Sheets</button>
+                <button type="button" onClick={openDistribution} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"><UsersRound size={16} />Distribuir Contatos</button>
               </div>
               {copyMessage && <div className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{copyMessage}</div>}
+
+
+              {showDistribution && (
+                <div className="space-y-5 rounded-2xl border border-blue-200 bg-blue-50/40 p-5">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <UsersRound size={18} className="text-blue-700" />
+                        <h4 className="font-semibold text-slate-950">Distribuir contatos</h4>
+                      </div>
+                      <p className="mt-1 text-sm text-slate-600">Selecione quem fará parte da campanha. A divisão equilibra a quantidade de cada plano e aproxima o valor total da carteira de cada analista.</p>
+                    </div>
+                    <button type="button" onClick={() => setShowDistribution(false)} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600">Fechar</button>
+                  </div>
+
+                  {analystsLoading ? (
+                    <div className="rounded-xl bg-white p-4 text-sm text-slate-500">Carregando analistas...</div>
+                  ) : (
+                    <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                      {analysts.map((analyst) => {
+                        const checked = selectedAnalysts.includes(analyst.email);
+                        return (
+                          <label key={analyst.email} className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 text-sm ${checked ? "border-blue-300 bg-white" : "border-slate-200 bg-slate-50"}`}>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(event) => {
+                                setDistributedRows([]);
+                                setDistributionMessage("");
+                                setSelectedAnalysts((current) => event.target.checked ? [...current, analyst.email] : current.filter((email) => email !== analyst.email));
+                              }}
+                            />
+                            <span>
+                              <span className="block font-semibold text-slate-900">{analyst.name}</span>
+                              <span className="block text-xs text-slate-500">{analyst.email}</span>
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {distributionError && <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{distributionError}</div>}
+                  {distributionMessage && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{distributionMessage}</div>}
+
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={runDistribution} disabled={analystsLoading || selectedAnalysts.length === 0} className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40">Distribuir agora</button>
+                    {distributedRows.length > 0 && (
+                      <button type="button" onClick={exportHubSpotXlsx} className="inline-flex items-center gap-2 rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-700"><FileSpreadsheet size={16} />Exportar para HubSpot</button>
+                    )}
+                  </div>
+
+                  {distributedRows.length > 0 && (
+                    <>
+                      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                        <table className="min-w-full text-sm">
+                          <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                            <tr>
+                              <th className="px-3 py-3 text-left">Analista</th>
+                              <th className="px-3 py-3 text-right">Contatos</th>
+                              <th className="px-3 py-3 text-right">Valor total</th>
+                              <th className="px-3 py-3 text-left">Mix de planos</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {distributionSummary.map((summary) => (
+                              <tr key={summary.email}>
+                                <td className="px-3 py-3"><div className="font-semibold text-slate-900">{summary.name}</div><div className="text-xs text-slate-500">{summary.email}</div></td>
+                                <td className="px-3 py-3 text-right font-semibold">{formatInteger(summary.contatos)}</td>
+                                <td className="px-3 py-3 text-right font-semibold">{formatMoney(summary.valor)}</td>
+                                <td className="px-3 py-3">
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {Object.entries(summary.planos).sort((a, b) => b[1] - a[1]).map(([plan, count]) => (
+                                      <span key={plan} className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">{plan}: {formatInteger(count)}</span>
+                                    ))}
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="rounded-xl bg-white p-3 text-xs leading-5 text-slate-500">
+                        O arquivo do HubSpot usa <strong>Email</strong> como identificador do contato e <strong>Contact owner</strong> com o e-mail do analista. {contactsWithoutEmail > 0 ? `${formatInteger(contactsWithoutEmail)} contato(s) sem e-mail válido serão excluídos apenas do arquivo HubSpot.` : "Todos os contatos distribuídos possuem e-mail válido."}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
 
               <div className="overflow-auto rounded-2xl border border-slate-200" style={{ maxHeight: 520 }}>
                 <table className="min-w-[2600px] text-sm">

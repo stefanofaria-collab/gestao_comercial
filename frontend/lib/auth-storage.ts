@@ -2,24 +2,30 @@ import type { AuthSession, UserRole } from "@/types/auth";
 
 const STORAGE_KEY = "clickdados.auth";
 
-export const ANALYST_ALLOWED_PATHS = [
+export const DEFAULT_ANALYST_ALLOWED_PATHS = [
   "/churn-score",
-  "/intranet-2-0",
+  "/intranet-2",
   "/perfil",
   "/vencimentos-futuros",
-  "/configuracoes",
 ];
 
-export function getDefaultPath(role?: UserRole | string | null): string {
-  return role === "analista" ? "/churn-score" : "/indicadores";
+export function getDefaultPath(role?: UserRole | string | null, pages?: string[] | null): string {
+  if (role !== "analista") return "/indicadores";
+  const allowed = pages?.length ? pages : DEFAULT_ANALYST_ALLOWED_PATHS;
+  return allowed[0] || "/configuracoes";
 }
 
-export function isAllowedPath(role: UserRole | string | null | undefined, pathname: string): boolean {
+export function isAllowedPath(
+  role: UserRole | string | null | undefined,
+  pathname: string,
+  pages?: string[] | null,
+): boolean {
   if (!role) return false;
   if (pathname === "/login") return true;
   if (pathname === "/configuracoes") return true;
   if (role === "gerencial") return true;
-  return ANALYST_ALLOWED_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+  const allowed = pages?.length ? pages : DEFAULT_ANALYST_ALLOWED_PATHS;
+  return allowed.some((path) => pathname === path || pathname.startsWith(`${path}/`));
 }
 
 export function getStoredSession(): AuthSession | null {

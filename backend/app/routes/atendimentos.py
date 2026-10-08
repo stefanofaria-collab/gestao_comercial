@@ -2,7 +2,7 @@ from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 
-from app.services.atendimentos_service import get_atendimentos_dashboard, get_atendimentos_meta
+from app.services.atendimentos_service import get_atendimentos_dashboard, get_atendimentos_meta, get_churn_attendances_export
 from app.services.dashboard_cache_service import cached_daily
 from app.services.zendesk_sync_service import get_sync_status, trigger_incremental_sync
 
@@ -11,7 +11,7 @@ router = APIRouter(prefix="/api/atendimentos", tags=["Atendimentos"])
 CompanyFilter = Literal["todos", "gestaoclick", "clicknotas"]
 OriginFilter = Literal["todos", "gestaoclick", "parceiro"]
 PayerFilter = Literal["todos", "cliente", "parceiro"]
-CACHE_VERSION = "3.28.2"
+CACHE_VERSION = "3.32.6"
 
 
 def _build_dashboard(*, ano: int, mes: int, empresa: str, origem: str, pagador: str):
@@ -73,6 +73,20 @@ def atendimentos_dashboard(
                 "Tente novamente em alguns instantes."
             ),
         ) from exc
+
+
+@router.get("/churn/exportar")
+def atendimentos_churn_exportar(
+    empresa: CompanyFilter = Query("todos"),
+    origem: OriginFilter = Query("todos"),
+    pagador: PayerFilter = Query("todos"),
+):
+    try:
+        return get_churn_attendances_export(empresa=empresa, origem=origem, pagador=pagador)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="Não foi possível exportar os atendimentos de churn agora.") from exc
 
 
 @router.get("/meta")

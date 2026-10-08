@@ -51,6 +51,7 @@ function buildParams(filters: Intranet2Filters) {
     origem: filters.origem,
     pagador: filters.pagador,
     somente_ativos: filters.somente_ativos,
+    cliente_com_atendimento: filters.cliente_com_atendimento,
     valor_minimo: String(filters.valor_minimo || 0),
     tempo_cliente_unidade: filters.tempo_cliente_unidade,
     somente_ultrapassou_media: String(filters.somente_ultrapassou_media),

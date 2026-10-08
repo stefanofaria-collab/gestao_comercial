@@ -62,6 +62,7 @@ const DEFAULT_FILTERS: Intranet2Filters = {
   origem: "todos",
   pagador: "todos",
   somente_ativos: "todos",
+  cliente_com_atendimento: "todos",
   valor_minimo: 0,
   tempo_cliente_minimo: null,
   tempo_cliente_maximo: null,
@@ -339,6 +340,13 @@ function FiltersGrid({
       </FilterField>
       <FilterField label="Somente clientes ativos">
         <BaseSelect value={filters.somente_ativos} onChange={(event) => setFilters((current) => ({ ...current, somente_ativos: event.target.value as Intranet2Filters["somente_ativos"] }))}>
+          <option value="todos">Todos</option>
+          <option value="sim">Sim</option>
+          <option value="nao">Não</option>
+        </BaseSelect>
+      </FilterField>
+      <FilterField label="Cliente com atendimento">
+        <BaseSelect value={filters.cliente_com_atendimento} onChange={(event) => setFilters((current) => ({ ...current, cliente_com_atendimento: event.target.value as Intranet2Filters["cliente_com_atendimento"] }))}>
           <option value="todos">Todos</option>
           <option value="sim">Sim</option>
           <option value="nao">Não</option>

@@ -4,6 +4,11 @@ export type ChurnClient = {
   empresa: string;
   origem: string;
   pagador: string;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  utm_term: string | null;
+  utm_content: string | null;
   nome_plano: string;
   duracao: string;
   duracao_label: string;
@@ -46,6 +51,23 @@ export type ChurnDimension = {
   percentual_clientes: number;
   ltv_total: number;
   valor_perdido: number;
+};
+
+export type ChurnUtmItem = {
+  label: string;
+  clientes: number;
+  percentual_clientes: number;
+  ltv_total: number;
+  valor_perdido: number;
+};
+
+export type ChurnUtmRanking = {
+  field: "utm_source" | "utm_medium" | "utm_campaign" | "utm_content" | "utm_term";
+  label: string;
+  prioridade: number;
+  clientes_informados: number;
+  cobertura_clientes: number;
+  itens: ChurnUtmItem[];
 };
 
 export type ChurnRenewalAverage = {
@@ -113,5 +135,6 @@ export type ChurnDashboardResponse = {
     por_origem: ChurnDimension[];
     por_pagador: ChurnDimension[];
   };
+  utms: ChurnUtmRanking[];
   clientes: ChurnClient[];
 };

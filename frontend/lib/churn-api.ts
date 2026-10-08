@@ -51,7 +51,7 @@ export function fetchChurnDashboard(
 ): Promise<ChurnDashboardResponse> {
   const params = buildBaseParams(ano, mes, filters);
   const url = `${API_URL}/api/churn?${params.toString()}`;
-  return browserDailyCache(`churn:${url}`, () => fetchWithTimeout<ChurnDashboardResponse>(url, 45000));
+  return browserDailyCache(`churn:utm-v1:${url}`, () => fetchWithTimeout<ChurnDashboardResponse>(url, 45000));
 }
 
 export function fetchChurnRenewalHistory(

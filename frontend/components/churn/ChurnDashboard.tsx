@@ -29,6 +29,7 @@ import type {
   ChurnPlan,
   ChurnRenewalAverage,
   ChurnRenewalHistoryResponse,
+  ChurnUtmRanking,
 } from "@/types/churn";
 
 const ReactECharts = dynamic(() => import("echarts-for-react"), { ssr: false });
@@ -255,6 +256,58 @@ function DimensionCard({ title, items, financial }: { title: string; items: Chur
         value={(raw) => financial ? (raw as ChurnDimension).ltv_total : (raw as ChurnDimension).clientes}
         formatValue={(number) => financial ? formatMoney(number) : formatInteger(number)}
       />
+    </div>
+  );
+}
+
+
+function UtmRankingCard({ ranking, financial }: { ranking: ChurnUtmRanking; financial: boolean }) {
+  const ordered = [...(ranking.itens ?? [])]
+    .sort((a, b) => financial
+      ? (b.valor_perdido - a.valor_perdido) || (b.clientes - a.clientes)
+      : (b.clientes - a.clientes) || (b.valor_perdido - a.valor_perdido))
+    .slice(0, 10);
+  const maxValue = Math.max(
+    ...ordered.map((item) => financial ? item.valor_perdido : item.clientes),
+    1,
+  );
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="grid h-7 w-7 place-items-center rounded-full bg-blue-50 text-xs font-bold text-blue-700">{ranking.prioridade}</span>
+            <h3 className="font-semibold text-slate-950">{ranking.label}</h3>
+          </div>
+          <p className="mt-1 text-xs text-slate-500">Cobertura: {formatPercent(ranking.cobertura_clientes)} dos clientes em churn.</p>
+        </div>
+        <HelpTip text={financial ? "Ordena os valores desta UTM pelo valor mensal perdido no churn. A quantidade de clientes aparece como apoio." : "Ordena os valores desta UTM pela quantidade de clientes que entraram em churn. O valor mensal perdido aparece como apoio."} />
+      </div>
+
+      {ordered.length ? (
+        <div className="space-y-3">
+          {ordered.map((item, index) => {
+            const current = financial ? item.valor_perdido : item.clientes;
+            return (
+              <div key={`${ranking.field}-${item.label}`} className="rounded-xl border border-slate-100 px-3 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-800" title={item.label}>{index + 1}. {item.label}</p>
+                    <p className="mt-1 text-[11px] text-slate-400">{formatInteger(item.clientes)} clientes · {formatMoney(item.valor_perdido)}/mês</p>
+                  </div>
+                  <span className="shrink-0 text-sm font-bold text-slate-950">{financial ? formatMoney(item.valor_perdido) : formatInteger(item.clientes)}</span>
+                </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-full rounded-full bg-blue-600" style={{ width: `${Math.max(2, (current / maxValue) * 100)}%` }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="rounded-xl bg-slate-50 px-4 py-6 text-center text-sm text-slate-400">Sem informações preenchidas para esta UTM no período.</div>
+      )}
     </div>
   );
 }
@@ -729,6 +782,23 @@ export default function ChurnDashboard() {
           <DimensionCard title={financial ? "LTV dos clientes perdidos por origem" : "Clientes perdidos por origem"} items={data.dimensoes.por_origem} financial={financial} />
           <DimensionCard title={financial ? "LTV dos clientes perdidos por responsável pelo pagamento" : "Clientes perdidos por responsável pelo pagamento"} items={data.dimensoes.por_pagador} financial={financial} />
         </div>
+
+
+
+        {(data.utms ?? []).length > 0 ? (
+          <div className="mt-6">
+            <SectionTitle
+              title="Ranking do churn por UTM"
+              subtitle="Priorizamos Source, Medium e Campaign para entender de onde vieram os clientes que mais saíram. Content e Term aparecem depois como detalhamento."
+              helpText="Este ranking considera somente clientes em churn no período selecionado. No modo Financeiro, ordenamos pelo valor mensal que saiu da carteira. No modo Quantitativo, pela quantidade de clientes. A cobertura mostra quanto daquele campo UTM está realmente preenchido."
+            />
+            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+              {[...(data.utms ?? [])]
+                .sort((a, b) => a.prioridade - b.prioridade)
+                .map((ranking) => <UtmRankingCard key={ranking.field} ranking={ranking} financial={financial} />)}
+            </div>
+          </div>
+        ) : null}
 
         <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-col gap-4 border-b border-slate-200 p-5 lg:flex-row lg:items-center lg:justify-between">

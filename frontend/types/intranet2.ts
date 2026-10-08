@@ -22,6 +22,7 @@ export type Intranet2Filters = {
   origem: "todos" | "gestaoclick" | "parceiro";
   pagador: "todos" | "cliente" | "parceiro";
   somente_ativos: "todos" | "sim" | "nao";
+  cliente_com_atendimento: "todos" | "sim" | "nao";
   valor_minimo: number;
   tempo_cliente_minimo: number | null;
   tempo_cliente_maximo: number | null;

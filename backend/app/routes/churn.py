@@ -50,7 +50,7 @@ def churn_dashboard(
     }
     return _cached_handle(
         background_tasks,
-        "churn.dashboard",
+        "churn.dashboard.utm.v1",
         params,
         lambda: get_churn_dashboard(
             year=ano,

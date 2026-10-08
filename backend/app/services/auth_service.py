@@ -29,6 +29,26 @@ ALLOWED_DOMAINS = {
 }
 TEST_EMAIL = "stefanobrunofaria@gmail.com"
 
+PAGE_CATALOG = {
+    "/indicadores": "Indicadores",
+    "/faturamento": "Faturamento",
+    "/churn": "Churn",
+    "/churn-score": "Churn Score",
+    "/ativos-atrasados": "Ativos e Atrasados",
+    "/upgrade-downgrade": "Upgrade e Downgrade",
+    "/perfil": "Perfil",
+    "/atendimentos": "Atendimentos",
+    "/pagamentos": "Pagamentos",
+    "/vencimentos-futuros": "Vencimentos Futuros",
+    "/intranet-2": "Intranet 2.0",
+}
+DEFAULT_ANALYST_PAGES = [
+    "/churn-score",
+    "/intranet-2",
+    "/perfil",
+    "/vencimentos-futuros",
+]
+
 SEED_MANAGERS = [
     "stefano.faria@clickdigital.com.br",
     "jessica.neves@clickdigital.com.br",
@@ -48,6 +68,7 @@ class AuthUser:
     role: str
     password_hash: str | None
     must_define_password: bool
+    pages: list[str] | None = None
     active: bool = True
     created_at: str | None = None
     updated_at: str | None = None
@@ -59,6 +80,7 @@ class AuthUser:
             "role": self.role,
             "password_hash": self.password_hash,
             "must_define_password": self.must_define_password,
+            "pages": list(self.pages or []),
             "active": self.active,
             "created_at": self.created_at or utcnow_iso(),
             "updated_at": self.updated_at or utcnow_iso(),
@@ -111,41 +133,74 @@ def _is_allowed_registration_email(email: str) -> bool:
     return domain in ALLOWED_DOMAINS
 
 
+def _normalize_pages(pages: list[str] | None) -> list[str]:
+    if not pages:
+        return []
+    allowed = set(PAGE_CATALOG)
+    result: list[str] = []
+    for page in pages:
+        value = str(page or "").strip()
+        if value in allowed and value not in result:
+            result.append(value)
+    return result
+
+
+def _effective_pages(user: dict[str, Any]) -> list[str]:
+    role = str(user.get("role", "analista"))
+    if role == "gerencial":
+        return list(PAGE_CATALOG.keys())
+    pages = _normalize_pages(user.get("pages"))
+    return pages or list(DEFAULT_ANALYST_PAGES)
+
+
+def _seed_users() -> list[dict[str, Any]]:
+    users: list[dict[str, Any]] = []
+    for email in SEED_MANAGERS:
+        users.append(
+            AuthUser(
+                email=_normalize_email(email),
+                name=email.split("@")[0].replace(".", " ").title(),
+                role="gerencial",
+                password_hash=None,
+                must_define_password=True,
+                pages=list(PAGE_CATALOG.keys()),
+                created_at=utcnow_iso(),
+                updated_at=utcnow_iso(),
+            ).to_dict()
+        )
+    for email in SEED_ANALYSTS:
+        users.append(
+            AuthUser(
+                email=_normalize_email(email),
+                name=email.split("@")[0].replace(".", " ").title(),
+                role="analista",
+                password_hash=None,
+                must_define_password=True,
+                pages=list(DEFAULT_ANALYST_PAGES),
+                created_at=utcnow_iso(),
+                updated_at=utcnow_iso(),
+            ).to_dict()
+        )
+    return users
+
+
 def _read_users() -> list[dict[str, Any]]:
     users = _load_json(USERS_FILE)
     changed = False
-    existing = {_normalize_email(item.get("email", "")): item for item in users}
 
-    for email in SEED_MANAGERS:
-        key = _normalize_email(email)
-        if key not in existing:
-            users.append(
-                AuthUser(
-                    email=key,
-                    name=email.split("@")[0].replace(".", " ").title(),
-                    role="gerencial",
-                    password_hash=None,
-                    must_define_password=True,
-                    created_at=utcnow_iso(),
-                    updated_at=utcnow_iso(),
-                ).to_dict()
-            )
+    # Os usuários iniciais só são criados quando o arquivo ainda está vazio.
+    # Assim um usuário excluído ou com e-mail alterado não volta automaticamente.
+    if not users:
+        users = _seed_users()
+        changed = True
+
+    for user in users:
+        desired_pages = _effective_pages(user)
+        if user.get("pages") != desired_pages:
+            user["pages"] = desired_pages
             changed = True
-
-    for email in SEED_ANALYSTS:
-        key = _normalize_email(email)
-        if key not in existing:
-            users.append(
-                AuthUser(
-                    email=key,
-                    name=email.split("@")[0].replace(".", " ").title(),
-                    role="analista",
-                    password_hash=None,
-                    must_define_password=True,
-                    created_at=utcnow_iso(),
-                    updated_at=utcnow_iso(),
-                ).to_dict()
-            )
+        if "active" not in user:
+            user["active"] = True
             changed = True
 
     if changed:
@@ -154,9 +209,9 @@ def _read_users() -> list[dict[str, Any]]:
 
 
 def get_user(email: str) -> dict[str, Any] | None:
-    email = _normalize_email(email)
+    normalized = _normalize_email(email)
     for user in _read_users():
-        if _normalize_email(str(user.get("email", ""))) == email:
+        if _normalize_email(str(user.get("email", ""))) == normalized:
             return user
     return None
 
@@ -219,6 +274,7 @@ def create_token(user: dict[str, Any]) -> str:
         "email": _normalize_email(str(user.get("email", ""))),
         "name": str(user.get("name", "")),
         "role": str(user.get("role", "analista")),
+        "pages": _effective_pages(user),
         "exp": exp.timestamp(),
     }
     return _encode_token(payload)
@@ -229,7 +285,9 @@ def _public_user(user: dict[str, Any]) -> dict[str, Any]:
         "email": str(user.get("email", "")),
         "name": str(user.get("name", "")),
         "role": str(user.get("role", "analista")),
+        "pages": _effective_pages(user),
         "must_define_password": bool(user.get("must_define_password", False)),
+        "active": bool(user.get("active", True)),
     }
 
 
@@ -424,6 +482,7 @@ def verify_confirmation_code(name: str, email: str, code: str, purpose: str = "s
                 role="analista",
                 password_hash=None,
                 must_define_password=True,
+                pages=list(DEFAULT_ANALYST_PAGES),
                 created_at=utcnow_iso(),
                 updated_at=utcnow_iso(),
             ).to_dict()
@@ -479,10 +538,241 @@ def update_settings(token: str, current_password: str, new_email: str | None = N
     }
 
 
+def _require_manager(token: str) -> dict[str, Any]:
+    user = resolve_user_from_token(token)
+    if str(user.get("role", "")) != "gerencial":
+        raise HTTPException(status_code=403, detail="Apenas usuários gerenciais podem gerenciar acessos.")
+    return user
+
+
+def _is_allowed_admin_email(email: str) -> bool:
+    normalized = _normalize_email(email)
+    if "@" not in normalized:
+        return False
+    return normalized.split("@", 1)[1] in ALLOWED_DOMAINS
+
+
+def list_managed_users(token: str) -> dict[str, Any]:
+    _require_manager(token)
+    users = sorted(
+        [user for user in _read_users() if user.get("active", True)],
+        key=lambda item: (str(item.get("name", "")).lower(), str(item.get("email", "")).lower()),
+    )
+    return {
+        "pages": [{"path": path, "label": label} for path, label in PAGE_CATALOG.items()],
+        "users": [_public_user(user) for user in users],
+    }
+
+
+def create_managed_user(token: str, name: str, email: str, role: str, pages: list[str] | None) -> dict[str, Any]:
+    _require_manager(token)
+    clean_name = name.strip()
+    normalized = _normalize_email(email)
+    role = role.strip().lower()
+
+    if not clean_name:
+        raise HTTPException(status_code=400, detail="Informe o nome do usuário.")
+    if not _is_allowed_admin_email(normalized):
+        raise HTTPException(status_code=400, detail="O e-mail deve ser dos domínios permitidos.")
+    if role not in {"gerencial", "analista"}:
+        raise HTTPException(status_code=400, detail="Nível de acesso inválido.")
+    existing = get_user(normalized)
+    if existing and existing.get("active", True):
+        raise HTTPException(status_code=400, detail="Esse e-mail já está cadastrado.")
+
+    selected_pages = list(PAGE_CATALOG.keys()) if role == "gerencial" else _normalize_pages(pages)
+    if role == "analista" and not selected_pages:
+        raise HTTPException(status_code=400, detail="Selecione pelo menos uma página para o usuário.")
+
+    users = _read_users()
+    created = AuthUser(
+        email=normalized,
+        name=clean_name,
+        role=role,
+        password_hash=None,
+        must_define_password=True,
+        pages=selected_pages,
+        active=True,
+        created_at=utcnow_iso(),
+        updated_at=utcnow_iso(),
+    ).to_dict()
+
+    # Caso o mesmo e-mail tenha sido removido anteriormente, reativamos o registro.
+    replaced = False
+    for index, user in enumerate(users):
+        if _normalize_email(str(user.get("email", ""))) == normalized:
+            users[index] = created
+            replaced = True
+            break
+    if not replaced:
+        users.append(created)
+
+    _write_users(users)
+    return {
+        "message": "Usuário adicionado com sucesso. No primeiro acesso ele deverá cadastrar a senha.",
+        "user": _public_user(created),
+    }
+
+
+def update_managed_user(
+    token: str,
+    email: str,
+    name: str,
+    new_email: str,
+    role: str,
+    pages: list[str] | None,
+) -> dict[str, Any]:
+    manager = _require_manager(token)
+    original_email = _normalize_email(email)
+    clean_name = name.strip()
+    normalized_new_email = _normalize_email(new_email)
+    role = role.strip().lower()
+
+    if not clean_name:
+        raise HTTPException(status_code=400, detail="Informe o nome do usuário.")
+    if role not in {"gerencial", "analista"}:
+        raise HTTPException(status_code=400, detail="Nível de acesso inválido.")
+
+    users = _read_users()
+    selected = None
+    for user in users:
+        if _normalize_email(str(user.get("email", ""))) == original_email and user.get("active", True):
+            selected = user
+            break
+    if not selected:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+
+    manager_email = _normalize_email(str(manager.get("email", "")))
+    if original_email == manager_email and normalized_new_email != original_email:
+        raise HTTPException(
+            status_code=400,
+            detail="Para alterar o seu próprio e-mail, use a aba Minha conta.",
+        )
+    if original_email == manager_email and role != "gerencial":
+        raise HTTPException(status_code=400, detail="Você não pode remover o seu próprio acesso gerencial.")
+
+    if normalized_new_email != original_email:
+        if not _is_allowed_admin_email(normalized_new_email):
+            raise HTTPException(status_code=400, detail="O e-mail deve ser dos domínios permitidos.")
+        for user in users:
+            if (
+                user is not selected
+                and user.get("active", True)
+                and _normalize_email(str(user.get("email", ""))) == normalized_new_email
+            ):
+                raise HTTPException(status_code=400, detail="Esse e-mail já está cadastrado.")
+
+    selected_pages = list(PAGE_CATALOG.keys()) if role == "gerencial" else _normalize_pages(pages)
+    if role == "analista" and not selected_pages:
+        raise HTTPException(status_code=400, detail="Selecione pelo menos uma página para o usuário.")
+
+    selected["name"] = clean_name
+    selected["email"] = normalized_new_email
+    selected["role"] = role
+    selected["pages"] = selected_pages
+    selected["updated_at"] = utcnow_iso()
+    _write_users(users)
+    return {
+        "message": "Usuário atualizado com sucesso.",
+        "user": _public_user(selected),
+    }
+
+
+def update_managed_user_access(token: str, email: str, role: str, pages: list[str] | None) -> dict[str, Any]:
+    current = get_user(email)
+    if not current:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+    return update_managed_user(
+        token=token,
+        email=email,
+        name=str(current.get("name", "")),
+        new_email=email,
+        role=role,
+        pages=pages,
+    )
+
+
+def _generate_temporary_password() -> str:
+    # Atende às mesmas regras de complexidade exigidas pelo sistema.
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
+    middle = "".join(secrets.choice(alphabet) for _ in range(8))
+    return f"Cd#{secrets.randbelow(90) + 10}{middle}"
+
+
+def reset_managed_user_password(token: str, email: str) -> dict[str, Any]:
+    _require_manager(token)
+    normalized = _normalize_email(email)
+    users = _read_users()
+    selected = None
+    for user in users:
+        if _normalize_email(str(user.get("email", ""))) == normalized and user.get("active", True):
+            selected = user
+            break
+    if not selected:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+
+    temporary_password = _generate_temporary_password()
+    validate_password_rules(temporary_password)
+    selected["password_hash"] = _hash_password(temporary_password)
+    selected["must_define_password"] = False
+    selected["updated_at"] = utcnow_iso()
+    _write_users(users)
+    return {
+        "message": "Nova senha gerada com sucesso.",
+        "temporary_password": temporary_password,
+        "user": _public_user(selected),
+    }
+
+
+def delete_managed_user(token: str, email: str) -> dict[str, Any]:
+    manager = _require_manager(token)
+    normalized = _normalize_email(email)
+    manager_email = _normalize_email(str(manager.get("email", "")))
+    if normalized == manager_email:
+        raise HTTPException(status_code=400, detail="Você não pode excluir o seu próprio usuário.")
+
+    users = _read_users()
+    selected = None
+    for user in users:
+        if _normalize_email(str(user.get("email", ""))) == normalized and user.get("active", True):
+            selected = user
+            break
+    if not selected:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+
+    # Remoção lógica preserva histórico e permite reativação futura com o mesmo e-mail.
+    selected["active"] = False
+    selected["updated_at"] = utcnow_iso()
+    _write_users(users)
+    return {"message": "Usuário excluído com sucesso."}
+
+
 def get_session(token: str) -> dict[str, Any]:
     user = resolve_user_from_token(token)
     return _public_user(user)
 
+
+
+
+def list_active_analysts(token: str) -> list[dict[str, str]]:
+    """Retorna somente usuários ativos de nível Analista para distribuição de campanhas."""
+    resolve_user_from_token(token)
+    analysts: list[dict[str, str]] = []
+    for user in _read_users():
+        if not bool(user.get("active", True)):
+            continue
+        if str(user.get("role", "")).strip().lower() != "analista":
+            continue
+        analysts.append(
+            {
+                "name": str(user.get("name") or user.get("email") or "Analista"),
+                "email": _normalize_email(str(user.get("email") or "")),
+                "role": "analista",
+            }
+        )
+    analysts = [item for item in analysts if item["email"]]
+    analysts.sort(key=lambda item: (item["name"].lower(), item["email"]))
+    return analysts
 
 # garante seed logo na importação
 _ensure_files()

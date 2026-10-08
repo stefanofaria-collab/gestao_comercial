@@ -6,6 +6,8 @@ import type { ReactNode } from "react";
 import {
   CalendarDays,
   CircleHelp,
+  Download,
+  FileSpreadsheet,
   ExternalLink,
   MessageCircleMore,
   MousePointerClick,
@@ -18,9 +20,11 @@ import {
 } from "lucide-react";
 
 import { useGlobalFilters } from "@/contexts/GlobalFiltersContext";
-import { fetchAtendimentosDashboard, fetchAtendimentosMeta, fetchAtendimentosStatus } from "@/lib/atendimentos-api";
+import { fetchAtendimentosChurnExport, fetchAtendimentosDashboard, fetchAtendimentosMeta, fetchAtendimentosStatus } from "@/lib/atendimentos-api";
 import type {
   AtendimentoClienteRanking,
+  AtendimentoChurnExportResponse,
+  AtendimentoChurnExportRow,
   AtendimentoMotivoDemografia,
   AtendimentosDashboardResponse,
   AtendimentosMetaResponse,
@@ -39,6 +43,36 @@ const decimal2 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maxi
 
 function formatInteger(value: number | null | undefined) {
   return integer.format(Math.round(value ?? 0));
+}
+
+function formatMoney(value: number | null | undefined) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(value || 0));
+}
+
+function durationLabel(value: string | null | undefined) {
+  return ({ M: "Mensal", T: "Trimestral", S: "Semestral", A: "Anual" } as Record<string, string>)[value || ""] ?? value ?? "—";
+}
+
+function csvCell(value: unknown) {
+  const text = String(value ?? "").replaceAll('"', '""');
+  return `"${text}"`;
+}
+
+function downloadFile(content: BlobPart, type: string, filename: string) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 function formatPercent(value: number | null | undefined) {
@@ -284,6 +318,10 @@ export default function AtendimentosDashboard() {
   const [selectedMotiveMode, setSelectedMotiveMode] = useState<MotiveMode>("geral");
   const requestSequence = useRef(0);
   const [selectedClient, setSelectedClient] = useState<AtendimentoClienteRanking | null>(null);
+  const [churnExport, setChurnExport] = useState<AtendimentoChurnExportResponse | null>(null);
+  const [churnExportLoading, setChurnExportLoading] = useState(false);
+  const [churnExportError, setChurnExportError] = useState<string | null>(null);
+  const [churnExportPage, setChurnExportPage] = useState(1);
 
   useEffect(() => {
     let active = true;
@@ -350,6 +388,83 @@ export default function AtendimentosDashboard() {
     return () => globalThis.clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.sincronizacao.atualizado, data?._cache_info?.refreshing, data?._cache_info?.fallback, year, month]);
+
+  useEffect(() => {
+    if (!data) return;
+    let active = true;
+    setChurnExportLoading(true);
+    setChurnExportError(null);
+    fetchAtendimentosChurnExport(filters)
+      .then((response) => {
+        if (!active) return;
+        setChurnExport(response);
+        setChurnExportPage(1);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setChurnExportError(err instanceof Error ? err.message : "Erro ao carregar os atendimentos de churn.");
+      })
+      .finally(() => {
+        if (active) setChurnExportLoading(false);
+      });
+    return () => { active = false; };
+  }, [data?.churn_atendimentos.resumo.clientes_churnados_com_atendimento, filters.empresa, filters.origem, filters.pagador]);
+
+  const churnExportColumns: Array<{ key: keyof AtendimentoChurnExportRow; label: string }> = [
+    { key: "data_atendimento", label: "Data do atendimento" },
+    { key: "plano", label: "Plano" },
+    { key: "duracao", label: "Duração" },
+    { key: "valor", label: "Valor" },
+    { key: "motivo", label: "Motivo do atendimento" },
+    { key: "email_cliente", label: "E-mail do cliente" },
+    { key: "email_atendente", label: "E-mail do atendente" },
+    { key: "avaliacao", label: "Avaliação" },
+    { key: "duracao_humano_segundos", label: "Tempo com humano" },
+  ];
+
+  function churnCellValue(row: AtendimentoChurnExportRow, key: keyof AtendimentoChurnExportRow): string | number {
+    if (key === "data_atendimento") return formatDate(row.data_atendimento);
+    if (key === "duracao") return durationLabel(row.duracao);
+    if (key === "valor") return row.valor;
+    if (key === "duracao_humano_segundos") return formatDuration(row.duracao_humano_segundos);
+    return String(row[key] ?? "");
+  }
+
+  function downloadChurnCsv() {
+    if (!churnExport) return;
+    const header = churnExportColumns.map((column) => csvCell(column.label)).join(";");
+    const body = churnExport.rows.map((row) =>
+      churnExportColumns.map((column) => {
+        const value = column.key === "valor" ? formatMoney(row.valor) : churnCellValue(row, column.key);
+        return csvCell(value);
+      }).join(";")
+    ).join("\r\n");
+    downloadFile(`\uFEFF${header}\r\n${body}`, "text/csv;charset=utf-8", "atendimentos_clientes_churn.csv");
+  }
+
+  async function downloadChurnXlsx() {
+    if (!churnExport) return;
+    const XLSX = await import("xlsx");
+    const rows = churnExport.rows.map((row) => ({
+      "Data do atendimento": formatDate(row.data_atendimento),
+      Plano: row.plano,
+      "Duração": durationLabel(row.duracao),
+      Valor: row.valor,
+      "Motivo do atendimento": row.motivo,
+      "E-mail do cliente": row.email_cliente,
+      "E-mail do atendente": row.email_atendente,
+      "Avaliação": row.avaliacao,
+      "Tempo com humano": formatDuration(row.duracao_humano_segundos),
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    worksheet["!cols"] = [
+      { wch: 20 }, { wch: 20 }, { wch: 14 }, { wch: 14 }, { wch: 32 },
+      { wch: 34 }, { wch: 34 }, { wch: 18 }, { wch: 18 },
+    ];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Atendimentos churn");
+    XLSX.writeFile(workbook, "atendimentos_clientes_churn.xlsx");
+  }
 
   const historyOption = useMemo(() => {
     const rows = data?.historico ?? [];
@@ -867,7 +982,7 @@ export default function AtendimentosDashboard() {
                   <table className="min-w-full text-sm">
                     <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Cliente</th><th className="px-4 py-3 text-right">Atend.</th><th className="px-4 py-3 text-right">Motivos</th><th className="px-4 py-3 text-right">Atendentes</th><th className="px-4 py-3 text-right">Tempo médio</th><th className="px-4 py-3 text-right">Tempo total</th></tr></thead>
                     <tbody className="divide-y divide-slate-100">
-                      {data.churn_atendimentos.clientes.map((row) => (
+                      {data.churn_atendimentos.clientes.slice(0, 10).map((row) => (
                         <tr key={row.empresa_id}>
                           <td className="px-4 py-3"><div className="font-semibold text-slate-900">{row.cliente}</div><a href={row.intranet_url} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-blue-700">Abrir no intranet <ExternalLink size={11} /></a></td>
                           <td className="px-4 py-3 text-right">{formatInteger(row.atendimentos)}</td>
@@ -882,6 +997,76 @@ export default function AtendimentosDashboard() {
                 </div>
               </div>
             ) : null}
+
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="flex flex-col gap-3 border-b border-slate-200 p-5 lg:flex-row lg:items-center lg:justify-between">
+                <SectionTitle
+                  title="Todos os atendimentos de clientes que churnaram"
+                  subtitle="Histórico completo desde 2024 dos clientes atualmente com 60 dias ou mais de atraso."
+                  help="Cada linha representa um atendimento. A tabela mostra o plano correspondente ao momento do contato, os e-mails utilizados e a duração do contato humano."
+                />
+                {churnExport ? (
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={downloadChurnCsv} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                      <Download size={15} /> CSV
+                    </button>
+                    <button type="button" onClick={() => void downloadChurnXlsx()} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">
+                      <FileSpreadsheet size={15} /> XLSX
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+
+              {churnExportLoading ? (
+                <div className="p-6 text-sm text-slate-500">Carregando atendimentos de churn...</div>
+              ) : churnExportError ? (
+                <div className="m-5 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{churnExportError}</div>
+              ) : churnExport && churnExport.rows.length ? (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-[1550px] w-full text-sm">
+                      <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                        <tr>
+                          <th className="px-4 py-3">Data</th>
+                          <th className="px-4 py-3">Plano</th>
+                          <th className="px-4 py-3">Duração</th>
+                          <th className="px-4 py-3 text-right">Valor</th>
+                          <th className="px-4 py-3">Motivo</th>
+                          <th className="px-4 py-3">E-mail do cliente</th>
+                          <th className="px-4 py-3">E-mail do atendente</th>
+                          <th className="px-4 py-3">Avaliação</th>
+                          <th className="px-4 py-3 text-right">Tempo com humano</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {churnExport.rows.slice((churnExportPage - 1) * 20, churnExportPage * 20).map((row, index) => (
+                          <tr key={`${row.data_atendimento}-${row.email_cliente}-${index}`}>
+                            <td className="whitespace-nowrap px-4 py-3">{formatDate(row.data_atendimento)}</td>
+                            <td className="px-4 py-3">{row.plano || "—"}</td>
+                            <td className="px-4 py-3">{durationLabel(row.duracao)}</td>
+                            <td className="whitespace-nowrap px-4 py-3 text-right font-semibold">{formatMoney(row.valor)}</td>
+                            <td className="px-4 py-3">{row.motivo || "—"}</td>
+                            <td className="px-4 py-3">{row.email_cliente || "—"}</td>
+                            <td className="px-4 py-3">{row.email_atendente || "—"}</td>
+                            <td className="px-4 py-3">{row.avaliacao || "—"}</td>
+                            <td className="whitespace-nowrap px-4 py-3 text-right">{formatDuration(row.duracao_humano_segundos)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+                    <span>{formatInteger(churnExport.total)} atendimento(s) · 20 linhas por página.</span>
+                    <div className="flex gap-2">
+                      <button type="button" disabled={churnExportPage <= 1} onClick={() => setChurnExportPage((page) => Math.max(1, page - 1))} className="rounded-lg border border-slate-200 px-3 py-1.5 disabled:opacity-40">Anterior</button>
+                      <button type="button" disabled={churnExportPage >= Math.max(1, Math.ceil(churnExport.rows.length / 20))} onClick={() => setChurnExportPage((page) => Math.min(Math.max(1, Math.ceil(churnExport.rows.length / 20)), page + 1))} className="rounded-lg border border-slate-200 px-3 py-1.5 disabled:opacity-40">Próxima</button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="p-6 text-sm text-slate-500">Nenhum atendimento de cliente churnado encontrado.</div>
+              )}
+            </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 text-xs leading-5 text-slate-500">
               Dados disponíveis de <strong>{formatDate(data.dados.primeira_data)}</strong> até <strong>{formatDate(data.dados.ultima_data)}</strong>. O dia atual não entra em nenhuma análise.

@@ -52,7 +52,7 @@ export default function LoginScreen() {
         return;
       }
       saveStoredSession({ token: result.token, user: result.user });
-      router.replace(getDefaultPath(result.user.role));
+      router.replace(getDefaultPath(result.user.role, result.user.pages));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível entrar.");
     } finally {
@@ -107,7 +107,7 @@ export default function LoginScreen() {
     try {
       const result = await firstAccessRequest(email, password);
       saveStoredSession({ token: result.token, user: result.user });
-      router.replace(getDefaultPath(result.user.role));
+      router.replace(getDefaultPath(result.user.role, result.user.pages));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível concluir o primeiro acesso.");
     } finally {

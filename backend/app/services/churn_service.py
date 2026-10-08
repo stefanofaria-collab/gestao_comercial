@@ -16,6 +16,14 @@ VALID_COMPANY_FILTERS = {"todos", "gestaoclick", "clicknotas"}
 VALID_ORIGIN_FILTERS = {"todos", "gestaoclick", "parceiro"}
 VALID_PAYER_FILTERS = {"todos", "cliente", "parceiro"}
 
+UTM_DIMENSIONS = [
+    ("utm_source", "UTM Source", 1),
+    ("utm_medium", "UTM Medium", 2),
+    ("utm_campaign", "UTM Campaign", 3),
+    ("utm_content", "UTM Content", 4),
+    ("utm_term", "UTM Term", 5),
+]
+
 # As consultas validadas pelo usuário adicionam também estes IDs às exclusões.
 CHURN_EXCLUDED_COMPANY_IDS = tuple(dict.fromkeys((*EXCLUDED_COMPANY_IDS, 205324, 380371)))
 
@@ -63,6 +71,11 @@ CHURN_CLIENTS_SQL = text(
             e.empresa_indicacao_id,
             e.tipo_cobranca,
             e.ativou_em,
+            e.utm_source,
+            e.utm_medium,
+            e.utm_campaign,
+            e.utm_term,
+            e.utm_content,
             ep.cpf_cnpj,
             (
                 SELECT nfs_doc.dest_cnpj
@@ -139,6 +152,11 @@ CHURN_CLIENTS_SQL = text(
             ce.empresa,
             ce.origem,
             ce.pagador,
+            ce.utm_source,
+            ce.utm_medium,
+            ce.utm_campaign,
+            ce.utm_term,
+            ce.utm_content,
             ce.ativou_em,
             ce.cpf_cnpj,
             ce.dest_cnpj,
@@ -165,6 +183,11 @@ CHURN_CLIENTS_SQL = text(
             ce.empresa,
             ce.origem,
             ce.pagador,
+            ce.utm_source,
+            ce.utm_medium,
+            ce.utm_campaign,
+            ce.utm_term,
+            ce.utm_content,
             ce.ativou_em,
             ce.cpf_cnpj,
             ce.dest_cnpj,
@@ -182,6 +205,11 @@ CHURN_CLIENTS_SQL = text(
         empresa,
         origem,
         pagador,
+        utm_source,
+        utm_medium,
+        utm_campaign,
+        utm_term,
+        utm_content,
         ativou_em,
         cpf_cnpj,
         dest_cnpj,
@@ -291,6 +319,50 @@ def _aggregate_dimension(rows: list[dict], field: str) -> list[dict]:
     ]
 
 
+
+def _aggregate_utm_dimension(rows: list[dict], field: str, label: str, priority: int) -> dict:
+    ignored_values = {"", "none", "null", "não informado", "nao informado", "(not set)", "not set"}
+    informed_rows = []
+    for row in rows:
+        raw_value = row.get(field)
+        value = str(raw_value or "").strip()
+        if not value or value.lower() in ignored_values:
+            continue
+        informed_rows.append(row)
+
+    grouped: defaultdict[str, dict] = defaultdict(
+        lambda: {"clientes": 0, "ltv_total": 0.0, "valor_perdido": 0.0}
+    )
+    for row in informed_rows:
+        value = str(row.get(field) or "").strip()
+        grouped[value]["clientes"] += 1
+        grouped[value]["ltv_total"] += float(row.get("ltv") or 0)
+        grouped[value]["valor_perdido"] += float(row.get("valor_perdido") or 0)
+
+    total_clients = len(rows)
+    informed_clients = len(informed_rows)
+    items = [
+        {
+            "label": value,
+            "clientes": metrics["clientes"],
+            "percentual_clientes": round(metrics["clientes"] / total_clients * 100, 2) if total_clients else 0.0,
+            "ltv_total": round(metrics["ltv_total"], 2),
+            "valor_perdido": round(metrics["valor_perdido"], 2),
+        }
+        for value, metrics in grouped.items()
+    ]
+    items.sort(key=lambda item: (item["valor_perdido"], item["clientes"]), reverse=True)
+
+    return {
+        "field": field,
+        "label": label,
+        "prioridade": priority,
+        "clientes_informados": informed_clients,
+        "cobertura_clientes": round(informed_clients / total_clients * 100, 2) if total_clients else 0.0,
+        "itens": items[:20],
+    }
+
+
 def _rows_to_payload(db_rows) -> list[dict]:
     rows: list[dict] = []
     for raw in db_rows:
@@ -304,6 +376,11 @@ def _rows_to_payload(db_rows) -> list[dict]:
                 "empresa": str(row.get("empresa") or "Não informado"),
                 "origem": str(row.get("origem") or "Não informado"),
                 "pagador": str(row.get("pagador") or "Não informado"),
+                "utm_source": str(row.get("utm_source") or "").strip() or None,
+                "utm_medium": str(row.get("utm_medium") or "").strip() or None,
+                "utm_campaign": str(row.get("utm_campaign") or "").strip() or None,
+                "utm_term": str(row.get("utm_term") or "").strip() or None,
+                "utm_content": str(row.get("utm_content") or "").strip() or None,
                 "cpf_cnpj": str(row.get("cpf_cnpj") or "").strip() or None,
                 "dest_cnpj": str(row.get("dest_cnpj") or "").strip() or None,
                 "nome_plano": str(row.get("nome_plano") or "Não informado"),
@@ -492,6 +569,10 @@ def get_churn_dashboard(
             "por_origem": _aggregate_dimension(rows, "origem"),
             "por_pagador": _aggregate_dimension(rows, "pagador"),
         },
+        "utms": [
+            _aggregate_utm_dimension(rows, field, label, priority)
+            for field, label, priority in UTM_DIMENSIONS
+        ],
         "clientes": rows,
     }
 
