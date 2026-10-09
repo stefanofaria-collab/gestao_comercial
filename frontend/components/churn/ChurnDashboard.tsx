@@ -312,6 +312,99 @@ function UtmRankingCard({ ranking, financial }: { ranking: ChurnUtmRanking; fina
   );
 }
 
+
+function cohortLabel(value: string) {
+  const [year, month] = value.slice(0, 7).split("-").map(Number);
+  return `${MONTHS[(month || 1) - 1].slice(0, 3)}/${String(year).slice(-2)}`;
+}
+
+function ChurnAnalytics({ data }: { data: ChurnDashboardResponse }) {
+  const groups = data.analises?.coorte_por_duracao ?? [];
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-900">
+        <strong>Como ler:</strong> cada linha é o mês de ativação do cliente. M representa o mês de vida da coorte. A célula só aparece quando existe uma renovação esperada para aquela duração e mostra quantos clientes realmente chegaram a esse novo ciclo pago.
+      </div>
+
+      {groups.map((group) => (
+        <div key={group.duracao} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <SectionTitle
+            title={`Coorte ${group.label}`}
+            subtitle={
+              group.duracao === "M"
+                ? "Mensal: a renovação é medida em M1, M2, M3... até M24."
+                : group.duracao === "T"
+                  ? "Trimestral: a renovação é medida em M3, M6, M9... até M24."
+                  : group.duracao === "S"
+                    ? "Semestral: a renovação é medida em M6, M12, M18 e M24."
+                    : "Anual: a renovação é medida em M12 e M24."
+            }
+            helpText="M0 é a contratação inicial. Uma célula só conta o cliente quando existe um novo ciclo pago com novo vencimento. Linhas duplicadas, + recursos e registros com o mesmo vencimento não contam como renovação. Se houver uma quebra de 60 dias ou mais, a sequência da coorte original é encerrada."
+          />
+
+          {group.coortes.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">
+              Não há clientes desta duração no recorte atual.
+            </div>
+          ) : (
+            <div className="max-h-[650px] overflow-auto rounded-xl border border-slate-200">
+              <table className="min-w-full w-full text-xs">
+                <thead className="sticky top-0 z-10 bg-slate-950 text-white">
+                  <tr>
+                    <th className="px-3 py-3 text-left">Coorte</th>
+                    <th className="px-3 py-3 text-right">Base</th>
+                    {Array.from({ length: 25 }, (_, index) => index)
+                      .filter((index) => index === 0 || index % group.intervalo_meses === 0)
+                      .map((index) => (
+                        <th key={index} className="px-3 py-3 text-center">M{index}</th>
+                      ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {group.coortes.map((row) => (
+                    <tr key={`${group.duracao}-${row.coorte}`}>
+                      <td className="whitespace-nowrap bg-white px-3 py-3 font-semibold text-slate-900">{cohortLabel(row.coorte)}</td>
+                      <td className="bg-white px-3 py-3 text-right font-bold text-slate-950">{formatInteger(row.base_clientes)}</td>
+                      {row.meses
+                        .filter((cell) => cell.mes === 0 || cell.mes % group.intervalo_meses === 0)
+                        .map((cell) => {
+                        if (!cell.aplicavel) {
+                          return (
+                            <td key={cell.mes} className="bg-slate-50 px-2 py-2 text-center text-slate-300" title="Não há renovação prevista neste mês para esta duração.">—</td>
+                          );
+                        }
+                        if (!cell.observavel || cell.percentual === null) {
+                          return (
+                            <td key={cell.mes} className="bg-slate-100 px-2 py-2 text-center text-slate-400" title="Ainda não passou tempo suficiente para medir esta renovação.">…</td>
+                          );
+                        }
+                        const value = cell.percentual;
+                        const alpha = 0.08 + Math.min(0.82, value / 100 * 0.82);
+                        return (
+                          <td
+                            key={cell.mes}
+                            className="px-2 py-2 text-center"
+                            style={{ backgroundColor: `rgba(37, 99, 235, ${alpha})`, color: value < 45 ? "#0f172a" : "#ffffff" }}
+                            title={`${formatInteger(cell.retidos ?? 0)} de ${formatInteger(row.base_clientes)} clientes chegaram a M${cell.mes} · ${formatPercent(value)}`}
+                          >
+                            <div className="font-bold">{formatPercent(value)}</div>
+                            <div className="text-[10px] opacity-80">{formatInteger(cell.retidos ?? 0)}</div>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 type SortKey =
   | "cliente"
   | "empresa"
@@ -364,14 +457,36 @@ function intranetUrl(empresaId: number) {
 }
 
 const CHURN_EXPORT_COLUMNS = [
-  "ID", "Cliente", "Empresa", "Origem", "Pagador", "Plano", "Duração",
-  "Vencimento", "Data do churn", "Tempo (meses)", "Renovações", "LTV", "Intranet",
+  "Empresa ID",
+  "Cliente",
+  "Razão social",
+  "Nome do usuário",
+  "Telefone",
+  "Celular",
+  "E-mail",
+  "Empresa",
+  "Origem",
+  "Responsável pelo pagamento",
+  "Plano",
+  "Duração",
+  "Data de vencimento",
+  "Completou 60 dias",
+  "Dias vencido",
+  "Tempo como cliente (meses)",
+  "Renovações",
+  "LTV",
+  "Intranet",
 ];
 
 function churnClientRows(clients: ChurnClient[]) {
   return clients.map((client) => [
     client.empresa_id,
     client.cliente,
+    client.razao_social ?? "",
+    client.nome_usuario ?? "",
+    client.telefone ?? "",
+    client.celular ?? "",
+    client.email ?? "",
     client.empresa,
     client.origem,
     client.pagador,
@@ -379,6 +494,7 @@ function churnClientRows(clients: ChurnClient[]) {
     client.duracao_label,
     client.data_vencimento ?? "",
     client.churn_em ?? "",
+    client.dias_vencido,
     client.meses_cliente,
     client.renovacoes,
     client.ltv,
@@ -464,6 +580,7 @@ export default function ChurnDashboard() {
   const [renewalHistory, setRenewalHistory] = useState<ChurnRenewalHistoryResponse | null>(null);
   const [renewalHistoryLoading, setRenewalHistoryLoading] = useState(false);
   const [renewalHistoryError, setRenewalHistoryError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"overview" | "analytics">("overview");
 
   const years = useMemo(() => Array.from({ length: currentYear - 2024 + 1 }, (_, index) => 2024 + index), [currentYear]);
   const periodLabel = filters.anoCompleto ? `Ano completo de ${filters.ano}` : filters.meses.length > 1 ? `${MONTHS[(filters.meses[0] ?? 1) - 1]} a ${MONTHS[(filters.meses[filters.meses.length - 1] ?? 1) - 1]} de ${filters.ano}` : `${MONTHS[(filters.meses[0] ?? month) - 1]} de ${filters.ano}`;
@@ -678,6 +795,11 @@ export default function ChurnDashboard() {
           </div>
         </div>
 
+        <div className="mb-6 inline-flex rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+          <button type="button" onClick={() => setActiveTab("overview")} className={`rounded-xl px-5 py-2.5 text-sm font-semibold transition ${activeTab === "overview" ? "bg-slate-950 text-white" : "text-slate-500 hover:bg-slate-50"}`}>Visão geral</button>
+          <button type="button" onClick={() => setActiveTab("analytics")} className={`rounded-xl px-5 py-2.5 text-sm font-semibold transition ${activeTab === "analytics" ? "bg-slate-950 text-white" : "text-slate-500 hover:bg-slate-50"}`}>Coorte</button>
+        </div>
+
         <div className="mb-6 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
           <div className="flex items-start gap-2">
             <HelpTip text="Nesta página consideramos churn somente quando o plano atual do cliente está vencido há 60 dias ou mais. Clientes com 1 a 59 dias de atraso ficam fora desta análise." />
@@ -685,6 +807,8 @@ export default function ChurnDashboard() {
           </div>
         </div>
 
+        {activeTab === "overview" ? (
+          <>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <Kpi title="Clientes perdidos" value={formatInteger(data.resumo.clientes_perdidos)} subtitle="Quantidade de clientes que completaram a regra de churn no período." helpText="Conta somente clientes cujo plano atual chegou a 60 dias ou mais de atraso. Quem está com menos de 60 dias de atraso não aparece nesta página." />
           <Kpi title="Valor mensal que saiu da carteira" value={formatMoney(data.resumo.valor_perdido)} subtitle="Soma do valor do último plano desses clientes." helpText="É a soma do valor dos planos que estavam com os clientes quando eles saíram. Ajuda a entender quanto de receita recorrente estava ligado a esses clientes." />
@@ -810,7 +934,28 @@ export default function ChurnDashboard() {
               </div>
               <p className="mt-1 text-xs text-slate-500">Clique em um cliente para abrir o histórico resumido de tempo, renovações e LTV.</p>
             </div>
-            <label className="relative block w-full max-w-sm">
+            <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+              <div className="flex shrink-0 gap-2">
+                <button
+                  type="button"
+                  onClick={() => downloadChurnCsv(sortedClients, "churn_clientes.csv")}
+                  disabled={sortedClients.length === 0}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+                  title="Exporta todos os clientes do recorte atual em CSV"
+                >
+                  <Download size={14} /> CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void downloadChurnXlsx(sortedClients, "churn_clientes.xlsx")}
+                  disabled={sortedClients.length === 0}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+                  title="Exporta todos os clientes do recorte atual em XLSX"
+                >
+                  <FileSpreadsheet size={14} /> XLSX
+                </button>
+              </div>
+              <label className="relative block w-full max-w-sm">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 value={search}
@@ -819,6 +964,7 @@ export default function ChurnDashboard() {
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm outline-none ring-blue-500 focus:ring-2"
               />
             </label>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -867,6 +1013,10 @@ export default function ChurnDashboard() {
             </div>
           </div>
         </div>
+          </>
+        ) : (
+          <ChurnAnalytics data={data} />
+        )}
       </div>
 
       <Modal open={Boolean(selectedPlan)} title={selectedPlan?.nome_plano ?? ""} subtitle="Detalhamento dos clientes perdidos neste plano." onClose={() => setSelectedPlan(null)}>

@@ -412,6 +412,10 @@ export default function AtendimentosDashboard() {
 
   const churnExportColumns: Array<{ key: keyof AtendimentoChurnExportRow; label: string }> = [
     { key: "data_atendimento", label: "Data do atendimento" },
+    { key: "cnpj", label: "CNPJ" },
+    { key: "ativacao", label: "Ativação" },
+    { key: "vencimento", label: "Vencimento" },
+    { key: "setor_segmento", label: "Setor/Segmento" },
     { key: "plano", label: "Plano" },
     { key: "duracao", label: "Duração" },
     { key: "valor", label: "Valor" },
@@ -424,6 +428,7 @@ export default function AtendimentosDashboard() {
 
   function churnCellValue(row: AtendimentoChurnExportRow, key: keyof AtendimentoChurnExportRow): string | number {
     if (key === "data_atendimento") return formatDate(row.data_atendimento);
+    if (key === "ativacao" || key === "vencimento") return formatDate(String(row[key] || ""));
     if (key === "duracao") return durationLabel(row.duracao);
     if (key === "valor") return row.valor;
     if (key === "duracao_humano_segundos") return formatDuration(row.duracao_humano_segundos);
@@ -447,6 +452,10 @@ export default function AtendimentosDashboard() {
     const XLSX = await import("xlsx");
     const rows = churnExport.rows.map((row) => ({
       "Data do atendimento": formatDate(row.data_atendimento),
+      CNPJ: row.cnpj,
+      "Ativação": formatDate(row.ativacao),
+      Vencimento: formatDate(row.vencimento),
+      "Setor/Segmento": row.setor_segmento,
       Plano: row.plano,
       "Duração": durationLabel(row.duracao),
       Valor: row.valor,
@@ -458,8 +467,19 @@ export default function AtendimentosDashboard() {
     }));
     const worksheet = XLSX.utils.json_to_sheet(rows);
     worksheet["!cols"] = [
-      { wch: 20 }, { wch: 20 }, { wch: 14 }, { wch: 14 }, { wch: 32 },
-      { wch: 34 }, { wch: 34 }, { wch: 18 }, { wch: 18 },
+      { wch: 20 }, // Data do atendimento
+      { wch: 22 }, // CNPJ
+      { wch: 14 }, // Ativação
+      { wch: 14 }, // Vencimento
+      { wch: 34 }, // Setor/Segmento
+      { wch: 20 }, // Plano
+      { wch: 14 }, // Duração
+      { wch: 14 }, // Valor
+      { wch: 32 }, // Motivo
+      { wch: 34 }, // E-mail cliente
+      { wch: 34 }, // E-mail atendente
+      { wch: 18 }, // Avaliação
+      { wch: 18 }, // Tempo humano
     ];
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Atendimentos churn");

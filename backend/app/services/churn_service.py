@@ -77,6 +77,11 @@ CHURN_CLIENTS_SQL = text(
             e.utm_term,
             e.utm_content,
             ep.cpf_cnpj,
+            ep.razao_social,
+            ep.nome_usuario,
+            ep.telefone,
+            (SELECT MAX(l.celular) FROM lojas l WHERE l.empresa_id = e.id) AS celular,
+            ep.email,
             (
                 SELECT nfs_doc.dest_cnpj
                 FROM notas_fiscais_servicos nfs_doc
@@ -160,6 +165,11 @@ CHURN_CLIENTS_SQL = text(
             ce.ativou_em,
             ce.cpf_cnpj,
             ce.dest_cnpj,
+            ce.razao_social,
+            ce.nome_usuario,
+            ce.telefone,
+            ce.celular,
+            ce.email,
             ce.nome_plano,
             ce.duracao,
             ce.data_vencimento,
@@ -170,7 +180,8 @@ CHURN_CLIENTS_SQL = text(
             ce.valor_perdido,
             COUNT(hp.id) AS qtd_pagamentos,
             ROUND(COALESCE(SUM(hp.valor), 0), 2) AS ltv,
-            ROUND(COALESCE(AVG(hp.valor), 0), 2) AS ticket_medio
+            ROUND(COALESCE(AVG(hp.valor), 0), 2) AS ticket_medio,
+            MAX(hp.pago_em) AS ultimo_pagamento
         FROM clientes_encerrados ce
         JOIN historico_pagamentos hp
             ON ce.empresa_id = hp.empresa_id
@@ -191,6 +202,11 @@ CHURN_CLIENTS_SQL = text(
             ce.ativou_em,
             ce.cpf_cnpj,
             ce.dest_cnpj,
+            ce.razao_social,
+            ce.nome_usuario,
+            ce.telefone,
+            ce.celular,
+            ce.email,
             ce.nome_plano,
             ce.duracao,
             ce.data_vencimento,
@@ -213,6 +229,11 @@ CHURN_CLIENTS_SQL = text(
         ativou_em,
         cpf_cnpj,
         dest_cnpj,
+        razao_social,
+        nome_usuario,
+        telefone,
+        celular,
+        email,
         nome_plano,
         duracao,
         data_vencimento,
@@ -222,12 +243,189 @@ CHURN_CLIENTS_SQL = text(
         dias_cliente,
         ROUND(COALESCE(valor_perdido, 0), 2) AS valor_perdido,
         qtd_pagamentos,
+        ultimo_pagamento,
+        GREATEST(DATEDIFF(churn_em, ultimo_pagamento), 0) AS recencia_dias,
         GREATEST(qtd_pagamentos - 1, 0) AS renovacoes,
         ltv,
         ticket_medio,
         ROUND(ltv / NULLIF(tempo_vida, 0), 2) AS receita_media_mensal
     FROM metricas
     ORDER BY ltv DESC, empresa_id
+    """
+).bindparams(bindparam("excluidos", expanding=True))
+
+
+# Coorte por duração e por renovação real.
+# M representa o mês de vida da coorte. Só exibimos os meses em que uma
+# renovação é esperada para a duração inicial do cliente.
+CHURN_COHORT_SQL = text(
+    f"""
+    WITH ciclos_iniciais_brutos AS (
+        SELECT
+            e.id AS empresa_id,
+            CAST(DATE_FORMAT(e.ativou_em, '%Y-%m-01') AS DATE) AS coorte,
+            ep.id,
+            ep.pago_em,
+            ep.data_vencimento,
+            ep.duracao,
+            ROW_NUMBER() OVER (
+                PARTITION BY e.id
+                ORDER BY ep.data_vencimento, ep.pago_em, ep.id
+            ) AS ordem_inicial
+        FROM empresas e
+        JOIN empresas_planos ep ON ep.empresa_id = e.id
+        WHERE
+            ep.plano_id <> 1
+            AND ep.pago_em IS NOT NULL
+            AND ep.nota_fiscal_servico_id IS NOT NULL
+            AND ep.data_vencimento IS NOT NULL
+            AND e.ativou_em IS NOT NULL
+            AND e.ativou_em >= '2024-01-01'
+            AND e.ativou_em < :data_fim
+            AND e.id NOT IN :excluidos
+            AND LOWER(COALESCE(ep.nome_plano, '')) NOT LIKE '%+ recursos%'
+            AND ep.duracao IN ('M', 'T', 'S', 'A')
+            {DIMENSION_FILTER_SQL}
+    ),
+    empresas_coorte AS (
+        SELECT
+            empresa_id,
+            coorte,
+            duracao,
+            CASE
+                WHEN duracao = 'M' THEN 1
+                WHEN duracao = 'T' THEN 3
+                WHEN duracao = 'S' THEN 6
+                WHEN duracao = 'A' THEN 12
+            END AS intervalo_meses
+        FROM ciclos_iniciais_brutos
+        WHERE ordem_inicial = 1
+    ),
+    historico_bruto AS (
+        SELECT
+            ep.empresa_id,
+            ep.id,
+            DATE(ep.pago_em) AS pagamento_em,
+            DATE(ep.data_vencimento) AS data_vencimento
+        FROM empresas_planos ep
+        JOIN empresas_coorte ec ON ec.empresa_id = ep.empresa_id
+        WHERE
+            ep.plano_id <> 1
+            AND ep.pago_em IS NOT NULL
+            AND ep.nota_fiscal_servico_id IS NOT NULL
+            AND ep.data_vencimento IS NOT NULL
+            AND DATE(ep.pago_em) <= :data_referencia
+            AND LOWER(COALESCE(ep.nome_plano, '')) NOT LIKE '%+ recursos%'
+    ),
+    -- Um mesmo pagamento pode gerar mais de uma linha. Isso continua sendo
+    -- um único evento comercial.
+    pagamentos_unicos AS (
+        SELECT
+            empresa_id,
+            pagamento_em,
+            MIN(id) AS id,
+            MAX(data_vencimento) AS data_vencimento
+        FROM historico_bruto
+        GROUP BY empresa_id, pagamento_em
+    ),
+    -- Se o vencimento não avançou, não existiu um novo ciclo.
+    ciclos_unicos AS (
+        SELECT
+            empresa_id,
+            data_vencimento,
+            MIN(pagamento_em) AS pagamento_em,
+            MIN(id) AS id
+        FROM pagamentos_unicos
+        GROUP BY empresa_id, data_vencimento
+    ),
+    ciclos_ordenados AS (
+        SELECT
+            c.*,
+            ROW_NUMBER() OVER (
+                PARTITION BY c.empresa_id
+                ORDER BY c.data_vencimento, c.pagamento_em, c.id
+            ) AS ordem_ciclo,
+            LAG(c.data_vencimento) OVER (
+                PARTITION BY c.empresa_id
+                ORDER BY c.data_vencimento, c.pagamento_em, c.id
+            ) AS vencimento_anterior
+        FROM ciclos_unicos c
+    ),
+    eventos AS (
+        SELECT
+            c.*,
+            CASE
+                WHEN c.ordem_ciclo = 1 THEN 0
+                WHEN c.vencimento_anterior IS NULL THEN 1
+                WHEN c.data_vencimento <= c.vencimento_anterior THEN 1
+                WHEN DATEDIFF(c.pagamento_em, c.vencimento_anterior) >= 60 THEN 1
+                ELSE 0
+            END AS quebra_churn
+        FROM ciclos_ordenados c
+    ),
+    sequencia AS (
+        SELECT
+            e.*,
+            SUM(e.quebra_churn) OVER (
+                PARTITION BY e.empresa_id
+                ORDER BY e.ordem_ciclo
+                ROWS UNBOUNDED PRECEDING
+            ) AS quebras_acumuladas
+        FROM eventos e
+    ),
+    renovacoes AS (
+        SELECT
+            empresa_id,
+            MAX(
+                CASE
+                    WHEN ordem_ciclo = 1 THEN 0
+                    WHEN quebras_acumuladas = 0 THEN ordem_ciclo - 1
+                    ELSE 0
+                END
+            ) AS renovacoes_validas
+        FROM sequencia
+        GROUP BY empresa_id
+    ),
+    idades AS (
+        SELECT 0 AS idade UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3
+        UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7
+        UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11
+        UNION ALL SELECT 12 UNION ALL SELECT 13 UNION ALL SELECT 14 UNION ALL SELECT 15
+        UNION ALL SELECT 16 UNION ALL SELECT 17 UNION ALL SELECT 18 UNION ALL SELECT 19
+        UNION ALL SELECT 20 UNION ALL SELECT 21 UNION ALL SELECT 22 UNION ALL SELECT 23
+        UNION ALL SELECT 24
+    )
+    SELECT
+        ec.duracao,
+        ec.intervalo_meses,
+        ec.coorte,
+        i.idade,
+        COUNT(DISTINCT ec.empresa_id) AS base_clientes,
+        CASE
+            WHEN i.idade = 0 THEN COUNT(DISTINCT ec.empresa_id)
+            WHEN MOD(i.idade, ec.intervalo_meses) <> 0 THEN NULL
+            WHEN DATE_ADD(ec.coorte, INTERVAL i.idade MONTH) > :data_referencia THEN NULL
+            ELSE COUNT(DISTINCT CASE
+                WHEN COALESCE(r.renovacoes_validas, 0) >= (i.idade / ec.intervalo_meses)
+                THEN ec.empresa_id
+                ELSE NULL
+            END)
+        END AS retidos,
+        CASE
+            WHEN i.idade = 0 OR MOD(i.idade, ec.intervalo_meses) = 0 THEN 1
+            ELSE 0
+        END AS aplicavel,
+        CASE
+            WHEN (i.idade = 0 OR MOD(i.idade, ec.intervalo_meses) = 0)
+                 AND DATE_ADD(ec.coorte, INTERVAL i.idade MONTH) <= :data_referencia
+            THEN 1
+            ELSE 0
+        END AS observavel
+    FROM empresas_coorte ec
+    CROSS JOIN idades i
+    LEFT JOIN renovacoes r ON r.empresa_id = ec.empresa_id
+    GROUP BY ec.duracao, ec.intervalo_meses, ec.coorte, i.idade
+    ORDER BY FIELD(ec.duracao, 'M', 'T', 'S', 'A'), ec.coorte, i.idade
     """
 ).bindparams(bindparam("excluidos", expanding=True))
 
@@ -363,6 +561,237 @@ def _aggregate_utm_dimension(rows: list[dict], field: str, label: str, priority:
     }
 
 
+
+def _rank_score(rows: list[dict], field: str, *, lower_is_better: bool) -> dict[int, int]:
+    if not rows:
+        return {}
+    ordered = sorted(
+        rows,
+        key=lambda row: float(row.get(field) or 0),
+        reverse=not lower_is_better,
+    )
+    total = len(ordered)
+    result: dict[int, int] = {}
+    for index, row in enumerate(ordered):
+        # Divide a base em cinco blocos aproximadamente iguais.
+        score = max(1, 5 - int((index * 5) / max(total, 1)))
+        result[int(row["empresa_id"])] = score
+    return result
+
+
+def _rfm_segment(total_score: int) -> str:
+    if total_score >= 13:
+        return "Alto valor e recorrência"
+    if total_score >= 10:
+        return "Relacionamento forte"
+    if total_score >= 7:
+        return "Relacionamento intermediário"
+    return "Baixo histórico"
+
+
+def _build_rfm(rows: list[dict]) -> dict:
+    if not rows:
+        return {"segmentos": [], "clientes": []}
+
+    r_scores = _rank_score(rows, "recencia_dias", lower_is_better=True)
+    f_scores = _rank_score(rows, "qtd_pagamentos", lower_is_better=False)
+    m_scores = _rank_score(rows, "ltv", lower_is_better=False)
+
+    scored: list[dict] = []
+    grouped: defaultdict[str, dict] = defaultdict(
+        lambda: {"clientes": 0, "valor_perdido": 0.0, "ltv_total": 0.0, "score_total": 0.0}
+    )
+    for row in rows:
+        company_id = int(row["empresa_id"])
+        r_score = r_scores.get(company_id, 1)
+        f_score = f_scores.get(company_id, 1)
+        m_score = m_scores.get(company_id, 1)
+        total_score = r_score + f_score + m_score
+        segment = _rfm_segment(total_score)
+        item = {
+            "empresa_id": company_id,
+            "cliente": row.get("cliente") or f"Cliente #{company_id}",
+            "plano": row.get("nome_plano") or "Não informado",
+            "recencia_dias": int(row.get("recencia_dias") or 0),
+            "pagamentos": int(row.get("qtd_pagamentos") or 0),
+            "ltv": round(float(row.get("ltv") or 0), 2),
+            "valor_perdido": round(float(row.get("valor_perdido") or 0), 2),
+            "r": r_score,
+            "f": f_score,
+            "m": m_score,
+            "score": total_score,
+            "segmento": segment,
+        }
+        scored.append(item)
+        group = grouped[segment]
+        group["clientes"] += 1
+        group["valor_perdido"] += item["valor_perdido"]
+        group["ltv_total"] += item["ltv"]
+        group["score_total"] += total_score
+
+    segments = []
+    total_clients = len(rows)
+    for label, values in grouped.items():
+        clients = int(values["clientes"])
+        segments.append({
+            "segmento": label,
+            "clientes": clients,
+            "percentual_clientes": round(clients / total_clients * 100, 2) if total_clients else 0.0,
+            "valor_perdido": round(values["valor_perdido"], 2),
+            "ltv_total": round(values["ltv_total"], 2),
+            "score_medio": round(values["score_total"] / clients, 1) if clients else 0.0,
+        })
+    segments.sort(key=lambda item: (item["score_medio"], item["valor_perdido"]), reverse=True)
+    scored.sort(key=lambda item: (item["score"], item["ltv"], item["valor_perdido"]), reverse=True)
+    return {"segmentos": segments, "clientes": scored[:100]}
+
+
+def _build_pareto(rows: list[dict]) -> dict:
+    ordered = sorted(rows, key=lambda row: (float(row.get("valor_perdido") or 0), float(row.get("ltv") or 0)), reverse=True)
+    total_value = sum(float(row.get("valor_perdido") or 0) for row in ordered)
+    if not ordered or total_value <= 0:
+        return {
+            "clientes_ate_80": 0,
+            "percentual_base": 0.0,
+            "valor_acumulado": 0.0,
+            "valor_total": round(total_value, 2),
+            "clientes": [],
+        }
+
+    accumulated = 0.0
+    selected = []
+    for row in ordered:
+        value = float(row.get("valor_perdido") or 0)
+        accumulated += value
+        selected.append({
+            "empresa_id": int(row["empresa_id"]),
+            "cliente": row.get("cliente") or f"Cliente #{int(row['empresa_id'])}",
+            "plano": row.get("nome_plano") or "Não informado",
+            "valor_perdido": round(value, 2),
+            "ltv": round(float(row.get("ltv") or 0), 2),
+            "percentual_acumulado": round(accumulated / total_value * 100, 2),
+        })
+        if accumulated / total_value >= 0.80:
+            break
+
+    return {
+        "clientes_ate_80": len(selected),
+        "percentual_base": round(len(selected) / len(ordered) * 100, 2) if ordered else 0.0,
+        "valor_acumulado": round(accumulated, 2),
+        "valor_total": round(total_value, 2),
+        "clientes": selected,
+    }
+
+
+def _build_tenure_analysis(rows: list[dict]) -> list[dict]:
+    grouped: defaultdict[tuple[str, int], dict] = defaultdict(
+        lambda: {"clientes": 0, "valor_perdido": 0.0, "ltv_total": 0.0}
+    )
+    for row in rows:
+        key = _bucket_tenure(float(row.get("meses_cliente") or 0))
+        grouped[key]["clientes"] += 1
+        grouped[key]["valor_perdido"] += float(row.get("valor_perdido") or 0)
+        grouped[key]["ltv_total"] += float(row.get("ltv") or 0)
+    total = len(rows)
+    return [
+        {
+            "label": key[0],
+            "ordem": key[1],
+            "clientes": values["clientes"],
+            "percentual_clientes": round(values["clientes"] / total * 100, 2) if total else 0.0,
+            "valor_perdido": round(values["valor_perdido"], 2),
+            "ltv_total": round(values["ltv_total"], 2),
+        }
+        for key, values in sorted(grouped.items(), key=lambda item: item[0][1])
+    ]
+
+
+def _build_cohort_by_duration(cohort_rows) -> list[dict]:
+    duration_meta = {
+        "M": ("Mensal", 1),
+        "T": ("Trimestral", 3),
+        "S": ("Semestral", 6),
+        "A": ("Anual", 12),
+    }
+    grouped: dict[str, dict[str, dict]] = {
+        key: {} for key in duration_meta
+    }
+
+    for raw in cohort_rows:
+        row = dict(raw._mapping) if hasattr(raw, "_mapping") else dict(raw)
+        duration = str(row.get("duracao") or "")
+        if duration not in duration_meta:
+            continue
+        cohort = row.get("coorte")
+        if not cohort:
+            continue
+        cohort_key = cohort.isoformat() if hasattr(cohort, "isoformat") else str(cohort)[:10]
+        age = int(row.get("idade") or 0)
+        base_clients = int(row.get("base_clientes") or 0)
+        retained_raw = row.get("retidos")
+        retained = int(retained_raw) if retained_raw is not None else None
+        applicable = bool(int(row.get("aplicavel") or 0))
+        observable = bool(int(row.get("observavel") or 0))
+        percentage = (
+            round(retained / base_clients * 100, 1)
+            if retained is not None and base_clients
+            else None
+        )
+
+        cohort_bucket = grouped[duration].setdefault(
+            cohort_key,
+            {"base_clientes": base_clients, "meses": {}},
+        )
+        cohort_bucket["base_clientes"] = base_clients
+        cohort_bucket["meses"][age] = {
+            "mes": age,
+            "retidos": retained,
+            "percentual": percentage,
+            "aplicavel": applicable,
+            "observavel": observable,
+        }
+
+    result: list[dict] = []
+    for duration in ("M", "T", "S", "A"):
+        label, interval = duration_meta[duration]
+        cohorts = []
+        for cohort_key, values in sorted(grouped[duration].items()):
+            months = []
+            for age in range(25):
+                default_applicable = age == 0 or age % interval == 0
+                months.append(
+                    values["meses"].get(
+                        age,
+                        {
+                            "mes": age,
+                            "retidos": None,
+                            "percentual": None,
+                            "aplicavel": default_applicable,
+                            "observavel": False,
+                        },
+                    )
+                )
+            cohorts.append({
+                "coorte": cohort_key,
+                "base_clientes": int(values["base_clientes"]),
+                "meses": months,
+            })
+        result.append({
+            "duracao": duration,
+            "label": label,
+            "intervalo_meses": interval,
+            "coortes": cohorts,
+        })
+    return result
+
+
+def _build_churn_analytics(rows: list[dict], cohort_rows) -> dict:
+    # A aba detalhada passa a ter exclusivamente as coortes por duração.
+    return {
+        "coorte_por_duracao": _build_cohort_by_duration(cohort_rows),
+    }
+
+
 def _rows_to_payload(db_rows) -> list[dict]:
     rows: list[dict] = []
     for raw in db_rows:
@@ -383,12 +812,19 @@ def _rows_to_payload(db_rows) -> list[dict]:
                 "utm_content": str(row.get("utm_content") or "").strip() or None,
                 "cpf_cnpj": str(row.get("cpf_cnpj") or "").strip() or None,
                 "dest_cnpj": str(row.get("dest_cnpj") or "").strip() or None,
+                "razao_social": str(row.get("razao_social") or "").strip() or None,
+                "nome_usuario": str(row.get("nome_usuario") or "").strip() or None,
+                "telefone": str(row.get("telefone") or "").strip() or None,
+                "celular": str(row.get("celular") or "").strip() or None,
+                "email": str(row.get("email") or "").strip() or None,
                 "nome_plano": str(row.get("nome_plano") or "Não informado"),
                 "duracao": str(row.get("duracao") or ""),
                 "duracao_label": _duration_label(row.get("duracao")),
                 "ativou_em": row.get("ativou_em").isoformat() if row.get("ativou_em") else None,
                 "data_vencimento": row.get("data_vencimento").isoformat() if row.get("data_vencimento") else None,
                 "churn_em": row.get("churn_em").isoformat() if row.get("churn_em") else None,
+                "ultimo_pagamento": row.get("ultimo_pagamento").isoformat() if row.get("ultimo_pagamento") else None,
+                "recencia_dias": int(row.get("recencia_dias") or 0),
                 "dias_vencido": int(row.get("dias_vencido") or 0),
                 "dias_cliente": days,
                 "meses_cliente": months,
@@ -426,8 +862,10 @@ def get_churn_dashboard(
 
     with source_engine.connect() as connection:
         db_rows = connection.execute(CHURN_CLIENTS_SQL, params).all()
+        cohort_rows = connection.execute(CHURN_COHORT_SQL, params).all()
 
     rows = _rows_to_payload(db_rows)
+    analytics = _build_churn_analytics(rows, cohort_rows)
 
     clients = len(rows)
     total_ltv = round(sum(row["ltv"] for row in rows), 2)
@@ -573,6 +1011,7 @@ def get_churn_dashboard(
             _aggregate_utm_dimension(rows, field, label, priority)
             for field, label, priority in UTM_DIMENSIONS
         ],
+        "analises": analytics,
         "clientes": rows,
     }
 

@@ -10,6 +10,7 @@ from sqlalchemy import bindparam, text
 
 from app.constants import EXCLUDED_COMPANY_IDS
 from app.database import source_engine, supabase_engine
+from app.repositories.perfil_supabase_repository import get_business_analytics_snapshot
 from app.services.global_filter_context import period_bounds as global_period_bounds
 from app.services.ativos_atrasados_service import get_active_client_count_for_month
 from app.services.zendesk_sync_service import get_sync_status
@@ -566,6 +567,31 @@ CHURN_ATTENDANCES_EXPORT_SQL = text(
     """
 ).bindparams(bindparam("churn_empresa_ids", expanding=True))
 
+CHURN_CURRENT_VALUES_SQL = text(
+    """
+    SELECT
+        ep.empresa_id,
+        REPLACE(REPLACE(ep.nome_plano, ' (+) recursos', ''), ' + recursos', '') AS plano,
+        COALESCE(ep.duracao, '') AS duracao,
+        ep.data_vencimento,
+        CASE
+            WHEN COALESCE(ep.plano_agregado, 0) > COALESCE(ep.valor, 0)
+            THEN COALESCE(ep.plano_agregado, 0)
+            ELSE COALESCE(ep.valor, 0)
+        END AS valor
+    FROM empresas_planos ep
+    WHERE
+        ep.empresa_id IN :empresa_ids
+        AND ep.plano_id <> 1
+        AND ep.atual = 1
+        AND ep.pago_em IS NOT NULL
+        AND ep.nota_fiscal_servico_id IS NOT NULL
+        AND ep.nome_plano NOT LIKE '% (+) recursos%'
+        AND ep.nome_plano NOT LIKE '% + recursos%'
+    ORDER BY ep.empresa_id, ep.data_vencimento DESC, ep.id DESC
+    """
+).bindparams(bindparam("empresa_ids", expanding=True))
+
 CHURN_PLAN_VALUES_SQL = text(
     """
     SELECT
@@ -573,6 +599,7 @@ CHURN_PLAN_VALUES_SQL = text(
         REPLACE(REPLACE(ep.nome_plano, ' (+) recursos', ''), ' + recursos', '') AS plano,
         COALESCE(ep.duracao, '') AS duracao,
         ep.data_vencimento,
+        ep.pago_em AS pago_em_ciclo,
         ROUND(
             CASE
                 WHEN ep.plano_agregado > ep.valor THEN ep.plano_agregado
@@ -589,6 +616,45 @@ CHURN_PLAN_VALUES_SQL = text(
     ORDER BY ep.empresa_id, ep.data_vencimento, ep.id
     """
 ).bindparams(bindparam("empresa_ids", expanding=True))
+
+CHURN_COMPANY_EXPORT_META_SQL = text(
+    """
+    WITH empresa_meta AS (
+        SELECT
+            e.id AS empresa_id,
+            e.ativou_em,
+            ep.cpf_cnpj,
+            ROW_NUMBER() OVER (
+                PARTITION BY e.id
+                ORDER BY ep.data_vencimento DESC, ep.id DESC
+            ) AS ordem
+        FROM empresas e
+        JOIN empresas_planos ep ON ep.empresa_id = e.id
+        WHERE
+            e.id IN :empresa_ids
+            AND ep.plano_id <> 1
+            AND ep.nota_fiscal_servico_id IS NOT NULL
+    )
+    SELECT
+        empresa_id,
+        ativou_em,
+        cpf_cnpj
+    FROM empresa_meta
+    WHERE ordem = 1
+    """
+).bindparams(bindparam("empresa_ids", expanding=True))
+
+CHURN_EXPORT_PROFILE_SQL = text(
+    """
+    SELECT
+        cnpj,
+        COALESCE(setor, '') AS setor,
+        COALESCE(segmento, '') AS segmento
+    FROM public.perfil_empresas_enriquecidas
+    WHERE cnpj IN :cnpjs
+      AND erro_ultima_consulta IS NULL
+    """
+).bindparams(bindparam("cnpjs", expanding=True))
 
 ACTIVE_SNAPSHOT_SQL = text(
     """
@@ -680,7 +746,31 @@ def _cramers_v(rows: list[dict]) -> float | None:
 
 
 def _float_or_none(value: Any) -> float | None:
-    return float(value) if value is not None else None
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _safe_export_float(value: Any) -> float:
+    if value is None or value == "":
+        return 0.0
+    if isinstance(value, (int, float)):
+        return float(value)
+    text_value = str(value).strip().replace("R$", "").replace(" ", "")
+    if not text_value:
+        return 0.0
+    # Formato brasileiro: 1.234,56 -> 1234.56 / 366,67 -> 366.67
+    if "," in text_value:
+        text_value = text_value.replace(".", "").replace(",", ".")
+    try:
+        return float(text_value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 
 
 def _active_history(empresa: str, origem: str, pagador: str) -> dict[str, int]:
@@ -1185,8 +1275,7 @@ def get_churn_attendances_export(
             for row in connection.execute(CHURN_ATTENDANCES_EXPORT_SQL, params).mappings().all()
         ]
 
-    value_by_exact: dict[tuple[int, str, str, str], float] = {}
-    value_by_due: dict[tuple[int, str], float] = {}
+    plan_history_by_company: dict[int, list[dict]] = {}
     for offset in range(0, len(churn_ids), 800):
         chunk = churn_ids[offset : offset + 800]
         with source_engine.connect() as connection:
@@ -1196,12 +1285,150 @@ def get_churn_attendances_export(
             due = item.get("data_vencimento")
             if isinstance(due, datetime):
                 due = due.date()
-            due_key = due.isoformat() if isinstance(due, date) else str(due or "")[:10]
-            plan = str(item.get("plano") or "").strip()
-            duration = str(item.get("duracao") or "").strip()
-            value = float(item.get("valor") or 0)
-            value_by_exact[(company_id, due_key, plan, duration)] = value
-            value_by_due[(company_id, due_key)] = value
+            paid = item.get("pago_em_ciclo")
+            if isinstance(paid, datetime):
+                paid = paid.date()
+            plan_history_by_company.setdefault(company_id, []).append({
+                "plano": str(item.get("plano") or "").strip(),
+                "duracao": str(item.get("duracao") or "").strip(),
+                "vencimento": due if isinstance(due, date) else None,
+                "pago_em": paid if isinstance(paid, date) else None,
+                "valor": _safe_export_float(item.get("valor")),
+            })
+
+    current_value_by_company: dict[int, float] = {}
+    current_plan_by_company: dict[int, dict] = {}
+    for offset in range(0, len(churn_ids), 800):
+        chunk = churn_ids[offset : offset + 800]
+        with source_engine.connect() as connection:
+            current_rows = connection.execute(
+                CHURN_CURRENT_VALUES_SQL,
+                {"empresa_ids": chunk},
+            ).mappings().all()
+        for item in current_rows:
+            company_id = int(item["empresa_id"])
+            # ORDER BY já traz o registro mais recente primeiro.
+            if company_id in current_value_by_company:
+                continue
+            current_value_by_company[company_id] = _safe_export_float(item.get("valor"))
+            current_plan_by_company[company_id] = {
+                "plano": str(item.get("plano") or "").strip(),
+                "duracao": str(item.get("duracao") or "").strip(),
+                "vencimento": item.get("data_vencimento"),
+            }
+
+    def _resolve_plan_value(
+        company_id: int,
+        due_value: Any,
+        plan: str,
+        duration: str,
+        attendance_value: Any,
+    ) -> float:
+        history = plan_history_by_company.get(company_id, [])
+        fallback_value = float(current_value_by_company.get(company_id, 0.0) or 0.0)
+        if not history:
+            return fallback_value
+
+        due_date = due_value.date() if isinstance(due_value, datetime) else due_value if isinstance(due_value, date) else None
+        attendance_date = attendance_value.date() if isinstance(attendance_value, datetime) else attendance_value if isinstance(attendance_value, date) else None
+
+        exact = [
+            item for item in history
+            if due_date is not None
+            and item["vencimento"] == due_date
+            and item["plano"] == plan
+            and item["duracao"] == duration
+            and item["valor"] > 0
+        ]
+        if exact:
+            return float(exact[-1]["valor"])
+
+        same_due = [
+            item for item in history
+            if due_date is not None and item["vencimento"] == due_date and item["valor"] > 0
+        ]
+        if same_due:
+            preferred = [item for item in same_due if item["plano"] == plan and item["duracao"] == duration]
+            return float((preferred or same_due)[-1]["valor"])
+
+        if attendance_date is not None:
+            active_cycle = [
+                item for item in history
+                if item["valor"] > 0
+                and item["pago_em"] is not None
+                and item["vencimento"] is not None
+                and item["pago_em"] <= attendance_date <= item["vencimento"]
+                and (not plan or item["plano"] == plan)
+                and (not duration or item["duracao"] == duration)
+            ]
+            if active_cycle:
+                active_cycle.sort(key=lambda item: item["vencimento"])
+                return float(active_cycle[0]["valor"])
+
+        candidates = [
+            item for item in history
+            if item["valor"] > 0
+            and (not plan or item["plano"] == plan)
+            and (not duration or item["duracao"] == duration)
+            and item["vencimento"] is not None
+        ]
+        reference = due_date or attendance_date
+        if candidates and reference is not None:
+            candidates.sort(key=lambda item: abs((item["vencimento"] - reference).days))
+            return float(candidates[0]["valor"])
+
+        positives = [item for item in history if item["valor"] > 0]
+        if positives:
+            return float(positives[-1]["valor"])
+        return fallback_value
+
+    # Dados cadastrais da empresa: CNPJ e ativação.
+    company_export_meta: dict[int, dict] = {}
+    profile_cnpjs: set[str] = set()
+    for offset in range(0, len(churn_ids), 800):
+        chunk = churn_ids[offset : offset + 800]
+        with source_engine.connect() as connection:
+            meta_rows = connection.execute(
+                CHURN_COMPANY_EXPORT_META_SQL,
+                {"empresa_ids": chunk},
+            ).mappings().all()
+        for item in meta_rows:
+            company_id = int(item["empresa_id"])
+            raw_cnpj = str(item.get("cpf_cnpj") or "").strip()
+            clean_cnpj = "".join(character for character in raw_cnpj if character.isdigit())
+            cnpj_display = raw_cnpj
+            if len(clean_cnpj) == 14:
+                cnpj_display = (
+                    f"{clean_cnpj[:2]}.{clean_cnpj[2:5]}.{clean_cnpj[5:8]}/"
+                    f"{clean_cnpj[8:12]}-{clean_cnpj[12:]}"
+                )
+                profile_cnpjs.add(clean_cnpj)
+
+            activation = item.get("ativou_em")
+            if isinstance(activation, datetime):
+                activation = activation.date()
+            company_export_meta[company_id] = {
+                "cnpj": cnpj_display,
+                "cnpj_limpo": clean_cnpj if len(clean_cnpj) == 14 else "",
+                "ativacao": activation.isoformat() if isinstance(activation, date) else str(activation or "")[:10],
+            }
+
+    # Setor e segmento vêm somente do enriquecimento já salvo no Supabase.
+    business_profiles: dict[str, dict] = {}
+    if profile_cnpjs:
+        with supabase_engine.connect() as connection:
+            profile_rows = connection.execute(
+                CHURN_EXPORT_PROFILE_SQL,
+                {"cnpjs": sorted(profile_cnpjs)},
+            ).mappings().all()
+        for profile_row in profile_rows:
+            cnpj_key = str(profile_row.get("cnpj") or "").strip()
+            if not cnpj_key:
+                continue
+            business_profiles[cnpj_key] = {
+                "setor": str(profile_row.get("setor") or "").strip(),
+                "segmento": str(profile_row.get("segmento") or "").strip(),
+            }
 
     rows = []
     for row in attendance_rows:
@@ -1212,18 +1439,39 @@ def get_churn_attendances_export(
         due_key = due.isoformat() if isinstance(due, date) else str(due or "")[:10]
         plan = str(row.get("plano") or "Não identificado").strip()
         duration = str(row.get("duracao") or "").strip()
-        value = value_by_exact.get((company_id, due_key, plan, duration))
-        if value is None:
-            value = value_by_due.get((company_id, due_key))
-
         attendance_date = row.get("data_atendimento")
+        value = _resolve_plan_value(
+            company_id,
+            due,
+            plan,
+            duration,
+            attendance_date,
+        )
+        resolved_export_value = _safe_export_float(value)
+        if resolved_export_value <= 0:
+            resolved_export_value = _safe_export_float(current_value_by_company.get(company_id))
+
         if isinstance(attendance_date, datetime):
             attendance_date = attendance_date.date()
+        meta = company_export_meta.get(company_id, {})
+        profile = business_profiles.get(str(meta.get("cnpj_limpo") or ""), {})
+        setor = str(profile.get("setor") or "").strip()
+        segmento = str(profile.get("segmento") or "").strip()
+        setor_segmento_parts: list[str] = []
+        for value in (setor, segmento):
+            if value and all(value.casefold() != existing.casefold() for existing in setor_segmento_parts):
+                setor_segmento_parts.append(value)
+        setor_segmento = " / ".join(setor_segmento_parts)
+
         rows.append({
             "data_atendimento": attendance_date.isoformat() if isinstance(attendance_date, date) else str(attendance_date or "")[:10],
+            "cnpj": str(meta.get("cnpj") or ""),
+            "ativacao": str(meta.get("ativacao") or ""),
+            "vencimento": due_key,
+            "setor_segmento": setor_segmento,
             "plano": plan,
             "duracao": duration,
-            "valor": round(float(value or 0), 2),
+            "valor": round(resolved_export_value, 2),
             "motivo": str(row.get("motivo") or "Não identificado"),
             "email_cliente": str(row.get("email_cliente") or ""),
             "email_atendente": str(row.get("email_atendente") or ""),
@@ -1231,9 +1479,29 @@ def get_churn_attendances_export(
             "duracao_humano_segundos": _float_or_none(row.get("duracao_humano_segundos")),
         })
 
+    positive_values = sum(1 for item in rows if _safe_export_float(item.get("valor")) > 0)
+    attendance_company_ids = {int(item["empresa_id"]) for item in attendance_rows if item.get("empresa_id") is not None}
+    companies_with_current_value_in_attendance = sum(
+        1
+        for company_id in attendance_company_ids
+        if _safe_export_float(current_value_by_company.get(company_id)) > 0
+    )
+    fallback_rows = sum(
+        1
+        for item in attendance_rows
+        if item.get("empresa_id") is not None
+        and _safe_export_float(current_value_by_company.get(int(item["empresa_id"]))) > 0
+    )
     return {
         "total": len(rows),
         "periodo": {"inicio": "2024-01-01", "fim": (date.today() - timedelta(days=1)).isoformat()},
+        "diagnostico_valores": {
+            "empresas_churn": len(churn_ids),
+            "empresas_com_valor_atual": sum(1 for value in current_value_by_company.values() if value > 0),
+            "empresas_atendimento_com_valor_atual": companies_with_current_value_in_attendance,
+            "linhas_com_fallback_atual": fallback_rows,
+            "linhas_com_valor": positive_values,
+        },
         "rows": rows,
     }
 

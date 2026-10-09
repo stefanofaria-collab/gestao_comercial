@@ -9,12 +9,19 @@ export type ChurnClient = {
   utm_campaign: string | null;
   utm_term: string | null;
   utm_content: string | null;
+  razao_social: string | null;
+  nome_usuario: string | null;
+  telefone: string | null;
+  celular: string | null;
+  email: string | null;
   nome_plano: string;
   duracao: string;
   duracao_label: string;
   ativou_em: string | null;
   data_vencimento: string | null;
   churn_em: string | null;
+  ultimo_pagamento: string | null;
+  recencia_dias: number;
   dias_vencido: number;
   dias_cliente: number;
   meses_cliente: number;
@@ -68,6 +75,69 @@ export type ChurnUtmRanking = {
   clientes_informados: number;
   cobertura_clientes: number;
   itens: ChurnUtmItem[];
+};
+
+export type ChurnRfmSegment = {
+  segmento: string;
+  clientes: number;
+  percentual_clientes: number;
+  valor_perdido: number;
+  ltv_total: number;
+  score_medio: number;
+};
+
+export type ChurnRfmClient = {
+  empresa_id: number;
+  cliente: string;
+  plano: string;
+  recencia_dias: number;
+  pagamentos: number;
+  ltv: number;
+  valor_perdido: number;
+  r: number;
+  f: number;
+  m: number;
+  score: number;
+  segmento: string;
+};
+
+export type ChurnParetoClient = {
+  empresa_id: number;
+  cliente: string;
+  plano: string;
+  valor_perdido: number;
+  ltv: number;
+  percentual_acumulado: number;
+};
+
+export type ChurnCohortMonth = {
+  mes: number;
+  retidos: number | null;
+  percentual: number | null;
+  aplicavel: boolean;
+  observavel: boolean;
+};
+
+export type ChurnCohortRow = {
+  coorte: string;
+  base_clientes: number;
+  meses: ChurnCohortMonth[];
+};
+
+export type ChurnCohortDuration = {
+  duracao: "M" | "T" | "S" | "A";
+  label: string;
+  intervalo_meses: number;
+  coortes: ChurnCohortRow[];
+};
+
+export type ChurnTenureAnalysis = {
+  label: string;
+  ordem: number;
+  clientes: number;
+  percentual_clientes: number;
+  valor_perdido: number;
+  ltv_total: number;
 };
 
 export type ChurnRenewalAverage = {
@@ -136,5 +206,8 @@ export type ChurnDashboardResponse = {
     por_pagador: ChurnDimension[];
   };
   utms: ChurnUtmRanking[];
+  analises: {
+    coorte_por_duracao: ChurnCohortDuration[];
+  };
   clientes: ChurnClient[];
 };

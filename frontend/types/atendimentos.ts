@@ -142,6 +142,10 @@ export type AtendimentoChurnCliente = {
 
 export type AtendimentoChurnExportRow = {
   data_atendimento: string;
+  cnpj: string;
+  ativacao: string;
+  vencimento: string;
+  setor_segmento: string;
   plano: string;
   duracao: string;
   valor: number;
