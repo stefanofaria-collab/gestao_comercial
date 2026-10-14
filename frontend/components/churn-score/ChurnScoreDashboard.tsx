@@ -590,6 +590,8 @@ export default function ChurnScoreDashboard() {
   const [riskFilter, setRiskFilter] = useState<ChurnRiskFilter>("todos");
   const [planFilter, setPlanFilter] = useState("");
   const [durationFilter, setDurationFilter] = useState("");
+  const [daysWithoutAccessMin, setDaysWithoutAccessMin] = useState("");
+  const [daysWithoutAccessMax, setDaysWithoutAccessMax] = useState("");
   const [priorityRows, setPriorityRows] = useState<ChurnScoreClient[]>([]);
   const [priorityTotal, setPriorityTotal] = useState(0);
   const [priorityPlans, setPriorityPlans] = useState<string[]>([]);
@@ -647,6 +649,8 @@ export default function ChurnScoreDashboard() {
     setRiskFilter("todos");
     setPlanFilter("");
     setDurationFilter("");
+    setDaysWithoutAccessMin("");
+    setDaysWithoutAccessMax("");
     setPriorityPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.empresa, filters.origem, filters.pagador]);
@@ -660,13 +664,21 @@ export default function ChurnScoreDashboard() {
 
   useEffect(() => {
     setPriorityPage(1);
-  }, [riskFilter, planFilter, durationFilter]);
+  }, [riskFilter, planFilter, durationFilter, daysWithoutAccessMin, daysWithoutAccessMax]);
 
   useEffect(() => {
     if (!data || data._cache_info?.preparing) return;
     let active = true;
     setPriorityLoading(true);
-    fetchChurnScoreClients(filters, { risco: riskFilter, plano: planFilter, duracao: durationFilter, pagina: priorityPage, por_pagina: 20 })
+    fetchChurnScoreClients(filters, {
+      risco: riskFilter,
+      plano: planFilter,
+      duracao: durationFilter,
+      semAcessoDe: daysWithoutAccessMin.trim() === "" ? null : Number(daysWithoutAccessMin),
+      semAcessoAte: daysWithoutAccessMax.trim() === "" ? null : Number(daysWithoutAccessMax),
+      pagina: priorityPage,
+      por_pagina: 20,
+    })
       .then((response) => {
         if (!active) return;
         setPriorityRows(response.rows);
@@ -683,7 +695,7 @@ export default function ChurnScoreDashboard() {
       })
       .finally(() => active && setPriorityLoading(false));
     return () => { active = false; };
-  }, [data, filters.empresa, filters.origem, filters.pagador, riskFilter, planFilter, durationFilter, priorityPage]);
+  }, [data, filters.empresa, filters.origem, filters.pagador, riskFilter, planFilter, durationFilter, daysWithoutAccessMin, daysWithoutAccessMax, priorityPage]);
 
   async function handleTrain() {
     setTraining(true);
@@ -805,11 +817,11 @@ export default function ChurnScoreDashboard() {
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
               <div className="border-b border-slate-200 px-5 py-4">
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-                  <SectionHeader title="Prioridade de retenção" subtitle={`Lista ordenada do maior para o menor score. ${formatInteger(priorityTotal)} clientes encontrados com os filtros atuais.`} help="Use os filtros para selecionar o nível de risco, plano e duração. A lista continua ordenada do maior para o menor score." />
+                  <SectionHeader title="Prioridade de retenção" subtitle={`Lista ordenada do maior para o menor score. ${formatInteger(priorityTotal)} clientes encontrados com os filtros atuais.`} help="Use os filtros para selecionar nível de risco, plano, duração e há quantos dias o cliente não acessa o sistema. Os campos De e Até são opcionais." />
                   <button type="button" onClick={() => setContactOpen(true)} className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800"><ListChecks size={17} />Gerar lista de contato</button>
                 </div>
 
-                <div className="mt-2 grid gap-3 md:grid-cols-3">
+                <div className="mt-2 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                   <label className="grid gap-1 text-xs font-semibold text-slate-500">Nível de risco
                     <select value={riskFilter} onChange={(event) => setRiskFilter(event.target.value as ChurnRiskFilter)} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800">
                       <option value="todos">Todos</option><option value="alto_ou_maior">Alto e muito alto</option><option value="muito_alto">Muito alto</option><option value="alto">Alto</option><option value="moderado">Moderado</option><option value="baixo">Baixo</option>
@@ -824,6 +836,30 @@ export default function ChurnScoreDashboard() {
                     <select value={durationFilter} onChange={(event) => setDurationFilter(event.target.value)} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800">
                       <option value="">Todas</option>{priorityDurations.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                     </select>
+                  </label>
+                  <label className="grid gap-1 text-xs font-semibold text-slate-500">Sem acesso há — De
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      inputMode="numeric"
+                      value={daysWithoutAccessMin}
+                      onChange={(event) => setDaysWithoutAccessMin(event.target.value)}
+                      placeholder="Mínimo"
+                      className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 placeholder:text-slate-400"
+                    />
+                  </label>
+                  <label className="grid gap-1 text-xs font-semibold text-slate-500">Sem acesso há — Até
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      inputMode="numeric"
+                      value={daysWithoutAccessMax}
+                      onChange={(event) => setDaysWithoutAccessMax(event.target.value)}
+                      placeholder="Máximo"
+                      className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 placeholder:text-slate-400"
+                    />
                   </label>
                 </div>
               </div>

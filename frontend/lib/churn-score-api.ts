@@ -81,12 +81,26 @@ export function fetchChurnScoreDashboard(filters: GlobalFilters): Promise<ChurnS
 
 export function fetchChurnScoreClients(
   filters: GlobalFilters,
-  options: { risco: ChurnRiskFilter; plano: string; duracao: string; pagina: number; por_pagina?: number },
+  options: {
+    risco: ChurnRiskFilter;
+    plano: string;
+    duracao: string;
+    pagina: number;
+    por_pagina?: number;
+    semAcessoDe?: number | null;
+    semAcessoAte?: number | null;
+  },
 ): Promise<ChurnScoreClientsResponse> {
   const params = buildParams(filters);
   params.set("risco", options.risco);
   params.set("plano", options.plano);
   params.set("duracao", options.duracao);
+  if (options.semAcessoDe !== null && options.semAcessoDe !== undefined) {
+    params.set("sem_acesso_de", String(options.semAcessoDe));
+  }
+  if (options.semAcessoAte !== null && options.semAcessoAte !== undefined) {
+    params.set("sem_acesso_ate", String(options.semAcessoAte));
+  }
   params.set("pagina", String(options.pagina));
   params.set("por_pagina", String(options.por_pagina ?? 20));
   return fetchWithTimeout<ChurnScoreClientsResponse>(

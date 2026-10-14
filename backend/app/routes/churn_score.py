@@ -266,6 +266,8 @@ def _filter_contacts(
     tempo_cliente_maximo: float | None = None,
     tempo_cliente_unidade: str = "mes",
     somente_ultrapassou_media: bool = False,
+    sem_acesso_de: int | None = None,
+    sem_acesso_ate: int | None = None,
 ) -> list[dict]:
     plan_filter = plano.strip().casefold()
     duration_filter = duracao.strip().upper()
@@ -281,6 +283,19 @@ def _filter_contacts(
             continue
         if duration_filter and str(item.get("duracao") or "").upper() != duration_filter:
             continue
+
+        if sem_acesso_de is not None or sem_acesso_ate is not None:
+            raw_days_without_access = item.get("dias_sem_acesso")
+            if raw_days_without_access is None:
+                continue
+            try:
+                days_without_access = int(raw_days_without_access)
+            except (TypeError, ValueError):
+                continue
+            if sem_acesso_de is not None and days_without_access < sem_acesso_de:
+                continue
+            if sem_acesso_ate is not None and days_without_access > sem_acesso_ate:
+                continue
 
         due_date = str(item.get("data_vencimento") or "")[:10]
         if data_inicio and (not due_date or due_date < data_inicio):
@@ -382,12 +397,21 @@ def churn_score_clients(
     risco: RiskFilter = Query("todos"),
     plano: str = Query("", max_length=120),
     duracao: str = Query("", max_length=2),
+    sem_acesso_de: int | None = Query(None, ge=0),
+    sem_acesso_ate: int | None = Query(None, ge=0),
     pagina: int = Query(1, ge=1),
     por_pagina: int = Query(20, ge=1, le=100),
 ):
     params = _params(empresa, origem, pagador)
     contacts, snapshot = _snapshot_contacts_flexible(params)
-    rows = _filter_contacts(contacts, risco=risco, plano=plano, duracao=duracao)
+    rows = _filter_contacts(
+        contacts,
+        risco=risco,
+        plano=plano,
+        duracao=duracao,
+        sem_acesso_de=sem_acesso_de,
+        sem_acesso_ate=sem_acesso_ate,
+    )
     total = len(rows)
     total_paginas = max(1, (total + por_pagina - 1) // por_pagina)
     pagina = min(pagina, total_paginas)
