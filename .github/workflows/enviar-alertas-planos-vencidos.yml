@@ -1,11 +1,9 @@
 name: Enviar alertas de planos vencidos
 
+# O agendamento diário fica no cron do servidor Linux.
+# Este workflow permanece só para disparo manual de emergência.
 on:
   workflow_dispatch:
-
-  schedule:
-    # 09:00 em São Paulo = 12:00 UTC.
-    - cron: "0 12 * * *"
 
 jobs:
   enviar:
