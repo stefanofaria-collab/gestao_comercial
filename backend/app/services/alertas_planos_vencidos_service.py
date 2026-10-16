@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import csv
+import io
 import os
 import smtplib
 import uuid
@@ -27,6 +29,44 @@ MAX_DAYS = 90
 MAX_UNIQUE_EMAILS = 100
 INTRANET_BASE = "https://intranet.clickdigital.com.br/clientes/visualizar"
 EXCLUDED_IDS = tuple(dict.fromkeys((*EXCLUDED_COMPANY_IDS, 205324, 380371, 517101)))
+
+EMAIL_TABLE_HEADERS = [
+    "Empresa ID",
+    "Razão social",
+    "Plano anterior",
+    "Plano atual",
+    "Alteração do plano",
+    "Duração anterior",
+    "Duração atual",
+    "Alteração da duração",
+    "Valor anterior",
+    "Valor atual",
+    "Saldo financeiro",
+    "Usuário master",
+    "Telefone",
+    "Celular",
+    "E-mail",
+    "Intranet",
+]
+
+EMAIL_TABLE_FIELDS = [
+    "empresa_id",
+    "razao_social",
+    "plano_anterior",
+    "plano_atual",
+    "alteracao_plano",
+    "duracao_anterior",
+    "duracao_atual",
+    "alteracao_duracao",
+    "valor_anterior",
+    "valor_atual",
+    "saldo_financeiro",
+    "usuario_master",
+    "telefone",
+    "celular",
+    "email",
+    "intranet",
+]
 
 COUNT_UNIQUE_EMAILS_SQL = text(
     """
@@ -564,27 +604,9 @@ def _email_html(dias: int, clients: list[dict[str, Any]], reference: date) -> st
                 """
             )
 
-    header_cells = [
-        "Empresa ID",
-        "Razão social",
-        "Plano anterior",
-        "Plano atual",
-        "Alteração do plano",
-        "Duração anterior",
-        "Duração atual",
-        "Alteração da duração",
-        "Valor anterior",
-        "Valor atual",
-        "Saldo financeiro",
-        "Usuário master",
-        "Telefone",
-        "Celular",
-        "E-mail",
-        "Intranet",
-    ]
     thead = "".join(
         f'<th style="padding:12px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;">{escape(label)}</th>'
-        for label in header_cells
+        for label in EMAIL_TABLE_HEADERS
     )
 
     return f"""
@@ -600,6 +622,7 @@ def _email_html(dias: int, clients: list[dict[str, Any]], reference: date) -> st
                     <div style="margin-top:8px;font-size:28px;font-weight:800;color:#0f172a;">Planos com {escape(period_label)} de atraso — {escape(date_label)}</div>
                     <div style="margin-top:8px;font-size:14px;line-height:1.5;color:#64748b;">
                       Clientes com origem <strong>GestãoClick</strong> que completam exatamente {escape(period_label)} com o plano vencido na data de hoje.
+                      A mesma lista segue em anexo no arquivo CSV.
                     </div>
                   </td>
                 </tr>
@@ -660,7 +683,34 @@ def _email_html(dias: int, clients: list[dict[str, Any]], reference: date) -> st
     """
 
 
-def send_html_email(to_email: str, subject: str, html_body: str, text_body: str) -> None:
+def _format_csv_value(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, float):
+        return f"{value:.2f}".replace(".", ",")
+    return str(value)
+
+
+def build_clients_csv(clients: list[dict[str, Any]]) -> bytes:
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, delimiter=";", quoting=csv.QUOTE_MINIMAL)
+    writer.writerow(EMAIL_TABLE_HEADERS)
+    for item in clients:
+        writer.writerow([_format_csv_value(item.get(field)) for field in EMAIL_TABLE_FIELDS])
+    # BOM para o Excel abrir acentuação corretamente no Windows.
+    return ("\ufeff" + buffer.getvalue()).encode("utf-8")
+
+
+def send_html_email(
+    to_email: str,
+    subject: str,
+    html_body: str,
+    text_body: str,
+    *,
+    attachment_filename: str | None = None,
+    attachment_content: bytes | None = None,
+    attachment_mime: str = "text/csv",
+) -> None:
     cfg = _smtp_settings()
     message = EmailMessage()
     message["Subject"] = subject
@@ -668,6 +718,15 @@ def send_html_email(to_email: str, subject: str, html_body: str, text_body: str)
     message["To"] = to_email
     message.set_content(text_body)
     message.add_alternative(html_body, subtype="html")
+
+    if attachment_filename and attachment_content is not None:
+        maintype, _, subtype = attachment_mime.partition("/")
+        message.add_attachment(
+            attachment_content,
+            maintype=maintype or "application",
+            subtype=subtype or "octet-stream",
+            filename=attachment_filename,
+        )
 
     if cfg["use_ssl"]:
         with smtplib.SMTP_SSL(cfg["host"], cfg["port"], timeout=60) as smtp:
@@ -687,6 +746,7 @@ def send_html_email(to_email: str, subject: str, html_body: str, text_body: str)
 def send_alert_email(email: str, dias: int, clients: list[dict[str, Any]], reference: date | None = None) -> None:
     ref = reference or datetime.now(_app_tz()).date()
     period_label = "1 dia" if dias == 1 else f"{dias} dias"
+    date_slug = ref.strftime("%Y%m%d")
     subject = f"Alertas de planos vencidos — {period_label} de atraso — {ref.strftime('%d/%m/%Y')}"
     html = _email_html(dias, clients, ref)
     text = (
@@ -695,8 +755,19 @@ def send_alert_email(email: str, dias: int, clients: list[dict[str, Any]], refer
         f"Origem: GestãoClick\n"
         f"Total de clientes: {len(clients)}\n"
         f"Valor total em atraso: {_format_money(sum(float(item['saldo_financeiro']) for item in clients))}\n"
+        f"Segue em anexo o CSV com a mesma lista do e-mail.\n"
     )
-    send_html_email(_normalize_email(email), subject, html, text)
+    csv_bytes = build_clients_csv(clients)
+    filename = f"planos_vencidos_{dias}dias_{date_slug}.csv"
+    send_html_email(
+        _normalize_email(email),
+        subject,
+        html,
+        text,
+        attachment_filename=filename,
+        attachment_content=csv_bytes,
+        attachment_mime="text/csv",
+    )
 
 
 def run_daily_alerts(reference: date | None = None) -> dict[str, Any]:
