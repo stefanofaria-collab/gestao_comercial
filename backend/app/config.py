@@ -36,6 +36,20 @@ class Settings(BaseSettings):
     frontend_origin: str = "http://localhost:3000"
     cache_ttl_seconds: int = 300
 
+    # SMTP
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_pass: str = ""
+    smtp_from: str = ""
+    smtp_use_ssl: bool = False
+    smtp_starttls: bool = True
+
+    # Agendamento dos alertas
+    app_timezone: str = "America/Sao_Paulo"
+    send_hour: int = 9
+    send_minute: int = 0
+
     model_config = SettingsConfigDict(
         env_file=(BASE_DIR / ".env", BASE_DIR.parent / ".env"),
         env_file_encoding="utf-8",

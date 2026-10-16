@@ -22,6 +22,7 @@ from app.routes.vencimentos_futuros import router as vencimentos_futuros_router
 from app.routes.pagamentos import router as pagamentos_router
 from app.routes.atendimentos import router as atendimentos_router
 from app.routes.intranet2 import router as intranet2_router
+from app.routes.alertas_planos_vencidos import router as alertas_planos_vencidos_router
 
 
 app = FastAPI(
@@ -29,7 +30,7 @@ app = FastAPI(
     version="3.32.0",
     description=(
         "API do dashboard comercial. Mantém os indicadores existentes "
-        "e adiciona as visões de faturamento, churn, churn score, ativos e atrasados, perfil, atendimentos, pagamentos, vencimentos futuros e Intranet 2.0."
+        "e adiciona as visões de faturamento, churn, churn score, ativos e atrasados, perfil, atendimentos, pagamentos, vencimentos futuros, Intranet 2.0 e alertas de planos vencidos."
     ),
 )
 
@@ -112,6 +113,7 @@ app.include_router(atendimentos_router)
 app.include_router(pagamentos_router)
 app.include_router(vencimentos_futuros_router)
 app.include_router(intranet2_router)
+app.include_router(alertas_planos_vencidos_router)
 
 
 @app.on_event("startup")
@@ -137,6 +139,7 @@ def root():
         "pagamentos": "/api/pagamentos",
         "vencimentos_futuros": "/api/vencimentos-futuros",
         "intranet_2": "/api/intranet-2",
+        "alertas_planos_vencidos": "/api/alertas-planos-vencidos",
     }
 
 

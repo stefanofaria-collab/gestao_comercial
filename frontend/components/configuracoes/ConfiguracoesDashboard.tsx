@@ -1,8 +1,16 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Check, Copy, KeyRound, Pencil, ShieldCheck, Trash2, UserPlus, UsersRound } from "lucide-react";
+import { BellRing, Check, Copy, KeyRound, Pencil, ShieldCheck, Trash2, UserPlus, UsersRound } from "lucide-react";
 
+import {
+  createAlertaPlanoVencidoRequest,
+  deleteAlertaPlanoVencidoRequest,
+  listAlertasPlanosVencidosRequest,
+  sendAlertasPlanosVencidosNowRequest,
+  type AlertaPlanoVencido,
+  type AlertasRegras,
+} from "@/lib/alertas-planos-vencidos-api";
 import {
   createUserRequest,
   deleteManagedUserRequest,
@@ -452,28 +460,248 @@ function UsuariosTab() {
   );
 }
 
+function AlertasTab() {
+  const session = useCurrentSession();
+  const [alertas, setAlertas] = useState<AlertaPlanoVencido[]>([]);
+  const [regras, setRegras] = useState<AlertasRegras | null>(null);
+  const [email, setEmail] = useState("");
+  const [dias, setDias] = useState("30");
+  const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function loadAlertas(token?: string) {
+    const accessToken = token || session?.token;
+    if (!accessToken) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await listAlertasPlanosVencidosRequest(accessToken);
+      setAlertas(result.alertas);
+      setRegras(result.regras);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível carregar os alertas.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (session?.token) void loadAlertas(session.token);
+    if (session?.user.email) setEmail(session.user.email);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.token, session?.user.email]);
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (!session?.token) {
+      setError("Sessão inválida. Faça login novamente.");
+      return;
+    }
+
+    const period = Number(dias);
+    if (!Number.isFinite(period) || period < 1) {
+      setError("Informe um período válido em dias.");
+      return;
+    }
+
+    setLoading(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const result = await createAlertaPlanoVencidoRequest(session.token, email, period);
+      setMessage(result.message);
+      setDias("30");
+      await loadAlertas(session.token);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível cadastrar o alerta.");
+      setLoading(false);
+    }
+  }
+
+  async function handleDelete(alertId: string) {
+    if (!session?.token) return;
+    setLoading(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const result = await deleteAlertaPlanoVencidoRequest(session.token, alertId);
+      setMessage(result.message);
+      await loadAlertas(session.token);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível remover o alerta.");
+      setLoading(false);
+    }
+  }
+
+  async function handleSendNow() {
+    if (!session?.token) return;
+    setSending(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const result = await sendAlertasPlanosVencidosNowRequest(session.token);
+      const totalSent = result.resultados.reduce((acc, item) => acc + Number(item.destinatarios || 0), 0);
+      setMessage(`Disparo manual concluído para ${totalSent} destinatário(s) em ${result.periodos} período(s).`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível enviar os alertas agora.");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-3xl border border-teal-200 bg-teal-50/70 p-6 shadow-sm">
+        <div className="flex items-start gap-3">
+          <div className="rounded-2xl bg-white p-3 text-teal-700 shadow-sm">
+            <BellRing size={20} />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-bold text-slate-950">Alertas de planos vencidos</h2>
+            <p className="max-w-3xl text-sm leading-6 text-slate-600">
+              Cadastre e-mails para receber a lista diária de clientes <strong>GestãoClick</strong> cujo plano
+              completa exatamente o período informado em atraso. O mesmo e-mail pode ser cadastrado mais de uma
+              vez, desde que o período seja diferente.
+            </p>
+            {regras ? (
+              <p className="text-xs text-slate-500">
+                Envio automático: {regras.horario} · Domínios:{" "}
+                {regras.dominios_permitidos.map((item) => `@${item}`).join(" ou ")} · período de {regras.dias_min} a{" "}
+                {regras.dias_max} dias.
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:p-8">
+        {message ? <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div> : null}
+        {error ? <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
+
+        <form onSubmit={handleSubmit} className="grid gap-5 md:grid-cols-[1.4fr_0.8fr_auto]">
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">E-mail do destinatário</label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="nome@clickdigital.com.br"
+              className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 outline-none"
+            />
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Período de vencimento (dias)</label>
+            <input
+              type="number"
+              required
+              min={1}
+              max={90}
+              value={dias}
+              onChange={(event) => setDias(event.target.value)}
+              className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 outline-none"
+            />
+          </div>
+          <div className="flex items-end">
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-xl bg-slate-950 px-6 py-3 font-semibold text-white disabled:opacity-50 md:w-auto"
+            >
+              {loading ? "Salvando..." : "Cadastrar alerta"}
+            </button>
+          </div>
+        </form>
+
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => void handleSendNow()}
+            disabled={sending || alertas.length === 0}
+            className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 disabled:opacity-50"
+          >
+            {sending ? "Enviando..." : "Enviar agora"}
+          </button>
+          <p className="text-xs text-slate-500">Útil para validar o e-mail sem esperar o envio automático diário.</p>
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:p-8">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h3 className="text-lg font-bold text-slate-950">Alertas cadastrados</h3>
+          <span className="text-sm text-slate-500">{alertas.length} registro(s)</span>
+        </div>
+
+        {loading && alertas.length === 0 ? (
+          <p className="text-sm text-slate-500">Carregando alertas...</p>
+        ) : alertas.length === 0 ? (
+          <p className="text-sm text-slate-500">Nenhum alerta cadastrado ainda.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+                  <th className="px-3 py-3 font-semibold">E-mail</th>
+                  <th className="px-3 py-3 font-semibold">Período</th>
+                  <th className="px-3 py-3 font-semibold">Cadastrado por</th>
+                  <th className="px-3 py-3 font-semibold">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {alertas.map((alerta) => (
+                  <tr key={alerta.id} className="border-b border-slate-100">
+                    <td className="px-3 py-3 font-medium text-slate-900">{alerta.email}</td>
+                    <td className="px-3 py-3 text-slate-700">
+                      {alerta.dias === 1 ? "1 dia de atraso" : `${alerta.dias} dias de atraso`}
+                    </td>
+                    <td className="px-3 py-3 text-slate-500">{alerta.criado_por || "—"}</td>
+                    <td className="px-3 py-3">
+                      <button
+                        type="button"
+                        onClick={() => void handleDelete(alerta.id)}
+                        disabled={loading}
+                        className="inline-flex items-center gap-2 rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                      >
+                        <Trash2 size={14} /> Remover
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function ConfiguracoesDashboard() {
   const session = useCurrentSession();
   const isManager = session?.user.role === "gerencial";
-  const [tab, setTab] = useState<"conta" | "usuarios">("conta");
+  const [tab, setTab] = useState<"conta" | "usuarios" | "alertas">("conta");
 
   return (
     <div className="space-y-8 p-6 lg:p-8">
       <div className="mx-auto max-w-6xl space-y-3">
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">ClickDados</p>
         <h1 className="text-4xl font-bold text-slate-950">Configurações</h1>
-        <p className="text-base text-slate-600">Gerencie sua conta e, quando permitido, os acessos dos usuários.</p>
+        <p className="text-base text-slate-600">Gerencie sua conta, alertas de planos vencidos e, quando permitido, os acessos dos usuários.</p>
       </div>
 
       <div className="mx-auto max-w-6xl">
         <div className="mb-6 flex flex-wrap gap-2 border-b border-slate-200 pb-3">
           <button type="button" onClick={() => setTab("conta")} className={`rounded-xl px-4 py-2.5 text-sm font-semibold ${tab === "conta" ? "bg-slate-950 text-white" : "text-slate-600 hover:bg-slate-100"}`}>Minha conta</button>
+          <button type="button" onClick={() => setTab("alertas")} className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold ${tab === "alertas" ? "bg-slate-950 text-white" : "text-slate-600 hover:bg-slate-100"}`}><BellRing size={16} /> Cadastrar Alertas</button>
           {isManager ? (
             <button type="button" onClick={() => setTab("usuarios")} className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold ${tab === "usuarios" ? "bg-slate-950 text-white" : "text-slate-600 hover:bg-slate-100"}`}><ShieldCheck size={16} /> Usuários</button>
           ) : null}
         </div>
 
         {tab === "conta" ? <MinhaContaTab /> : null}
+        {tab === "alertas" ? <AlertasTab /> : null}
         {tab === "usuarios" && isManager ? <UsuariosTab /> : null}
       </div>
     </div>

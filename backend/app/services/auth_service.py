@@ -391,13 +391,61 @@ def _consume_code(email: str, purpose: str, code: str) -> dict[str, Any]:
     return selected
 
 
-def _smtp_settings() -> tuple[str, int, str | None, str | None, str]:
-    host = os.getenv("CLICKDADOS_SMTP_HOST") or os.getenv("SMTP_HOST") or "smtp.gmail.com"
-    port = int(os.getenv("CLICKDADOS_SMTP_PORT") or os.getenv("SMTP_PORT") or "587")
-    user = os.getenv("CLICKDADOS_SMTP_USER") or os.getenv("SMTP_USER")
-    password = os.getenv("CLICKDADOS_SMTP_PASS") or os.getenv("SMTP_PASS")
-    sender = os.getenv("CLICKDADOS_SMTP_FROM") or os.getenv("SMTP_FROM") or (user or "no-reply@clickdados.local")
-    return host, port, user, password, sender
+def _smtp_settings() -> dict[str, Any]:
+    from app.config import settings
+
+    user = (
+        os.getenv("CLICKDADOS_SMTP_USER")
+        or os.getenv("SMTP_USER")
+        or settings.smtp_user
+        or ""
+    ).strip() or None
+    password = (
+        os.getenv("CLICKDADOS_SMTP_PASS")
+        or os.getenv("SMTP_PASS")
+        or settings.smtp_pass
+        or ""
+    ).strip() or None
+    sender = (
+        os.getenv("CLICKDADOS_SMTP_FROM")
+        or os.getenv("SMTP_FROM")
+        or settings.smtp_from
+        or user
+        or "no-reply@clickdados.local"
+    )
+    host = (
+        os.getenv("CLICKDADOS_SMTP_HOST")
+        or os.getenv("SMTP_HOST")
+        or settings.smtp_host
+        or "smtp.gmail.com"
+    )
+    port = int(
+        os.getenv("CLICKDADOS_SMTP_PORT")
+        or os.getenv("SMTP_PORT")
+        or settings.smtp_port
+        or 587
+    )
+    use_ssl_raw = os.getenv("SMTP_USE_SSL")
+    starttls_raw = os.getenv("SMTP_STARTTLS")
+    use_ssl = (
+        str(use_ssl_raw).strip().lower() in {"1", "true", "yes", "on"}
+        if use_ssl_raw is not None
+        else bool(settings.smtp_use_ssl)
+    )
+    starttls = (
+        str(starttls_raw).strip().lower() in {"1", "true", "yes", "on"}
+        if starttls_raw is not None
+        else bool(settings.smtp_starttls)
+    )
+    return {
+        "host": host,
+        "port": port,
+        "user": user,
+        "password": password,
+        "sender": sender,
+        "use_ssl": use_ssl,
+        "starttls": starttls and not use_ssl,
+    }
 
 
 def _email_html(name: str, code: str) -> str:
@@ -438,19 +486,27 @@ def _email_html(name: str, code: str) -> str:
 
 
 def _send_email(name: str, email: str, code: str) -> None:
-    host, port, user, password, sender = _smtp_settings()
+    cfg = _smtp_settings()
     message = EmailMessage()
     message["Subject"] = f"Código de confirmação {code}"
-    message["From"] = sender
+    message["From"] = cfg["sender"]
     message["To"] = email
     message.set_content(f"Olá {name}. Seu código de confirmação é: {code}")
     message.add_alternative(_email_html(name, code), subtype="html")
 
     try:
-        with smtplib.SMTP(host, port, timeout=30) as smtp:
-            smtp.starttls()
-            if user and password:
-                smtp.login(user, password)
+        if cfg["use_ssl"]:
+            with smtplib.SMTP_SSL(cfg["host"], cfg["port"], timeout=30) as smtp:
+                if cfg["user"] and cfg["password"]:
+                    smtp.login(cfg["user"], cfg["password"])
+                smtp.send_message(message)
+            return
+
+        with smtplib.SMTP(cfg["host"], cfg["port"], timeout=30) as smtp:
+            if cfg["starttls"]:
+                smtp.starttls()
+            if cfg["user"] and cfg["password"]:
+                smtp.login(cfg["user"], cfg["password"])
             smtp.send_message(message)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Não foi possível enviar o e-mail de confirmação: {exc}") from exc
