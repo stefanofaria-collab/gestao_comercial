@@ -24,8 +24,16 @@ from app.services.auth_service import (
 
 MIN_DAYS = 1
 MAX_DAYS = 90
+MAX_UNIQUE_EMAILS = 100
 INTRANET_BASE = "https://intranet.clickdigital.com.br/clientes/visualizar"
 EXCLUDED_IDS = tuple(dict.fromkeys((*EXCLUDED_COMPANY_IDS, 205324, 380371, 517101)))
+
+COUNT_UNIQUE_EMAILS_SQL = text(
+    """
+    SELECT COUNT(DISTINCT email) AS total
+    FROM public.alertas_planos_vencidos
+    """
+)
 
 
 def _app_tz() -> ZoneInfo:
@@ -385,6 +393,8 @@ def list_alert_subscriptions(token: str) -> dict[str, Any]:
             "dominios_permitidos": ["clickdigital.com.br", "beteltecnologia.com.br"],
             "dias_min": MIN_DAYS,
             "dias_max": MAX_DAYS,
+            "max_emails": MAX_UNIQUE_EMAILS,
+            "emails_cadastrados": len({str(item.get("email") or "") for item in items}),
             "horario": _schedule_label(),
             "origem": "GestãoClick",
             "descricao": (
@@ -411,10 +421,27 @@ def create_alert_subscription(token: str, email: str, dias: int) -> dict[str, An
             FIND_ALERT_SQL,
             {"email": normalized, "dias": days},
         ).mappings().first()
+        unique_emails = int(connection.execute(COUNT_UNIQUE_EMAILS_SQL).scalar() or 0)
+        email_already_registered = connection.execute(
+            text(
+                """
+                SELECT 1
+                FROM public.alertas_planos_vencidos
+                WHERE email = :email
+                LIMIT 1
+                """
+            ),
+            {"email": normalized},
+        ).first()
     if existing:
         raise HTTPException(
             status_code=400,
             detail="Este e-mail já está cadastrado para esse período de vencimento.",
+        )
+    if email_already_registered is None and unique_emails >= MAX_UNIQUE_EMAILS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Limite de {MAX_UNIQUE_EMAILS} e-mails cadastrados atingido.",
         )
 
     now = _utcnow_iso()

@@ -569,7 +569,8 @@ function AlertasTab() {
               <p className="text-xs text-slate-500">
                 Envio automático: {regras.horario} · Domínios:{" "}
                 {regras.dominios_permitidos.map((item) => `@${item}`).join(" ou ")} · período de {regras.dias_min} a{" "}
-                {regras.dias_max} dias.
+                {regras.dias_max} dias · até {regras.max_emails ?? 100} e-mails (
+                {regras.emails_cadastrados ?? 0}/{regras.max_emails ?? 100}).
               </p>
             ) : null}
           </div>

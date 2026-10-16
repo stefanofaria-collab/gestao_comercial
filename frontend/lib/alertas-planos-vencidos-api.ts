@@ -12,6 +12,8 @@ export type AlertasRegras = {
   dominios_permitidos: string[];
   dias_min: number;
   dias_max: number;
+  max_emails?: number;
+  emails_cadastrados?: number;
   horario: string;
   origem: string;
   descricao: string;
