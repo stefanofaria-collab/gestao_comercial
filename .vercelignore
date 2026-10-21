@@ -1,0 +1,10 @@
+**/__pycache__/
+**/*.pyc
+backend/.venv/
+backend/logs/
+frontend/node_modules/
+frontend/.next/
+frontend/logs/
+.git/
+*.md
+_atualizacao_*/

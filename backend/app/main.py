@@ -55,6 +55,7 @@ def normalize_origin(origin: str) -> str:
 allowed_origins = {
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "https://clickdados.vercel.app",
 }
 
 configured_frontend_origin = normalize_origin(settings.frontend_origin)
@@ -82,7 +83,11 @@ app.add_middleware(
     allow_origins=sorted(allowed_origins),
     allow_origin_regex=(
         r"^https?://"
-        r"(localhost|127\.0\.0\.1)"
+        r"("
+        r"localhost|127\.0\.0\.1"
+        r"|([a-z0-9-]+\.)*vercel\.app"
+        r"|clickdados\.vercel\.app"
+        r")"
         r"(:\d+)?$"
     ),
     allow_credentials=True,

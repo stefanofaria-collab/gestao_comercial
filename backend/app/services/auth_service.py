@@ -15,11 +15,53 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException, status
+from sqlalchemy import text
+
+from app.database import supabase_engine
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 USERS_FILE = DATA_DIR / "clickdados_users.json"
 CODES_FILE = DATA_DIR / "clickdados_codes.json"
 SECRET = os.getenv("CLICKDADOS_AUTH_SECRET", "clickdados-auth-secret")
+
+ENSURE_USERS_TABLE_SQL = text(
+    """
+    CREATE TABLE IF NOT EXISTS public.clickdados_users (
+        email TEXT PRIMARY KEY,
+        payload JSONB NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+    """
+)
+
+ENSURE_CODES_TABLE_SQL = text(
+    """
+    CREATE TABLE IF NOT EXISTS public.clickdados_codes (
+        id TEXT PRIMARY KEY,
+        payload JSONB NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+    """
+)
+
+LIST_USERS_SQL = text("SELECT payload FROM public.clickdados_users ORDER BY email")
+UPSERT_USER_SQL = text(
+    """
+    INSERT INTO public.clickdados_users (email, payload, updated_at)
+    VALUES (:email, CAST(:payload AS jsonb), NOW())
+    ON CONFLICT (email) DO UPDATE
+    SET payload = EXCLUDED.payload, updated_at = NOW()
+    """
+)
+DELETE_USERS_SQL = text("DELETE FROM public.clickdados_users")
+LIST_CODES_SQL = text("SELECT payload FROM public.clickdados_codes ORDER BY created_at")
+DELETE_CODES_SQL = text("DELETE FROM public.clickdados_codes")
+INSERT_CODE_SQL = text(
+    """
+    INSERT INTO public.clickdados_codes (id, payload, created_at)
+    VALUES (:id, CAST(:payload AS jsonb), NOW())
+    """
+)
 CODE_TTL_MINUTES = 15
 TOKEN_TTL_DAYS = 15
 ALLOWED_DOMAINS = {
@@ -99,6 +141,12 @@ def _ensure_files() -> None:
         CODES_FILE.write_text("[]", encoding="utf-8")
 
 
+def _ensure_auth_tables() -> None:
+    with supabase_engine.begin() as connection:
+        connection.execute(ENSURE_USERS_TABLE_SQL)
+        connection.execute(ENSURE_CODES_TABLE_SQL)
+
+
 def _load_json(path: Path) -> list[dict[str, Any]]:
     _ensure_files()
     try:
@@ -110,6 +158,67 @@ def _load_json(path: Path) -> list[dict[str, Any]]:
 
 def _save_json(path: Path, data: list[dict[str, Any]]) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _use_supabase_auth() -> bool:
+    # Em Vercel (e em geral na nuvem) o filesystem é efêmero; persistimos no Supabase.
+    if os.getenv("VERCEL") == "1":
+        return True
+    return (os.getenv("AUTH_STORAGE") or "supabase").strip().lower() != "json"
+
+
+def _load_users_from_supabase() -> list[dict[str, Any]]:
+    _ensure_auth_tables()
+    with supabase_engine.connect() as connection:
+        rows = connection.execute(LIST_USERS_SQL).mappings().all()
+    users: list[dict[str, Any]] = []
+    for row in rows:
+        payload = row.get("payload")
+        if isinstance(payload, str):
+            payload = json.loads(payload)
+        if isinstance(payload, dict):
+            users.append(payload)
+    return users
+
+
+def _save_users_to_supabase(users: list[dict[str, Any]]) -> None:
+    _ensure_auth_tables()
+    with supabase_engine.begin() as connection:
+        connection.execute(DELETE_USERS_SQL)
+        for user in users:
+            email = _normalize_email(str(user.get("email") or ""))
+            if not email:
+                continue
+            connection.execute(
+                UPSERT_USER_SQL,
+                {"email": email, "payload": json.dumps(user, ensure_ascii=False)},
+            )
+
+
+def _load_codes_from_supabase() -> list[dict[str, Any]]:
+    _ensure_auth_tables()
+    with supabase_engine.connect() as connection:
+        rows = connection.execute(LIST_CODES_SQL).mappings().all()
+    codes: list[dict[str, Any]] = []
+    for row in rows:
+        payload = row.get("payload")
+        if isinstance(payload, str):
+            payload = json.loads(payload)
+        if isinstance(payload, dict):
+            codes.append(payload)
+    return codes
+
+
+def _save_codes_to_supabase(codes: list[dict[str, Any]]) -> None:
+    _ensure_auth_tables()
+    with supabase_engine.begin() as connection:
+        connection.execute(DELETE_CODES_SQL)
+        for index, code in enumerate(codes):
+            code_id = str(code.get("id") or f"{code.get('email', 'code')}-{index}-{secrets.token_hex(4)}")
+            connection.execute(
+                INSERT_CODE_SQL,
+                {"id": code_id, "payload": json.dumps(code, ensure_ascii=False)},
+            )
 
 
 def _normalize_email(email: str) -> str:
@@ -185,6 +294,25 @@ def _seed_users() -> list[dict[str, Any]]:
 
 
 def _read_users() -> list[dict[str, Any]]:
+    if _use_supabase_auth():
+        users = _load_users_from_supabase()
+        changed = False
+        # Migração one-shot: se a tabela estiver vazia, importa o JSON local (se existir).
+        if not users:
+            users = _load_json(USERS_FILE) or _seed_users()
+            changed = True
+        for user in users:
+            desired_pages = _effective_pages(user)
+            if user.get("pages") != desired_pages:
+                user["pages"] = desired_pages
+                changed = True
+            if "active" not in user:
+                user["active"] = True
+                changed = True
+        if changed:
+            _save_users_to_supabase(users)
+        return users
+
     users = _load_json(USERS_FILE)
     changed = False
 
@@ -217,6 +345,9 @@ def get_user(email: str) -> dict[str, Any] | None:
 
 
 def _write_users(users: list[dict[str, Any]]) -> None:
+    if _use_supabase_auth():
+        _save_users_to_supabase(users)
+        return
     _save_json(USERS_FILE, users)
 
 
@@ -333,10 +464,15 @@ def complete_first_access(email: str, password: str) -> dict[str, Any]:
 
 
 def _read_codes() -> list[dict[str, Any]]:
+    if _use_supabase_auth():
+        return _load_codes_from_supabase()
     return _load_json(CODES_FILE)
 
 
 def _write_codes(codes: list[dict[str, Any]]) -> None:
+    if _use_supabase_auth():
+        _save_codes_to_supabase(codes)
+        return
     _save_json(CODES_FILE, codes)
 
 

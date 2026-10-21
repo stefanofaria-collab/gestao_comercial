@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import os
 from typing import Any
 
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Header, HTTPException
+
 from pydantic import BaseModel, Field
 
 from app.services.alertas_planos_vencidos_service import (
@@ -23,6 +25,15 @@ class AlertPayload(BaseModel):
 
 def _token(authorization: str) -> str:
     return authorization.replace("Bearer ", "").strip()
+
+
+def _authorize_cron(authorization: str) -> None:
+    expected = (os.getenv("CRON_SECRET") or "").strip()
+    if not expected:
+        raise HTTPException(status_code=500, detail="CRON_SECRET não configurado.")
+    provided = _token(authorization)
+    if not provided or provided != expected:
+        raise HTTPException(status_code=401, detail="Não autorizado.")
 
 
 @router.get("")
@@ -48,4 +59,11 @@ def delete_alert(alert_id: str, authorization: str = Header(default="")) -> dict
 def send_now(authorization: str = Header(default="")) -> dict[str, Any]:
     """Disparo manual útil para validar o fluxo sem esperar o cron das 09h."""
     list_alert_subscriptions(_token(authorization))
+    return run_daily_alerts()
+
+
+@router.get("/cron")
+def cron_send(authorization: str = Header(default="")) -> dict[str, Any]:
+    """Endpoint chamado pelo Vercel Cron todos os dias às 09:00 (America/Sao_Paulo)."""
+    _authorize_cron(authorization)
     return run_daily_alerts()
