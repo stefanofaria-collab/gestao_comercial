@@ -165,6 +165,12 @@ export type ChurnRenewalHistoryResponse = {
 };
 
 export type ChurnDashboardResponse = {
+  _cache_info?: {
+    fallback?: boolean;
+    source_date?: string | null;
+    updated_at?: string | null;
+    refreshing?: boolean;
+  };
   periodo: {
     ano: number;
     mes: number;
