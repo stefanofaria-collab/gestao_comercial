@@ -768,9 +768,22 @@ export default function ChurnDashboard() {
     return <div className="p-5 lg:p-8"><div className="mx-auto max-w-[1680px]"><ErrorBlock message={error ?? "Dados indisponíveis."} retry={() => setReloadKey((value) => value + 1)} /></div></div>;
   }
 
+  const sourceDate = data._cache_info?.source_date ?? null;
+  const dateToday = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date());
+  const outdated = Boolean(sourceDate && sourceDate !== dateToday);
+
   return (
     <div className="p-5 lg:p-8">
       <div className="mx-auto max-w-[1680px]">
+        {outdated && (
+          <div role="status" className="mb-5 flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+            <AlertTriangle className="mt-0.5 shrink-0" size={19} />
+            <p><strong>Dados ainda não atualizados.</strong> Este painel mostra a fotografia do Supabase de {formatDate(sourceDate)}.
+            Os números podem estar defasados enquanto a sincronização com o banco de origem não for concluída.</p>
+          </div>
+        )}
         <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <p className="text-sm font-medium text-blue-600">Gestão Comercial</p>
