@@ -92,3 +92,22 @@ jobs:
 
         run: |
           python scripts/sincronizar_indicadores.py --modo diario
+
+      - name: Atualizar snapshots padrao dos dashboards
+        working-directory: backend
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_CHARSET: ${{ secrets.DB_CHARSET }}
+          DB_SSL: "false"
+          SUPABASE_DB_HOST: ${{ secrets.SUPABASE_DB_HOST }}
+          SUPABASE_DB_PORT: ${{ secrets.SUPABASE_DB_PORT }}
+          SUPABASE_DB_NAME: ${{ secrets.SUPABASE_DB_NAME }}
+          SUPABASE_DB_USER: ${{ secrets.SUPABASE_DB_USER }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_DB_SSLMODE: ${{ secrets.SUPABASE_DB_SSLMODE }}
+        run: |
+          python scripts/atualizar_snapshots_dashboard.py
