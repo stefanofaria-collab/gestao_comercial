@@ -47,6 +47,21 @@ GET_FALLBACK_SQL = text(
     """
 )
 
+# Reaproveita fotografias do MESMO recorte quando apenas a versao tecnica
+# do cache mudou. Nunca traz outubro para uma selecao de novembro.
+GET_SAME_PERIOD_SQL = text(
+    """
+    SELECT cache_key, page, params, payload, source_date, updated_at,
+           refresh_started_at, refresh_error
+    FROM public.dashboard_daily_cache
+    WHERE page = :page
+      AND payload IS NOT NULL
+      AND (params - '_cache_schema') = (CAST(:params AS jsonb) - '_cache_schema')
+    ORDER BY source_date DESC, updated_at DESC
+    LIMIT 1
+    """
+)
+
 UPSERT_CACHE_SQL = text(
     """
     INSERT INTO public.dashboard_daily_cache (
@@ -174,6 +189,15 @@ def get_snapshot(page: str, params: dict[str, Any]) -> dict[str, Any] | None:
     cache_key = build_cache_key(page, params)
     with supabase_engine.connect() as connection:
         row = connection.execute(GET_CACHE_SQL, {"cache_key": cache_key}).mappings().first()
+    return dict(row) if row else None
+
+def get_same_period_snapshot(page: str, params: dict[str, Any]) -> dict[str, Any] | None:
+    """Retorna snapshot com periodo/filtros identicos, ignorando so _cache_schema."""
+    with supabase_engine.connect() as connection:
+        row = connection.execute(
+            GET_SAME_PERIOD_SQL,
+            {"page": page, "params": _json_string(_normalize_params(params))},
+        ).mappings().first()
     return dict(row) if row else None
 
 
@@ -323,21 +347,17 @@ def cached_daily(
     background_tasks: BackgroundTasks | None = None,
 ) -> Any:
     """
-    Leitura database-first e tolerante à indisponibilidade do backup:
-
-    - Snapshot exato de hoje: retorna imediatamente.
-    - Snapshot exato antigo: retorna imediatamente e atualiza em segundo plano.
-    - Sem snapshot exato: usa o último snapshot compatível (mesmos filtros de
-      negócio, outro período), retorna imediatamente e cria o novo snapshot em
-      segundo plano.
-    - Somente quando nunca houve dado compatível é necessário aguardar a origem.
-
-    Assim uma virada de mês não deixa a página indisponível enquanto o backup
-    diário está sendo atualizado.
+    Tenta carregar dados do Supabase para o mesmo periodo e filtros exatos.
+    Se a versao tecnica do cache mudar, reaproveita o snapshot anterior
+    da mesma pagina/periodo e informa a data original. Nunca substitui
+    silenciosamente dados de um mes pelos de outro.
+    A origem MySQL so e consultada se nao existir snapshot compativel.
     """
     params = {**params, **cache_context(), "_cache_schema": "3.28.2"}
     normalized = _normalize_params(params)
     snapshot = get_snapshot(page, normalized)
+    if snapshot is None:
+        snapshot = get_same_period_snapshot(page, normalized)
     today = _today()
 
     if snapshot:
@@ -369,9 +389,8 @@ def cached_daily(
             refreshing=True,
         )
 
-    # Não existe fallback entre períodos. Se a fotografia exata ainda não
-    # existe, ela é construída para o recorte solicitado. Isso impede que
-    # mês, intervalo e ano completo exibam números de outro período.
+    # Se nao ha dados desse periodo no Supabase, sera necessario sincronizar
+    # a origem. Nao inventar ou substituir valores por outro mes.
     # Primeiro uso absoluto deste recorte/filtro. Neste caso ainda precisamos
     # criar a primeira fotografia. A trava evita múltiplas consultas simultâneas.
     cache_key = build_cache_key(page, normalized)
