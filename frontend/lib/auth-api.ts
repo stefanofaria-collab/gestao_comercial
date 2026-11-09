@@ -1,19 +1,33 @@
 import type { AuthUser, ManagedUser, PageOption, UserRole } from "@/types/auth";
 
+// No site publicado, a API usa as rotas /api do mesmo dominio.
+// Nao tente localhost:8000 no navegador de usuarios da Vercel.
 function apiCandidates(): string[] {
-  const values: string[] = [];
   const configured = (process.env.NEXT_PUBLIC_API_URL || "").trim().replace(/\/$/, "");
 
-  if (configured) values.push(configured);
-
   if (typeof window !== "undefined") {
-    const protocol = window.location.protocol === "https:" ? "https:" : "http:";
-    const hostname = window.location.hostname || "127.0.0.1";
-    values.push(`${protocol}//${hostname}:8000`);
+    const hostname = window.location.hostname.toLowerCase();
+    if (hostname !== "localhost" && hostname !== "127.0.0.1") {
+      return [window.location.origin];
+    }
+
+    const candidates = [
+      configured,
+      `${window.location.protocol}//${hostname}:8000`,
+      "http://127.0.0.1:8000",
+      "http://localhost:8000",
+    ];
+    return Array.from(new Set(candidates.filter(Boolean)));
   }
 
-  values.push("http://127.0.0.1:8000", "http://localhost:8000");
-  return Array.from(new Set(values.filter(Boolean)));
+  return [configured || "http://127.0.0.1:8000"];
+}
+
+export class AuthRequestError extends Error {
+  constructor(message: string, public readonly status: number | null = null) {
+    super(message);
+    this.name = "AuthRequestError";
+  }
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -21,6 +35,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let lastNetworkError: unknown = null;
 
   for (const base of candidates) {
+    const controller = new AbortController();
+    const timeout = globalThis.setTimeout(() => controller.abort(), 15000);
     try {
       const response = await fetch(`${base}${path}`, {
         ...init,
@@ -29,24 +45,31 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
           ...(init?.headers || {}),
         },
         cache: "no-store",
+        signal: controller.signal,
       });
 
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload?.detail || "Não foi possível concluir a ação.");
+        throw new AuthRequestError(
+          typeof payload?.detail === "string" ? payload.detail : "Não foi possível concluir a ação.",
+          response.status,
+        );
       }
 
-      return response.json() as Promise<T>;
+      return await response.json() as T;
     } catch (error) {
-      if (error instanceof Error && error.message !== "Failed to fetch" && !/fetch/i.test(error.message)) {
-        throw error;
-      }
+      if (error instanceof AuthRequestError) throw error;
       lastNetworkError = error;
+    } finally {
+      globalThis.clearTimeout(timeout);
     }
   }
 
-  console.error("Falha ao conectar ao backend do ClickDados", lastNetworkError);
-  throw new Error("Não foi possível conectar ao servidor do ClickDados. Verifique se o backend está aberto e tente novamente.");
+  console.error("Falha de rede ao conectar ao backend do ClickDados", lastNetworkError);
+  throw new AuthRequestError(
+    "Não foi possível validar sua conexão com o ClickDados. Tente novamente.",
+    null,
+  );
 }
 
 export type LoginResponse =
