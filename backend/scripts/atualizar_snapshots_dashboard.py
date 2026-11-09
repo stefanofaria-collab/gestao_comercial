@@ -17,7 +17,11 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 from app.services.dashboard_cache_service import save_snapshot  # noqa: E402
-from app.services.global_filter_context import cache_context  # noqa: E402
+from app.services.global_filter_context import (  # noqa: E402
+    cache_context,
+    pop_request_filters,
+    push_request_filters,
+)
 from app.services.churn_service import get_churn_dashboard  # noqa: E402
 from app.services.indicadores_service import get_indicadores_dashboard  # noqa: E402
 from app.services.intranet2_service import get_filter_options  # noqa: E402
@@ -30,11 +34,23 @@ def _previous_month(year: int, month: int) -> tuple[int, int]:
 
 
 def _save(page: str, params: dict, build) -> None:
-    # A mesma chave de cache usada pelas rotas FastAPI para os filtros padrao.
-    normalized = {**params, **cache_context(), "_cache_schema": CACHE_SCHEMA}
-    payload = build()
-    save_snapshot(page, normalized, payload)
-    print(f"Snapshot atualizado: {page}", flush=True)
+    # O frontend envia ano_global/meses_global mesmo para o filtro padrao.
+    # O runner precisa aplicar o mesmo contexto antes de construir a chave.
+    year = params.get("ano")
+    months = params.get("meses", params.get("mes"))
+    tokens = push_request_filters(
+        raw_months=str(months) if months is not None else None,
+        raw_year=str(year) if year is not None else None,
+        plan=str(params.get("plano") or "todos"),
+        duration=str(params.get("duracao") or "todos"),
+    )
+    try:
+        normalized = {**params, **cache_context(), "_cache_schema": CACHE_SCHEMA}
+        payload = build()
+        save_snapshot(page, normalized, payload)
+        print(f"Snapshot atualizado: {page}", flush=True)
+    finally:
+        pop_request_filters(tokens)
 
 
 def main() -> None:
