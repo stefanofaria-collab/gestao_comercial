@@ -1,0 +1,70 @@
+name: Testar acesso MySQL sem Linux
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  testar-conexao:
+    name: Verificar rede do GitHub para o MySQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Verificar acesso ao MySQL (somente rede)
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          import socket
+          import sys
+
+          host = (os.environ.get("DB_HOST") or "").strip()
+          raw_port = (os.environ.get("DB_PORT") or "3306").strip()
+
+          if not host:
+              print("::error::O secret DB_HOST nao esta configurado no repositorio.")
+              sys.exit(1)
+
+          try:
+              port = int(raw_port)
+              if not 1 <= port <= 65535:
+                  raise ValueError("invalid port")
+          except ValueError:
+              print("::error::DB_PORT precisa conter uma porta valida, como 3306.")
+              sys.exit(1)
+
+          print("Teste 1/2: resolucao DNS do MySQL...")
+          try:
+              socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+          except OSError as exc:
+              print(f"::error::Falha no DNS do MySQL ({type(exc).__name__}).")
+              sys.exit(1)
+
+          print("DNS: OK")
+          print("Teste 2/2: conexao TCP ao MySQL...")
+          try:
+              with socket.create_connection((host, port), timeout=12):
+                  print("TCP: OK. O runner hospedado pelo GitHub alcancou a porta MySQL.")
+          except OSError as exc:
+              print(
+                  "::error::Falha de conexao TCP ao MySQL "
+                  f"({type(exc).__name__}). A origem pode restringir "
+                  "IP, firewall, rede privada ou conexoes externas."
+              )
+              print(
+                  "Nao abra a porta 3306 para toda a internet. "
+                  "Verifique o acesso autorizado junto a quem administra o banco."
+              )
+              sys.exit(1)
+
+          print(
+              "IMPORTANTE: teste de rede aprovado. Ainda nao prova autenticacao "
+              "no banco nem sincronizacao com Supabase."
+          )
+          PY
