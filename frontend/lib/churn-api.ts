@@ -35,9 +35,20 @@ async function fetchWithTimeout<T>(url: string, timeoutMs = 45000): Promise<T> {
 }
 
 function buildBaseParams(ano: number, mes: number, filters: GlobalFilters) {
+  // A primeira chamada pode acontecer antes do interceptor global de fetch.
+  // Enviar o contexto explicitamente evita buscar uma chave inexistente
+  // quando o snapshot correto ja esta salvo no Supabase.
+  const months = filters.anoCompleto
+    ? Array.from({ length: 12 }, (_, index) => index + 1)
+    : (filters.meses.length ? filters.meses : [mes > 0 ? mes : new Date().getMonth() + 1]);
+
   return new URLSearchParams({
     ano: String(ano),
     mes: String(mes),
+    meses: months.join(","),
+    ano_global: String(filters.ano),
+    plano_global: filters.plano || "todos",
+    duracao_global: filters.duracao || "todos",
     empresa: filters.empresa,
     origem: filters.origem,
     pagador: filters.pagador,

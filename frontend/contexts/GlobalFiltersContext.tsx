@@ -28,6 +28,7 @@ export type GlobalFilters = {
 
 type GlobalFiltersContextValue = {
   filters: GlobalFilters;
+  filtersReady: boolean;
   setEmpresa: (value: CompanyFilter) => void;
   setOrigem: (value: OriginFilter) => void;
   setPagador: (value: PayerFilter) => void;
@@ -100,6 +101,8 @@ function shouldApplyPlanDuration(pathname: string) {
 
 export function GlobalFiltersProvider({ children }: { children: React.ReactNode }) {
   const [filters, setFilters] = useState<GlobalFilters>(DEFAULT_FILTERS);
+  // Evita consultar a API antes de recuperar filtros guardados no navegador.
+  const [filtersReady, setFiltersReady] = useState(false);
   const filtersRef = useRef<GlobalFilters>(DEFAULT_FILTERS);
   const nativeFetchRef = useRef<typeof window.fetch | null>(null);
   filtersRef.current = filters;
@@ -134,16 +137,19 @@ export function GlobalFiltersProvider({ children }: { children: React.ReactNode 
       });
     } catch {
       // Mantém o padrão caso exista algum valor antigo inválido.
+    } finally {
+      setFiltersReady(true);
     }
   }, []);
 
   useEffect(() => {
+    if (!filtersReady) return;
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
     } catch {
       // O dashboard continua funcionando mesmo se storage estiver bloqueado.
     }
-  }, [filters]);
+  }, [filters, filtersReady]);
 
   useEffect(() => {
     if (!nativeFetchRef.current) nativeFetchRef.current = window.fetch.bind(window);
@@ -191,6 +197,7 @@ export function GlobalFiltersProvider({ children }: { children: React.ReactNode 
   const value = useMemo<GlobalFiltersContextValue>(
     () => ({
       filters,
+      filtersReady,
       setEmpresa: (empresa) => setFilters((current) => ({ ...current, empresa })),
       setOrigem: (origem) => setFilters((current) => ({ ...current, origem })),
       setPagador: (pagador) => setFilters((current) => ({ ...current, pagador })),
@@ -206,7 +213,7 @@ export function GlobalFiltersProvider({ children }: { children: React.ReactNode 
       setDuracao: (duracao) => setFilters((current) => ({ ...current, duracao })),
       resetFilters: () => setFilters(DEFAULT_FILTERS),
     }),
-    [filters],
+    [filters, filtersReady],
   );
 
   return <GlobalFiltersContext.Provider value={value}>{children}</GlobalFiltersContext.Provider>;

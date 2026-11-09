@@ -441,8 +441,9 @@ def cached_daily(
         raise HTTPException(
             status_code=503,
             detail=(
-                "O snapshot desse periodo e filtros ainda nao esta disponivel no Supabase. "
-                "Execute a sincronizacao pelo GitHub Actions em um runner autorizado."
+                "O snapshot deste periodo e filtros ainda nao esta disponivel no Supabase. "
+                "A sincronizacao e executada pelo Windows e gera os recortes padrao "
+                "do mes atual e anterior. Outros filtros precisam de snapshots especificos."
             ),
         )
 

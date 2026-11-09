@@ -7,7 +7,6 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
-  CalendarDays,
   CircleHelp,
   ClipboardCopy,
   Download,
@@ -553,16 +552,17 @@ function Modal({ open, title, subtitle, onClose, children }: { open: boolean; ti
 
 export default function ChurnDashboard() {
   const now = new Date();
-  const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
-  const { filters } = useGlobalFilters();
+  const { filters, filtersReady } = useGlobalFilters();
   const financial = filters.viewMode === "financeiro";
   const empresaFilter = filters.empresa;
   const origemFilter = filters.origem;
   const pagadorFilter = filters.pagador;
 
-  const [year, setYear] = useState(filters.ano);
-  const [month, setMonth] = useState(filters.anoCompleto ? 0 : (filters.meses[0] ?? currentMonth));
+  // O filtro global e a unica fonte de verdade para o periodo exibido.
+  const year = filters.ano;
+  const month = filters.anoCompleto ? 0 : (filters.meses[0] ?? currentMonth);
+  const selectedMonths = filters.anoCompleto ? "1,2,3,4,5,6,7,8,9,10,11,12" : filters.meses.join(",");
   const [data, setData] = useState<ChurnDashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -582,7 +582,6 @@ export default function ChurnDashboard() {
   const [renewalHistoryError, setRenewalHistoryError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "analytics">("overview");
 
-  const years = useMemo(() => Array.from({ length: currentYear - 2024 + 1 }, (_, index) => 2024 + index), [currentYear]);
   const periodLabel = filters.anoCompleto ? `Ano completo de ${filters.ano}` : filters.meses.length > 1 ? `${MONTHS[(filters.meses[0] ?? 1) - 1]} a ${MONTHS[(filters.meses[filters.meses.length - 1] ?? 1) - 1]} de ${filters.ano}` : `${MONTHS[(filters.meses[0] ?? month) - 1]} de ${filters.ano}`;
 
   function handleSort(column: SortKey) {
@@ -596,10 +595,10 @@ export default function ChurnDashboard() {
   }
 
   useEffect(() => {
-    if (year === currentYear && month > currentMonth) {
-      setMonth(currentMonth);
-      return;
-    }
+    // O provider restaura filtros do navegador apos a montagem inicial.
+    // Aguardar evita uma primeira consulta com filtros incompletos.
+    if (!filtersReady) return;
+
     let active = true;
     setLoading(true);
     setError(null);
@@ -612,7 +611,7 @@ export default function ChurnDashboard() {
       .finally(() => active && setLoading(false));
 
     return () => { active = false; };
-  }, [year, month, currentYear, currentMonth, empresaFilter, origemFilter, pagadorFilter, reloadKey]);
+  }, [filtersReady, year, month, selectedMonths, empresaFilter, origemFilter, pagadorFilter, filters.plano, filters.duracao, reloadKey]);
 
   const filteredClients = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -701,7 +700,7 @@ export default function ChurnDashboard() {
   }, [data, selectedTenureBucket, selectedExactTenure]);
 
   useEffect(() => {
-    if (!selectedRenewalAverage) {
+    if (!filtersReady || !selectedRenewalAverage) {
       setRenewalHistory(null);
       setRenewalHistoryError(null);
       return;
@@ -724,7 +723,7 @@ export default function ChurnDashboard() {
       .finally(() => active && setRenewalHistoryLoading(false));
 
     return () => { active = false; };
-  }, [selectedRenewalAverage, year, month, empresaFilter, origemFilter, pagadorFilter]);
+  }, [filtersReady, selectedRenewalAverage, year, month, selectedMonths, empresaFilter, origemFilter, pagadorFilter, filters.plano, filters.duracao]);
 
   const renewalHistoryOption = useMemo(() => {
     if (!renewalHistory) return null;
@@ -794,18 +793,6 @@ export default function ChurnDashboard() {
             <p className="mt-1 text-xs font-semibold text-slate-400">Período selecionado: {periodLabel}</p>
           </div>
 
-          <div className="hidden items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-            <CalendarDays size={18} className="text-slate-400" />
-            <select value={month} onChange={(event) => setMonth(Number(event.target.value))} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold outline-none">
-              <option value={0}>Ano completo</option>
-              {MONTHS.map((label, index) => (
-                <option key={label} value={index + 1} disabled={year === currentYear && index + 1 > currentMonth}>{label}</option>
-              ))}
-            </select>
-            <select value={year} onChange={(event) => setYear(Number(event.target.value))} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold outline-none">
-              {years.map((item) => <option key={item} value={item}>{item}</option>)}
-            </select>
-          </div>
         </div>
 
         <div className="mb-6 inline-flex rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
