@@ -56,3 +56,10 @@ use apenas os comandos exibidos pelo GitHub.
   agendado usa o novo executor sem precisar mudar o codigo novamente.
 - Para voltar ao runner hospedado no GitHub, remova a variavel
   `CLICKDADOS_SYNC_RUNNER` (so resolvera se essa rede conseguir acessar o RDS).
+
+## Protecao contra fallback MySQL na Vercel
+
+- Na Vercel, o backend de dashboards usa os snapshots do Supabase e nao tenta reconstruir snapshots pelo MySQL.
+- Quando existe snapshot antigo do mesmo periodo/filtros, ele e mostrado com a data de referencia, sem consulta ao MySQL.
+- Se ainda nao existe snapshot para os filtros escolhidos, a rota retorna HTTP 503 informando a necessidade de sincronizar pelo GitHub Actions. Isso nao significa que o MySQL de origem esteja indisponivel.
+- O runner autorizado continua responsavel por executar `scripts/sincronizar_indicadores.py` e `scripts/atualizar_snapshots_dashboard.py`. O job atual gera os snapshots de Churn e Indicadores para mes atual e anterior com filtros padrao. Outros filtros requerem snapshots proprios ou sincronizacao expandida.
