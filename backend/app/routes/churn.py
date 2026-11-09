@@ -20,6 +20,8 @@ def _cached_handle(background_tasks, page, params, builder):
             builder=builder,
             background_tasks=background_tasks,
         )
+    except HTTPException:
+        raise
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
