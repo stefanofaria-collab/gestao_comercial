@@ -12,9 +12,8 @@ on:
           - ubuntu
           - github
 
-  schedule:
-    # 08:00 em São Paulo = 11:00 UTC.
-    - cron: "0 11 * * *"
+  # O agendamento diario principal agora e feito pelo Windows Task Scheduler.
+  # Este workflow permanece disponivel apenas para uso manual.
 
 permissions:
   contents: read
@@ -26,11 +25,8 @@ concurrency:
 jobs:
   atualizar:
     name: Atualizar Supabase
-    # Escolha manual "github" para testar sem Linux.
-    # Somente depois de validar a sincronizacao completa, configure
-    # CLICKDADOS_GITHUB_HOSTED_SCHEDULE=true em Actions > Variables para usar
-    # o runner do GitHub tambem na execucao agendada.
-    runs-on: ${{ ((github.event_name == 'workflow_dispatch' && inputs.executor == 'github') || (github.event_name == 'schedule' && vars.CLICKDADOS_GITHUB_HOSTED_SCHEDULE == 'true')) && 'ubuntu-latest' || fromJSON('["self-hosted","Linux","X64","clickdados-rds"]') }}
+    # Modo manual de contingencia; a rotina diaria roda no computador Windows.
+    runs-on: ${{ inputs.executor == 'github' && 'ubuntu-latest' || fromJSON('["self-hosted","Linux","X64","clickdados-rds"]') }}
     timeout-minutes: 60
 
     steps:
