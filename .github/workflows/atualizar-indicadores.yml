@@ -2,6 +2,15 @@ name: Atualizar indicadores de clientes
 
 on:
   workflow_dispatch:
+    inputs:
+      executor:
+        description: "Onde executar esta sincronizacao?"
+        type: choice
+        required: true
+        default: ubuntu
+        options:
+          - ubuntu
+          - github
 
   schedule:
     # 08:00 em São Paulo = 11:00 UTC.
@@ -17,9 +26,10 @@ concurrency:
 jobs:
   atualizar:
     name: Atualizar Supabase
-    # A origem MySQL aceita conexoes apenas pela rede autorizada.
-    # Nao realizar sincronizacao no runner publico ubuntu-latest.
-    runs-on: [self-hosted, Linux, X64, clickdados-rds]
+    # Agendamento permanece no runner interno autorizado.
+    # A opcao github permite testar manualmente sem depender do Ubuntu-PE.
+    # Use github somente se o teste de conectividade TCP for aprovado.
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.executor == 'github' && 'ubuntu-latest' || fromJSON('["self-hosted","Linux","X64","clickdados-rds"]') }}
     timeout-minutes: 60
 
     steps:
