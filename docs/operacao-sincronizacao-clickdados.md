@@ -1,5 +1,27 @@
 # Sincronizacao ClickDados — MySQL de origem → Supabase
 
+## Sincronizacao diaria pelo Windows (nova operacao)
+
+- A partir de novembro de 2026, a rotina principal de sincronizacao sera executada
+  pelo **Agendador de Tarefas do Windows** no computador que tem acesso ao MySQL.
+- Instalacao local: `C:\Users\stefano.faria\Desktop\Projetos\gestao_clientes\clickdados_sync`.
+  Esta e uma copia atualizada do repositorio e nao sobrescreve o projeto antigo.
+- A tarefa `ClickDados - Sincronizar Supabase` roda todos os dias as 08:00,
+  horario local do Windows, com a conta do usuario conectada.
+- Executa, nesta ordem, `backend/scripts/sincronizar_indicadores.py --modo diario`
+  e `backend/scripts/atualizar_snapshots_dashboard.py`.
+- A conta do Windows precisa estar com sessao iniciada; computador ligado,
+  rede (inclusive VPN, se necessaria) e acesso ao Supabase disponiveis.
+- Os segredos ficam somente em `codigo/backend/.env` local (ignorado pelo Git).
+  Nunca commitar esse arquivo ou expor senhas em logs/screenshots.
+- O GitHub Actions nao tem mais execucao agendada deste workflow;
+  permanece disponivel manualmente para diagnostico/contingencia.
+- Os dados na Vercel permanecem consumindo o Supabase; nenhuma configuracao
+  de deploy ou endereco do site e alterada neste procedimento.
+- A instalacao e a primeira sincronizacao precisam ser feitas no computador
+  Windows pelo usuario; alterar arquivos no GitHub nao cria a tarefa no Windows.
+
+
 ## Diagnostico de novembro de 2026
 
 - O backend publicado na Vercel consegue consultar o Supabase.
@@ -51,8 +73,8 @@ use apenas os comandos exibidos pelo GitHub.
   nunca os imprima nos logs.
 - Nao execute codigo de pull requests de fontes nao confiaveis no runner.
 - O runner precisa de saida de rede para o MySQL e Supabase, sem portas de entrada publicas.
-- O workflow agendado usa o runner autorizado `clickdados-rds`. Caso ele nao
-  esteja online, o job agendado ficara aguardando um runner elegivel.
+- Procedimento antigo: o workflow GitHub Actions exigia o runner `clickdados-rds`.
+  O agendamento no GitHub foi desativado ao migrar a rotina diaria para Windows.
 - Para verificar se o Linux e dispensavel, execute primeiro **Testar acesso MySQL sem Linux**
   (workflow `testar-acesso-mysql.yml`); ele so testa DNS e TCP, sem alterar dados.
 - Somente se o teste de rede tiver sucesso, em **Atualizar indicadores de clientes**
@@ -60,12 +82,8 @@ use apenas os comandos exibidos pelo GitHub.
   salvamento dos snapshots no `ubuntu-latest`.
 - Um teste TCP positivo nao garante autenticacao MySQL nem gravacao no Supabase.
   Confira todos os passos do job antes de considerar a sincronizacao validada.
-- O agendamento continua no runner interno ate que a sincronizacao completa no
-  GitHub hospedado seja comprovada. Depois, em GitHub → Settings → Secrets and
-  variables → Actions → Variables → New repository variable, crie
-  `CLICKDADOS_GITHUB_HOSTED_SCHEDULE` com valor `true`. A execucao agendada
-  passara a usar `ubuntu-latest` (sem Linux proprio). Para reverter,
-  remova a variavel ou mude o valor para `false`.
+- A variavel legada `CLICKDADOS_GITHUB_HOSTED_SCHEDULE` nao controla mais
+  o agendamento, pois o workflow agora executa somente por acionamento manual.
 - Nao exponha a porta 3306 a toda a internet. Runners hospedados no GitHub
   podem usar enderecos IP diferentes entre execucoes; acesso TCP uma vez nao
   garante acesso permanente ao RDS.
@@ -75,7 +93,7 @@ use apenas os comandos exibidos pelo GitHub.
 - Na Vercel, o backend de dashboards usa os snapshots do Supabase e nao tenta reconstruir snapshots pelo MySQL.
 - Quando existe snapshot antigo do mesmo periodo/filtros, ele e mostrado com a data de referencia, sem consulta ao MySQL.
 - Se ainda nao existe snapshot para os filtros escolhidos, a rota retorna HTTP 503 informando a necessidade de sincronizar pelo GitHub Actions. Isso nao significa que o MySQL de origem esteja indisponivel.
-- O runner autorizado continua responsavel por executar `scripts/sincronizar_indicadores.py` e `scripts/atualizar_snapshots_dashboard.py`. O job atual gera os snapshots de Churn e Indicadores para mes atual e anterior com filtros padrao. Outros filtros requerem snapshots proprios ou sincronizacao expandida.
+- A tarefa do Windows passa a executar `scripts/sincronizar_indicadores.py` e `scripts/atualizar_snapshots_dashboard.py`. O script gera snapshots de Churn e Indicadores para mes atual e anterior com filtros padrao. Outros filtros requerem snapshots proprios ou sincronizacao expandida.
 
 ## Compatibilidade das chaves de snapshot (novembro/2026)
 
