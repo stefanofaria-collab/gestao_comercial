@@ -207,6 +207,41 @@ def get_same_period_snapshot(page: str, params: dict[str, Any]) -> dict[str, Any
     return dict(row) if row else None
 
 
+def get_legacy_default_snapshot(page: str, params: dict[str, Any]) -> dict[str, Any] | None:
+    """Reutiliza snapshots antigos do runner sem ano_global/meses_global.
+
+    A compatibilidade vale apenas para o mesmo periodo selecionado e os filtros
+    padrao. Nunca transfere dados entre meses/anos ou filtros diferentes.
+    """
+    year = params.get("ano")
+    period_months: list[int] = []
+    if year is None or params.get("ano_global") != year:
+        return None
+    if params.get("plano_global") != "todos" or params.get("duracao_global") != "todos":
+        return None
+
+    month = params.get("mes")
+    months_str = params.get("meses")
+    if isinstance(month, int) and 1 <= month <= 12:
+        period_months = [month]
+    elif isinstance(months_str, str):
+        try:
+            period_months = sorted({int(value.strip()) for value in months_str.split(",")})
+        except ValueError:
+            return None
+    if not period_months or any(not 1 <= value <= 12 for value in period_months):
+        return None
+    if params.get("meses_global") != period_months:
+        return None
+
+    legacy_params = {
+        **params,
+        "ano_global": None,
+        "meses_global": [],
+    }
+    return get_same_period_snapshot(page, legacy_params)
+
+
 def get_latest_compatible_snapshot(page: str, params: dict[str, Any]) -> dict[str, Any] | None:
     stable = _stable_params(params)
     with supabase_engine.connect() as connection:
@@ -364,6 +399,8 @@ def cached_daily(
     snapshot = get_snapshot(page, normalized)
     if snapshot is None:
         snapshot = get_same_period_snapshot(page, normalized)
+    if snapshot is None:
+        snapshot = get_legacy_default_snapshot(page, normalized)
     today = _today()
     on_vercel = _is_vercel_runtime()
 
