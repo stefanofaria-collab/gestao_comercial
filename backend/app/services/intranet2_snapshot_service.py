@@ -9,6 +9,7 @@ import json
 import logging
 from datetime import date, datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import text
 
@@ -120,7 +121,7 @@ def _local_date(value: Any) -> date | None:
 def _fresh_row(raw: dict[str, Any]) -> dict[str, Any]:
     """Atualiza campos que dependem da passagem de dias apos a sincronizacao."""
     item = dict(raw)
-    today = datetime.now().astimezone().date()
+    today = datetime.now(ZoneInfo("America/Sao_Paulo")).date()
     last_access = _local_date(item.get("ultimo_acesso"))
     due_date = _local_date(item.get("data_vencimento"))
     if last_access:
@@ -139,7 +140,7 @@ def _search_conditions(filters: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     clauses: list[str] = []
     params: dict[str, Any] = {}
 
-    for field in ("razao_social", "email", "cidade"):
+    for field in ("razao_social", "email"):
         value = filters[field]
         if value:
             clauses.append(f"COALESCE(s.payload->>'{field}', '') ILIKE :{field}_pattern")
@@ -154,6 +155,10 @@ def _search_conditions(filters: dict[str, Any]) -> tuple[str, dict[str, Any]]:
         )
         cleaned = "".join(x for x in filters["telefone"] if x.isdigit())
         params["telefone_padrao"] = f"%{cleaned}%"
+
+    if filters["cidade"]:
+        clauses.append("LOWER(COALESCE(s.payload->>'cidade', '')) = LOWER(:cidade)")
+        params["cidade"] = filters["cidade"]
 
     for field, source in (
         ("estado", "estado"), ("plano", "nome_plano"), ("duracao", "duracao")
