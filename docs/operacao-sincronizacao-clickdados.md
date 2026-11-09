@@ -51,10 +51,17 @@ use apenas os comandos exibidos pelo GitHub.
   nunca os imprima nos logs.
 - Nao execute codigo de pull requests de fontes nao confiaveis no runner.
 - O runner precisa de saida de rede para o MySQL e Supabase, sem portas de entrada publicas.
-- O workflow agendado e manual usam exclusivamente o runner autorizado. Caso ele
-  nao esteja instalado ou esteja offline, o job ficara aguardando um runner elegivel.
-- Nao habilite o runner hospedado pelo GitHub para essa sincronizacao enquanto
-  a rede nao permitir acesso seguro ao MySQL de origem.
+- O workflow agendado usa o runner autorizado `clickdados-rds`. Caso ele nao
+  esteja online, o job agendado ficara aguardando um runner elegivel.
+- Para verificar se o Linux e dispensavel, execute primeiro **Testar acesso MySQL sem Linux**
+  (workflow `testar-acesso-mysql.yml`); ele so testa DNS e TCP, sem alterar dados.
+- Somente se o teste de rede tiver sucesso, em **Atualizar indicadores de clientes**
+  escolha manualmente `executor=github`. Esse modo roda a sincronizacao e o
+  salvamento dos snapshots no `ubuntu-latest`.
+- Um teste TCP positivo nao garante autenticacao MySQL nem gravacao no Supabase.
+  Confira todos os passos do job antes de considerar a sincronizacao validada.
+- O agendamento continua no runner interno ate que a sincronizacao completa no
+  GitHub hospedado seja comprovada; nao exponha a porta 3306 a toda a internet.
 
 ## Protecao contra fallback MySQL na Vercel
 
