@@ -3,12 +3,13 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import os
 import threading
 from datetime import date, datetime
 from typing import Any, Callable
 from zoneinfo import ZoneInfo
 
-from fastapi import BackgroundTasks
+from fastapi import BackgroundTasks, HTTPException
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy import text
 
@@ -146,6 +147,11 @@ _TEMPORAL_KEYS = {
 
 def _today() -> date:
     return datetime.now(TZ).date()
+
+
+def _is_vercel_runtime() -> bool:
+    # A Vercel deve consultar apenas o Supabase. O MySQL e acessado pelo runner.
+    return os.getenv("VERCEL", "").strip().lower() in {"1", "true", "yes"}
 
 
 def _normalize_params(params: dict[str, Any]) -> dict[str, Any]:
@@ -359,6 +365,7 @@ def cached_daily(
     if snapshot is None:
         snapshot = get_same_period_snapshot(page, normalized)
     today = _today()
+    on_vercel = _is_vercel_runtime()
 
     if snapshot:
         source_date = _normalize_source_date(snapshot.get("source_date"))
@@ -372,25 +379,38 @@ def cached_daily(
                 fallback=False,
             )
 
-        cache_key = build_cache_key(page, normalized)
-        if _acquire_refresh(cache_key):
-            _schedule_refresh(
-                page=page,
-                params=normalized,
-                builder=builder,
-                background_tasks=background_tasks,
-            )
+        # Um snapshot antigo pode ser exibido, mas nao atualizado pela Vercel.
+        if not on_vercel:
+            cache_key = build_cache_key(page, normalized)
+            if _acquire_refresh(cache_key):
+                _schedule_refresh(
+                    page=page,
+                    params=normalized,
+                    builder=builder,
+                    background_tasks=background_tasks,
+                )
 
         return _with_cache_info(
             payload,
             requested_params=normalized,
             snapshot=snapshot,
             fallback=False,
-            refreshing=True,
+            refreshing=not on_vercel,
         )
 
-    # Se nao ha dados desse periodo no Supabase, sera necessario sincronizar
-    # a origem. Nao inventar ou substituir valores por outro mes.
+    # Sem snapshot, a Vercel nao deve sequer tentar abrir conexao com o MySQL.
+    # O runner do GitHub Actions e o unico responsavel pela sincronizacao.
+    if on_vercel:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "O snapshot desse periodo e filtros ainda nao esta disponivel no Supabase. "
+                "Execute a sincronizacao pelo GitHub Actions em um runner autorizado."
+            ),
+        )
+
+    # Fora da Vercel, o comportamento existente para desenvolvimento e mantido.
+    # Nao inventar ou substituir valores por outro mes.
     # Primeiro uso absoluto deste recorte/filtro. Neste caso ainda precisamos
     # criar a primeira fotografia. A trava evita múltiplas consultas simultâneas.
     cache_key = build_cache_key(page, normalized)
