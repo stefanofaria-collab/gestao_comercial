@@ -26,9 +26,8 @@ por quem administra o Linux e o repositorio. Nao libere a porta 3306 para a inte
    comando acrescido de `--labels clickdados-rds`.
 5. Inicie o runner como servico usando o `svc.sh` fornecido pelo GitHub.
    Confira se o runner aparece como **Idle** na pagina de Runners.
-6. GitHub → Settings → Secrets and variables → Actions → **Variables** →
-   crie `CLICKDADOS_SYNC_RUNNER` com valor `self-hosted`.
-   O workflow passara a usar apenas um runner com rotulo `clickdados-rds`.
+6. Confirme que o runner esta registrado com os rotulos **self-hosted, Linux, X64, clickdados-rds**.
+   O workflow exige esse runner; nao ha mais necessidade da variavel `CLICKDADOS_SYNC_RUNNER`.
 7. GitHub → Actions → **Atualizar indicadores de clientes** → **Run workflow**.
    Verifique os passos "Diagnosticar acesso ao MySQL de origem",
    "Atualizar indicadores" e "Atualizar snapshots padrao dos dashboards".
@@ -52,10 +51,10 @@ use apenas os comandos exibidos pelo GitHub.
   nunca os imprima nos logs.
 - Nao execute codigo de pull requests de fontes nao confiaveis no runner.
 - O runner precisa de saida de rede para o MySQL e Supabase, sem portas de entrada publicas.
-- Quando o runner estiver instalado e a variavel habilitada, o workflow
-  agendado usa o novo executor sem precisar mudar o codigo novamente.
-- Para voltar ao runner hospedado no GitHub, remova a variavel
-  `CLICKDADOS_SYNC_RUNNER` (so resolvera se essa rede conseguir acessar o RDS).
+- O workflow agendado e manual usam exclusivamente o runner autorizado. Caso ele
+  nao esteja instalado ou esteja offline, o job ficara aguardando um runner elegivel.
+- Nao habilite o runner hospedado pelo GitHub para essa sincronizacao enquanto
+  a rede nao permitir acesso seguro ao MySQL de origem.
 
 ## Protecao contra fallback MySQL na Vercel
 
