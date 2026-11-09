@@ -88,9 +88,15 @@ def _inject_global_filter_params(conn, clauseelement, multiparams, params, execu
         return result
 
     if multiparams:
+        # SQLAlchemy exige exclusividade: um lote nao pode retornar
+        # multiparams e params preenchidos ao mesmo tempo.
+        # Caso contrario, executemany() falha com InvalidRequestError.
         multiparams = tuple(enrich(item) for item in multiparams)
+        return clauseelement, multiparams, {}
+
     if isinstance(params, dict):
         params = enrich(params)
+
     return clauseelement, multiparams, params
 
 
