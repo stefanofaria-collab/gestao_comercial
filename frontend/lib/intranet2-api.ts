@@ -1,3 +1,4 @@
+import { getStoredSession } from "@/lib/auth-storage";
 import type {
   Intranet2ClientDetail,
   Intranet2ExportResponse,
@@ -26,7 +27,13 @@ async function fetchWithTimeout<T>(url: string, timeoutMs = 120000): Promise<T> 
   const controller = new AbortController();
   const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(url, { cache: "no-store", signal: controller.signal });
+    const token = getStoredSession()?.token;
+    if (!token) throw new Error("Sua sessão expirou. Entre novamente no ClickDados.");
+    const response = await fetch(url, {
+      cache: "no-store",
+      signal: controller.signal,
+      headers: { Authorization: `Bearer ${token}` },
+    });
     return await parseResponse<T>(response);
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {

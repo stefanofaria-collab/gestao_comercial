@@ -1,4 +1,4 @@
-"""Atualiza no Supabase snapshots de filtros padrao (runner com acesso ao RDS).
+"""Atualiza no Supabase snapshots de filtros padrao (Windows com acesso ao RDS).
 
 Executar apos sincronizar_indicadores.py. Não altera dados de origem.
 Outros filtros continuam precisando de um mecanismo de sincronizacao adequado.
@@ -25,6 +25,7 @@ from app.services.global_filter_context import (  # noqa: E402
 from app.services.churn_service import get_churn_dashboard  # noqa: E402
 from app.services.indicadores_service import get_indicadores_dashboard  # noqa: E402
 from app.services.intranet2_service import get_filter_options  # noqa: E402
+from app.services.intranet2_snapshot_service import sync_intranet2_snapshot  # noqa: E402
 
 CACHE_SCHEMA = "3.28.2"
 
@@ -108,6 +109,14 @@ def main() -> None:
     except Exception:
         logging.exception("Falha ao sincronizar opcoes da Intranet 2.0")
         falhas.append("intranet2.options")
+
+    # A busca da Intranet 2.0 deve usar Supabase em producao, nao MySQL.
+    # Este processo roda no Windows, onde o banco de origem esta acessivel.
+    try:
+        sync_intranet2_snapshot()
+    except Exception:
+        logging.exception("Falha ao sincronizar a base de clientes da Intranet 2.0")
+        falhas.append("intranet2.clientes")
 
     if falhas:
         print("Snapshots pendentes: " + ", ".join(falhas), file=sys.stderr)
