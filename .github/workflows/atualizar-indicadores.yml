@@ -26,10 +26,11 @@ concurrency:
 jobs:
   atualizar:
     name: Atualizar Supabase
-    # Agendamento permanece no runner interno autorizado.
-    # A opcao github permite testar manualmente sem depender do Ubuntu-PE.
-    # Use github somente se o teste de conectividade TCP for aprovado.
-    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.executor == 'github' && 'ubuntu-latest' || fromJSON('["self-hosted","Linux","X64","clickdados-rds"]') }}
+    # Escolha manual "github" para testar sem Linux.
+    # Somente depois de validar a sincronizacao completa, configure
+    # CLICKDADOS_GITHUB_HOSTED_SCHEDULE=true em Actions > Variables para usar
+    # o runner do GitHub tambem na execucao agendada.
+    runs-on: ${{ ((github.event_name == 'workflow_dispatch' && inputs.executor == 'github') || (github.event_name == 'schedule' && vars.CLICKDADOS_GITHUB_HOSTED_SCHEDULE == 'true')) && 'ubuntu-latest' || fromJSON('["self-hosted","Linux","X64","clickdados-rds"]') }}
     timeout-minutes: 60
 
     steps:
