@@ -1,11 +1,18 @@
 from __future__ import annotations
 
+import os
 from datetime import date
 from typing import Literal
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query
 
+from app.services.auth_service import get_session
 from app.services.dashboard_cache_service import cached_daily
+from app.services.intranet2_snapshot_service import (
+    Intranet2SnapshotUnavailable,
+    export_intranet2_snapshot,
+    search_intranet2_snapshot,
+)
 from app.services.intranet2_service import (
     export_clients,
     get_client_detail,
@@ -87,9 +94,23 @@ def _common_filters(
     }
 
 
+def _require_intranet_permission(authorization: str) -> None:
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Entre na sua conta para acessar a Intranet.")
+    user = get_session(authorization.removeprefix("Bearer ").strip())
+    if not user.get("active", True):
+        raise HTTPException(status_code=403, detail="Usuario desativado.")
+    if user.get("role") != "gerencial" and "/intranet-2" not in user.get("pages", []):
+        raise HTTPException(status_code=403, detail="Sem permissao para acessar a Intranet.")
+
+
 def _handle(builder):
     try:
         return builder()
+    except HTTPException:
+        raise
+    except Intranet2SnapshotUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
@@ -144,7 +165,9 @@ def intranet2_search(
     tempo_cliente_maximo: float | None = Query(None, ge=0),
     tempo_cliente_unidade: TenureUnit = Query("mes"),
     somente_ultrapassou_media: bool = Query(False),
+    authorization: str = Header(default=""),
 ):
+    _require_intranet_permission(authorization)
     filters = _common_filters(
         razao_social, email, telefone, estado, cidade,
         ultimo_acesso_de, ultimo_acesso_ate, sem_acesso_min, sem_acesso_max,
@@ -154,7 +177,7 @@ def intranet2_search(
         valor_minimo, tempo_cliente_minimo, tempo_cliente_maximo,
         tempo_cliente_unidade, somente_ultrapassou_media,
     )
-    return _handle(lambda: search_clients(page=page, limit=limit, **filters))
+    return _handle(lambda: search_intranet2_snapshot(page=page, limit=limit, **filters))
 
 
 @router.get("/exportar")
@@ -188,7 +211,9 @@ def intranet2_export(
     tempo_cliente_maximo: float | None = Query(None, ge=0),
     tempo_cliente_unidade: TenureUnit = Query("mes"),
     somente_ultrapassou_media: bool = Query(False),
+    authorization: str = Header(default=""),
 ):
+    _require_intranet_permission(authorization)
     filters = _common_filters(
         razao_social, email, telefone, estado, cidade,
         ultimo_acesso_de, ultimo_acesso_ate, sem_acesso_min, sem_acesso_max,
@@ -198,9 +223,16 @@ def intranet2_export(
         valor_minimo, tempo_cliente_minimo, tempo_cliente_maximo,
         tempo_cliente_unidade, somente_ultrapassou_media,
     )
-    return _handle(lambda: export_clients(**filters))
+    return _handle(lambda: export_intranet2_snapshot(**filters))
 
 
 @router.get("/cliente/{empresa_id}")
-def intranet2_client_detail(empresa_id: int):
+def intranet2_client_detail(empresa_id: int, authorization: str = Header(default="")):
+    _require_intranet_permission(authorization)
+    if os.getenv("VERCEL") == "1":
+        raise HTTPException(
+            status_code=503,
+            detail="O detalhamento completo ainda precisa ser incluido na sincronizacao "
+                   "Windows -> Supabase. A busca e os filtros ja usam o Supabase.",
+        )
     return _handle(lambda: get_client_detail(empresa_id))
