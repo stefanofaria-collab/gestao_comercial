@@ -966,6 +966,7 @@ def list_active_analysts(token: str) -> list[dict[str, str]]:
     analysts.sort(key=lambda item: (item["name"].lower(), item["email"]))
     return analysts
 
-# garante seed logo na importação
-_ensure_files()
-_read_users()
+# A inicializacao de usuarios e feita somente quando a autenticacao
+# e utilizada. Evita consultar o Supabase durante o cold start de TODAS
+# as rotas da Vercel, especialmente a abertura de dashboards.
+# _read_users() ja garante as tabelas e o seed no primeiro acesso.
