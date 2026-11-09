@@ -17,11 +17,9 @@ concurrency:
 jobs:
   atualizar:
     name: Atualizar Supabase
-    # Caso o RDS permita acesso apenas de uma rede autorizada, configure um
-    # runner Linux com o rotulo 'clickdados-rds' e a variavel de repositorio
-    # CLICKDADOS_SYNC_RUNNER=self-hosted. Sem essa variavel, mantem o runner
-    # hospedado pelo GitHub e mostra o diagnostico de rede no log.
-    runs-on: ${{ vars.CLICKDADOS_SYNC_RUNNER == 'self-hosted' && fromJSON('["self-hosted","Linux","X64","clickdados-rds"]') || 'ubuntu-latest' }}
+    # A origem MySQL aceita conexoes apenas pela rede autorizada.
+    # Nao realizar sincronizacao no runner publico ubuntu-latest.
+    runs-on: [self-hosted, Linux, X64, clickdados-rds]
     timeout-minutes: 60
 
     steps:
