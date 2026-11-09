@@ -320,9 +320,6 @@ def historical_months() -> list[tuple[int, int]]:
     cursor = start
 
     while cursor <= current:
-        if cursor.year > 2026:
-            break
-
         months.append(
             (
                 cursor.year,
@@ -368,10 +365,9 @@ def run_daily() -> None:
             anterior
         )
 
-    if atual[0] <= 2026:
-        periods.append(
-            atual
-        )
+    periods.append(
+        atual
+    )
 
     for ano, mes in periods:
         sync_month(
