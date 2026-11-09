@@ -61,7 +61,14 @@ use apenas os comandos exibidos pelo GitHub.
 - Um teste TCP positivo nao garante autenticacao MySQL nem gravacao no Supabase.
   Confira todos os passos do job antes de considerar a sincronizacao validada.
 - O agendamento continua no runner interno ate que a sincronizacao completa no
-  GitHub hospedado seja comprovada; nao exponha a porta 3306 a toda a internet.
+  GitHub hospedado seja comprovada. Depois, em GitHub → Settings → Secrets and
+  variables → Actions → Variables → New repository variable, crie
+  `CLICKDADOS_GITHUB_HOSTED_SCHEDULE` com valor `true`. A execucao agendada
+  passara a usar `ubuntu-latest` (sem Linux proprio). Para reverter,
+  remova a variavel ou mude o valor para `false`.
+- Nao exponha a porta 3306 a toda a internet. Runners hospedados no GitHub
+  podem usar enderecos IP diferentes entre execucoes; acesso TCP uma vez nao
+  garante acesso permanente ao RDS.
 
 ## Protecao contra fallback MySQL na Vercel
 
